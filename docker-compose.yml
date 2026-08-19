@@ -1,0 +1,17 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:16
+    container_name: SpendSense-db
+    restart: always
+    environment:
+      POSTGRES_USER: SpendSense_user
+      POSTGRES_PASSWORD: SpendSense_pass
+      POSTGRES_DB: SpendSense
+    ports:
+      - "5432:5432"
+    volumes:
+      - SpendSense_pgdata:/var/lib/postgresql/data
+
+volumes:
+  SpendSense_pgdata:
