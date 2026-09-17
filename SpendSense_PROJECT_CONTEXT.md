@@ -1108,6 +1108,35 @@ AI ทดสอบ PostgreSQL จริงแบบ rollback ผ่าน: setti
 
 ---
 
+## อัปเดต 16 กันยายน 2026 — Reconciliation ของ Transaction / Overview / Weekly / Budget
+
+สถานะ: AI ตรวจโค้ดล่าสุดและรันการเทียบยอดผ่าน HTTP กับ PostgreSQL จริงแล้ว; tests และ build ผ่าน ยังไม่ได้ browser acceptance สำหรับงาน reconciliation รอบนี้ และยังไม่ commit/push
+
+แหล่งอ้างอิงเป็น Transaction รายแถวจริง คำนวณอิสระด้วย BigInt สตางค์และ Decimal เทียบภายในบัญชี/ช่วงเดียวกัน ทดสอบข้อมูลเดิม 4 บัญชีแบบอ่านอย่างเดียว (4 account-months: กันยายน 2026) และข้อมูลทดลองใน transaction rollback โดยไม่แก้ข้อมูลเดิม/schema/applied migration ไม่ reset
+
+ผลข้อมูลเดิม: รายจ่าย 480 / 211 / 3,925 / 126 ตรงกันระหว่าง Transaction, Overview, Weekly, Budget และผลรวมทุกหมวดรวมหมวดไม่มีงบ; บัญชีที่ 4 มีรายรับ 25,000 และ Net Cash Flow 24,874 ตรงกัน บัญชีอื่นรายรับ 0 ไม่หารศูนย์ (API savingRate=0, UI เดิมแสดง —)
+
+พบและแก้เฉพาะสาเหตุ:
+- float + toFixed ทำ Saving Rate ได้ 2.67 แทน 2.68 และสัดส่วนหมวด 97.32 แทน 97.33 เปลี่ยนการปัด Saving Rate/expenseCategories.percentage/Budget.usedPercentage เป็น Prisma.Decimal ROUND_HALF_UP
+- History ใช้วันเครื่องแทน Bangkok ในป้ายวันนี้/เมื่อวาน แก้ใช้ helper Bangkok + UTC surrogate ไม่เปลี่ยน DatePicker หรือ layout
+
+สูตรและขอบช่วงที่ยืนยัน: Transaction API คืนข้อมูลทั้งหมด ไม่ใช่เฉพาะ 3 วันที่มีรายการที่ History แสดง; Overview และ Weekly ใช้ start/end เดียวกัน (รวมปลายวัน), Weekly Monday–Sunday ตัดขอบและไม่เกิน 366 วัน; Budget ใช้ทั้งเดือนและแยก actualExpenseToDate ตาม Bangkok; ไม่บวกงบหมวดเพิ่มในงบรวม; top 5 หมวดของ History เป็นทุกช่วง ไม่ใช้เทียบผลรวมเดือนโดยตรง
+
+ผลที่ AI รันจริง:
+- 40 tests ผ่าน (regression แจ้งเตือนเดิม 22 + reconciliation/วันที่ 18; รวม parent tests), ไม่มี fail/skip
+- PostgreSQL HTTP ทดสอบไม่มีธุรกรรม/รายรับอย่างเดียว/รายจ่ายอย่างเดียว, 0.07+0.01, ต้น/ปลายเดือน, leap February, ข้ามปี, สัปดาห์คร่อมเดือน, CRUD ย้ายวัน/หมวด/ประเภท/ลบ, แยกบัญชีและปฏิเสธลบข้ามบัญชี
+- ทดสอบนาฬิการายงานจำลอง Bangkok เที่ยงคืน: ทั้งเดือน 100 คงเดิม, ถึงวันนี้ 30 -> 60, แผน 1,500 -> 1,600; ใช้ธุรกรรมอดีตที่สร้างใน rollback ไม่เปิดรับธุรกรรมอนาคต
+- date utility ผ่าน UTC/America/Los_Angeles/Asia/Bangkok, presets และ validation 366 วัน
+- ตรวจว่าบัญชีทดลองหลัง rollback เหลือ 0; backend/frontend build รอบสุดท้ายผ่าน
+
+ไฟล์รอบนี้: backend/src/index.ts; frontend/src/pages/Transactionhistory.tsx; frontend/src/utils/transactionStatus.ts; backend/tests/reconciliation.database.test.ts; backend/tests/reconciliation.frontend.test.ts; RECONCILIATION_REPORT.md; SpendSense_PROJECT_CONTEXT.md
+
+สิ่งที่ยังต้องทำ: browser acceptance ของการแสดงเปอร์เซ็นต์/ป้ายวันและการ refresh ยอดหลัง CRUD/เปลี่ยนช่วงในแต่ละหน้า ผลตรวจรับแจ้งเตือนจากผู้ใช้ในรอบก่อนยังไม่ใช่ผลตรวจรับ reconciliation นี้ ดูตาราง expected/actual และคำสั่งทดสอบใน RECONCILIATION_REPORT.md
+
+ข้อจำกัดระบบแจ้งเตือนเดิมเรื่องไม่มี durable queue/event log ยังคงเดิม ไม่ได้เปลี่ยนในงาน reconciliation นี้ งานเดิมที่ค้างใน Git ถูกคงไว้ และไม่มี commit/push รอบนี้
+
+---
+
 ## อัปเดต 17 กันยายน 2026 — Goals implementation
 
 สถานะ: ลง schema/migration, backend/API, Transaction guards และ frontend Goals แล้ว; automated tests/build ผ่าน ยังรอ browser acceptance ของ Goals และยังไม่ stage/commit/push

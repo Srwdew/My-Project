@@ -1,5 +1,6 @@
 import { goalsRouter } from './routes/goals';
 import { withGoalLock, guardFundingTransaction, GoalError } from './lib/goalWriteTransaction';
+import { Prisma } from '@prisma/client';
 import { checkBudgetNotifications, currentBudgetPeriod, transactionPeriod, reconcileBudgetNotifications } from './lib/budgetNotifications';
 import express from 'express';
 import cors from 'cors';
@@ -414,13 +415,9 @@ app.get(
 
       const savingRate =
         incomeSatang > 0
-          ? Number(
-              (
-                ((incomeSatang - expenseSatang) /
-                  incomeSatang) *
-                100
-              ).toFixed(2)
-            )
+          ? new Prisma.Decimal(incomeSatang).minus(expenseSatang)
+              .div(incomeSatang).mul(100)
+              .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP).toNumber()
           : 0;
 
           const expenseCategories = Array.from(
@@ -432,12 +429,8 @@ app.get(
     amount: category.amountSatang / 100,
     percentage:
       expenseSatang > 0
-        ? Number(
-            (
-              (category.amountSatang / expenseSatang) *
-              100
-            ).toFixed(2)
-          )
+        ? new Prisma.Decimal(category.amountSatang).div(expenseSatang).mul(100)
+            .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP).toNumber()
         : 0,
   }))
   .sort(
@@ -1714,9 +1707,8 @@ app.get("/budget", authMiddleware, async (req: AuthRequest, res) => {
     const usedPercentage =
       budgetSatang === null || budgetSatang <= 0
         ? null
-        : Number(
-            ((monthlyExpenseSatang / budgetSatang) * 100).toFixed(2)
-          );
+        : new Prisma.Decimal(monthlyExpenseSatang).div(budgetSatang).mul(100)
+            .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP).toNumber();
 
     const status =
       budgetSatang === null

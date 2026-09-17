@@ -1,3 +1,4 @@
+import { getTransactionDateLabel as getDateLabel } from '../utils/transactionStatus';
 import {
   useEffect,
   useMemo,
@@ -541,34 +542,6 @@ const historyViewLabel = hasActiveFilters
       </div>
     </div>
   );
-}
-
-function getDateLabel(dateString: string) {
-  const date = new Date(`${dateString}T00:00:00`);
-  const today = new Date();
-
-  const todayKey = getLocalDateKey(today);
-
-  const yesterday = new Date(today);
-  yesterday.setDate(today.getDate() - 1);
-
-  const yesterdayKey = getLocalDateKey(yesterday);
-
-  const formatted = date.toLocaleDateString('th-TH', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-
-  if (dateString === todayKey) {
-    return `วันนี้ - ${formatted}`;
-  }
-
-  if (dateString === yesterdayKey) {
-    return `เมื่อวาน - ${formatted}`;
-  }
-
-  return formatted;
 }
 
 function getLocalDateKey(date: Date) {
