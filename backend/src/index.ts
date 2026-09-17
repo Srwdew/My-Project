@@ -1,3 +1,5 @@
+import { goalsRouter } from './routes/goals';
+import { withGoalLock, guardFundingTransaction, GoalError } from './lib/goalWriteTransaction';
 import { checkBudgetNotifications, currentBudgetPeriod, transactionPeriod, reconcileBudgetNotifications } from './lib/budgetNotifications';
 import express from 'express';
 import cors from 'cors';
@@ -16,6 +18,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(goalsRouter);
 
 function getTransactionTodayKey(): string {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -213,7 +216,7 @@ if (!validated.ok) {
         });
       }
 
-      const transaction = await prisma.transaction.create({
+      const transaction = await withGoalLock(userId, tx => tx.transaction.create({
         data: {
           userId,
           categoryId,
@@ -228,11 +231,12 @@ if (!validated.ok) {
         include: {
           category: true,
         },
-      });
+      }));
 
       await checkBudgetNotifications(userId, [transactionPeriod(transaction.transactionDate)]);
       return res.status(201).json(transaction);
     } catch (error) {
+      if(error instanceof GoalError) return res.status(error.status).json({error:error.message,code:error.code});
       console.error(error);
 
       return res.status(500).json({
@@ -556,9 +560,13 @@ if (!validated.ok) {
         });
       }
 
-      const transaction = await prisma.transaction.update({
+      const {transaction,previousDate} = await withGoalLock(userId,async tx=>{
+        const current=await tx.transaction.findFirst({where:{id,userId}});
+        if(!current) throw new GoalError(404,'TRANSACTION_NOT_FOUND','ไม่พบรายการ');
+        await guardFundingTransaction(tx,userId,id,{type,amount:validated.amount,transactionDate:validated.transactionDate});
+        const transaction=await tx.transaction.update({
         where: {
-          id,
+          id, userId,
         },
         data: {
           categoryId,
@@ -575,9 +583,12 @@ if (!validated.ok) {
         },
       });
 
-      await checkBudgetNotifications(userId, [transactionPeriod(existingTransaction.transactionDate), transactionPeriod(transaction.transactionDate)]);
+        return {transaction,previousDate:current.transactionDate};
+      });
+      await checkBudgetNotifications(userId, [transactionPeriod(previousDate), transactionPeriod(transaction.transactionDate)]);
       return res.json(transaction);
     } catch (error) {
+      if(error instanceof GoalError) return res.status(error.status).json({error:error.message,code:error.code});
       console.error(error);
 
       return res.status(500).json({
@@ -615,10 +626,12 @@ if (typeof id !== 'string' || id.trim() === '') {
         });
       }
 
-      await prisma.transaction.delete({
-        where: {
-          id,
-        },
+      await withGoalLock(userId,async tx=>{
+        const current=await tx.transaction.findFirst({where:{id,userId}});
+        if(!current) throw new GoalError(404,'TRANSACTION_NOT_FOUND','ไม่พบรายการ');
+        await guardFundingTransaction(tx,userId,id);
+        await tx.transaction.delete({where:{id,userId}});
+        transaction.transactionDate=current.transactionDate;
       });
 
       await checkBudgetNotifications(userId, [transactionPeriod(transaction.transactionDate)]);
@@ -626,6 +639,7 @@ if (typeof id !== 'string' || id.trim() === '') {
         message: 'Transaction deleted successfully',
       });
     } catch (error) {
+      if(error instanceof GoalError) return res.status(error.status).json({error:error.message,code:error.code});
       console.error(error);
 
       return res.status(500).json({

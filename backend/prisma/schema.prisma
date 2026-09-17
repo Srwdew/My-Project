@@ -12,20 +12,285 @@ datasource db {
 }
 
 model User {
-  id           String    @id @default(uuid())
-  email        String    @unique
-  passwordHash String
-  createdAt    DateTime  @default(now())
-  deletedAt    DateTime?
-  profile      Profile?
+  id                        String                     @id @default(uuid())
+  email                     String                     @unique
+  passwordHash              String
+  createdAt                 DateTime                   @default(now())
+  deletedAt                 DateTime?
+  goals                     Goal[]
+  goalFundingSources        GoalFundingSource[]
+  goalOperations            GoalOperation[]
+  goalLedgerEntries         GoalLedgerEntry[]
+  goalOpeningRevisions      GoalOpeningRevision[]
+  profile                   Profile?
+  transactions              Transaction[]
+  budgets                   Budget[]
+  categoryBudgets           CategoryBudget[]
+  notifications             Notification[]
+  budgetNotificationSetting BudgetNotificationSetting?
 }
 
 model Profile {
-  id         String  @id @default(uuid())
-  userId     String  @unique
-  user       User    @relation(fields: [userId], references: [id])
-  occupation String?
-  income     Float?
-  goal       String?
-  lifestyle  String?
+  id          String  @id @default(uuid())
+  userId      String  @unique
+  user        User    @relation(fields: [userId], references: [id])
+  displayName String? @db.VarChar(80)
+  occupation  String?
+  income      Float?
+  goal        String?
+  lifestyle   String?
+}
+
+model Category {
+  id              String           @id @default(uuid())
+  name            String
+  type            TransactionType
+  transactions    Transaction[]
+  categoryBudgets CategoryBudget[]
+
+  createdAt DateTime @default(now())
+
+  @@unique([name, type])
+}
+
+model Transaction {
+  goalFundingSource GoalFundingSource?
+  id                String             @id @default(uuid())
+  userId            String
+
+  categoryId String
+
+  type            TransactionType
+  amount          Decimal         @db.Decimal(12, 2)
+  transactionDate DateTime        @db.Date
+  transactionTime DateTime?       @db.Time(0)
+
+  paymentMethod String?
+  description   String?
+  note          String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@index([userId])
+  @@index([categoryId])
+  @@index([transactionDate])
+}
+
+model Budget {
+  id        String   @id @default(uuid())
+  userId    String
+  year      Int
+  month     Int
+  amount    Decimal  @db.Decimal(12, 2)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, year, month])
+}
+
+model CategoryBudget {
+  id         String   @id @default(uuid())
+  userId     String
+  categoryId String
+  year       Int
+  month      Int
+  amount     Decimal  @db.Decimal(12, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, year, month, categoryId])
+  @@index([categoryId])
+}
+
+enum NotificationType {
+  budget_near_limit
+  budget_exceeded
+  transaction_anomaly
+}
+
+model Notification {
+  id      String           @id @default(uuid())
+  userId  String
+  type    NotificationType
+  title   String           @db.VarChar(160)
+  message String           @db.VarChar(1000)
+
+  // หน้าและรายการต้นทางที่เกี่ยวข้อง
+  link     String? @db.VarChar(500)
+  sourceId String? @db.VarChar(160)
+
+  // ใช้ป้องกันการแจ้งเหตุการณ์เดิมซ้ำ
+  eventKey String @db.VarChar(200)
+
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, eventKey])
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+}
+
+model BudgetNotificationSetting {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  enabled         Boolean  @default(false)
+  warningPercent  Int      @default(80)
+  notifyExceeded  Boolean  @default(true)
+  totalBudget     Boolean  @default(true)
+  categoryBudgets Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum TransactionType {
+  income
+  expense
+}
+
+enum TransactionStatus {
+  planned
+  completed
+}
+
+enum GoalSourceKind {
+  OPENING_BALANCE
+  INCOME_TRANSACTION
+}
+
+enum GoalEntryKind {
+  ALLOCATE
+  RELEASE
+}
+
+enum GoalOperationKind {
+  CREATE_GOAL
+  ALLOCATE
+  RELEASE
+  CORRECT_ALLOCATION
+  CREATE_OPENING_BALANCE
+  CORRECT_OPENING_BALANCE
+}
+
+model Goal {
+  id                   String            @id @default(uuid())
+  userId               String
+  name                 String            @db.VarChar(120)
+  targetAmount         Decimal           @db.Decimal(12, 2)
+  targetDate           DateTime?         @db.Date
+  plannedMonthlyAmount Decimal?          @db.Decimal(12, 2)
+  categoryKey          String            @db.VarChar(40)
+  note                 String?           @db.VarChar(1000)
+  archivedAt           DateTime?         @db.Timestamptz(3)
+  createdAt            DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime          @updatedAt @db.Timestamptz(3)
+  user                 User              @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  entries              GoalLedgerEntry[]
+
+  @@unique([userId, id])
+  @@index([userId, archivedAt, createdAt, id])
+}
+
+model GoalFundingSource {
+  id                    String                @id @default(uuid())
+  userId                String
+  kind                  GoalSourceKind
+  sourceKey             String                @db.VarChar(100)
+  openingAmount         Decimal?              @db.Decimal(12, 2)
+  cutoffDate            DateTime?             @db.Date
+  note                  String?               @db.VarChar(1000)
+  originalTransactionId String?
+  transactionId         String?               @unique
+  transaction           Transaction?          @relation(fields: [transactionId], references: [id], onDelete: SetNull, onUpdate: Restrict)
+  createdAt             DateTime              @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime              @updatedAt @db.Timestamptz(3)
+  user                  User                  @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  entries               GoalLedgerEntry[]
+  revisions             GoalOpeningRevision[]
+
+  @@unique([userId, id])
+  @@unique([userId, sourceKey])
+  @@index([userId, kind])
+}
+
+model GoalOperation {
+  id                  String               @id @default(uuid())
+  userId              String
+  idempotencyKey      String               @db.VarChar(100)
+  kind                GoalOperationKind
+  requestHash         String               @db.VarChar(64)
+  reason              String?              @db.VarChar(1000)
+  correctsOperationId String?
+  correctsOperation   GoalOperation?       @relation("GoalOperationCorrection", fields: [userId, correctsOperationId], references: [userId, id], onDelete: Restrict, onUpdate: Restrict)
+  corrections         GoalOperation[]      @relation("GoalOperationCorrection")
+  responseStatus      Int
+  responseBody        Json
+  createdAt           DateTime             @default(now()) @db.Timestamptz(3)
+  user                User                 @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  entries             GoalLedgerEntry[]
+  openingRevision     GoalOpeningRevision?
+
+  @@unique([userId, id])
+  @@unique([userId, idempotencyKey])
+  @@index([userId, createdAt, id])
+  @@index([userId, correctsOperationId])
+}
+
+model GoalLedgerEntry {
+  id             String            @id @default(uuid())
+  userId         String
+  goalId         String
+  sourceId       String
+  operationId    String
+  sequence       Int
+  kind           GoalEntryKind
+  amount         Decimal           @db.Decimal(12, 2)
+  allocationId   String?
+  sourceSnapshot Json
+  createdAt      DateTime          @default(now()) @db.Timestamptz(3)
+  user           User              @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  goal           Goal              @relation(fields: [userId, goalId], references: [userId, id], onDelete: Restrict, onUpdate: Restrict)
+  source         GoalFundingSource @relation(fields: [userId, sourceId], references: [userId, id], onDelete: Restrict, onUpdate: Restrict)
+  operation      GoalOperation     @relation(fields: [userId, operationId], references: [userId, id], onDelete: Restrict, onUpdate: Restrict)
+  allocation     GoalLedgerEntry?  @relation("GoalLotReleases", fields: [userId, goalId, sourceId, allocationId], references: [userId, goalId, sourceId, id], onDelete: Restrict, onUpdate: Restrict)
+  releases       GoalLedgerEntry[] @relation("GoalLotReleases")
+
+  @@unique([userId, goalId, sourceId, id])
+  @@unique([operationId, sequence])
+  @@index([userId, goalId, createdAt, id])
+  @@index([userId, sourceId, kind])
+  @@index([userId, goalId, sourceId, allocationId])
+}
+
+model GoalOpeningRevision {
+  id               String            @id @default(uuid())
+  userId           String
+  sourceId         String
+  operationId      String            @unique
+  beforeAmount     Decimal?          @db.Decimal(12, 2)
+  afterAmount      Decimal           @db.Decimal(12, 2)
+  beforeCutoffDate DateTime?         @db.Date
+  afterCutoffDate  DateTime          @db.Date
+  beforeNote       String?           @db.VarChar(1000)
+  afterNote        String            @db.VarChar(1000)
+  reason           String            @db.VarChar(1000)
+  createdAt        DateTime          @default(now()) @db.Timestamptz(3)
+  user             User              @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  source           GoalFundingSource @relation(fields: [userId, sourceId], references: [userId, id], onDelete: Restrict, onUpdate: Restrict)
+  operation        GoalOperation     @relation(fields: [userId, operationId], references: [userId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([userId, operationId])
+  @@index([userId, sourceId, createdAt, id])
 }

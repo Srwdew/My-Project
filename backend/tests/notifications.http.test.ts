@@ -36,9 +36,11 @@ test('HTTP settings, CRUD hooks, notification ownership, read timestamps and lat
   mock(prisma.categoryBudget, 'deleteMany', async () => ({ count: 1 }));
   mock(prisma.transaction, 'groupBy', async () => []);
   mock(prisma, '$executeRaw', async () => {});
-  mock(prisma, '$transaction', async (argument: any) => {
+  mock(prisma, '$queryRaw', async () => [{id:'test-user-lock'}]);
+  mock(prisma.goalFundingSource, 'findFirst', async () => null);
+  mock(prisma, '$transaction', async (argument: any, options?: any) => {
     if (Array.isArray(argument)) return Promise.all(argument);
-    if (failCheck) throw new Error('simulated producer failure');
+    if (failCheck && options?.timeout !== 20000) throw new Error('simulated producer failure');
     return argument(prisma);
   });
   mock(prisma.transaction, 'create', async ({ data }: any) => { const row = { id: randomUUID(), ...data }; transactions.push(row); return row; });

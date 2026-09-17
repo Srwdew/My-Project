@@ -1105,3 +1105,37 @@ AI ทดสอบ PostgreSQL จริงแบบ rollback ผ่าน: setti
 การจัดเก็บ Git รอบนี้เลือกเฉพาะ 13 ไฟล์ข้างต้น ไม่รวม package/schema/migration/ไฟล์อื่นที่มีการแก้ค้างมาก่อน อย่างไรก็ตามบางไฟล์ที่เลือกยังไม่เคย tracked หรือมีเนื้อหาเดิมค้างอยู่ จึงเป็นการ commit เนื้อหาปัจจุบันทั้งไฟล์ ผล build เป็นของ workspace ปัจจุบัน ซึ่งยังมี dependencies/source ที่ค้างนอก commit
 
 รายละเอียดคำสั่งทดสอบและผลรอบพัฒนาอยู่ NOTIFICATIONS_IMPLEMENTATION.md
+
+---
+
+## อัปเดต 17 กันยายน 2026 — Goals implementation
+
+สถานะ: ลง schema/migration, backend/API, Transaction guards และ frontend Goals แล้ว; automated tests/build ผ่าน ยังรอ browser acceptance ของ Goals และยังไม่ stage/commit/push
+
+Repository preflight: HEAD e806b56 เป็นงานแจ้งเตือนที่ commit แล้ว งาน reconciliation และไฟล์เก่าอื่นยังคงอยู่ migration เดิม 8 ชื่อมีไฟล์ครบ checksum SHA-256 ตรงฐานข้อมูลทั้งหมด รวมประวัติ rollback เก่าที่มี apply สำเร็จตามมา ไม่ได้แก้ applied migration หรือ _prisma_migrations เอง
+
+Migration ใหม่ชื่อ 20260916153000_add_goals_ledger ทดสอบทั้งชุดบนฐานข้อมูล PostgreSQL แยกแล้วจึง apply เฉพาะ migration ใหม่นี้กับ SpendSense; migrate status ล่าสุด up to date ตรวจ fingerprint ข้อมูล 8 ตารางเดิมก่อน/หลังตรงกันทั้งหมด ไม่มี backfill หรือข้อมูลทดลองในฐานเดิม
+
+Goals ใช้ append-only Operation/Ledger/OpeningRevision, Decimal money strings, opening source กลางพร้อม cutoff/note/audit, income source จริง, FIFO release, correction แบบชดเชย, idempotency รวม CREATE Goal, user row lock, DB source-ownership trigger และ composite FKs, snapshot คงเดิมเมื่อ source ถูกแก้/ลบหลังคืนครบ ไม่มี Transaction สมมติ ไม่มี Goals notification
+
+สถานะคำนวณ completed/overdue/not_started/active แยก archivedAt; not_started แสดง “ยังไม่มีเงินจัดสรร”; archive-only; progress ตัวเลขเกิน100ได้แต่ barจำกัด100; เดือนนับรวมเดือนปัจจุบันและเดือนเป้าหมาย, requiredMonthly ปัดขึ้นถึงสตางค์; ไม่มีประวัติแผนรายเดือน
+
+Frontend ใช้ mockup docs/Savings-goals-page.png, UserHeader/NotificationBell เดิม; card/list, create/edit, opening, allocate/release/history/correction, filters/archive/restore, error/retry และ dialog; view preference ต่อ user และ reset state เมื่อเปลี่ยน session; responsive navigation ปรับ Sidebar/AppLayout กลาง
+
+ผลรันจริง: Goals27 tests (รวม parent tests) + notification/reconciliation regression40 =67ผ่าน ไม่มีfail/skip; มี HTTP/PostgreSQL จริงและหลาย connection ที่ commit จริง ทดสอบเงินไม่จัดสรรเกิน/คืนเกิน, concurrent retries, source-edit/archive races, append-onlyปฏิเสธUPDATE/DELETE, sourceownershipระดับDB, ลบTransactionหลังnet0แล้วliveFKเป็นnullแต่owner/originalID/ledger/operationคงเดิม และรายงานเดิมไม่เปลี่ยนหลังallocation Backend/frontend buildผ่าน; frontendมีคำเตือนbundleเกิน500kB
+
+ไฟล์และรายละเอียดหลักฐานอยู่ GOALS_IMPLEMENTATION.md; แบบและข้อจำกัดอยู่ GOALS_DESIGN.md ไฟล์ทดสอบสร้างฐานชื่อ spendsense_goals_test_* แยกและคงไว้ตรวจสอบ ไม่ลบฐานใด ไม่ reset
+
+ข้อจำกัด: ยังไม่มี browser automation/acceptance ของ Goals; filteringถูกต้องก่อนpaginationแต่ยังอ่านGoalsทั้งหมดเพื่อคำนวณก่อนแบ่งหน้า, income picker/historyโหลดทุกหน้า; ไม่มีcash-account ledgerจึงรับรองได้เฉพาะsourcecapacity; notificationเดิมยังไม่มีdurable queue/event log ไม่ได้แก้ในรอบนี้
+
+งานถัดไป: ผู้ใช้ตรวจ Goals บนเบราว์เซอร์ตาม checklist และตรวจ diff เฉพาะงาน ก่อนสั่ง commit งาน reconciliation browser acceptance ยังค้างแยกต่างหาก
+
+## ปิดงาน Goals — 17 กันยายน 2026 (Asia/Bangkok)
+
+ผู้ใช้ยืนยัน browser acceptance ของ Goals ผ่านแล้วในวันที่ 17 กันยายน 2026 ผลนี้เป็นการตรวจรับโดยผู้ใช้ ไม่ใช่ browser automation โดย AI และไม่ใช่การยืนยัน browser acceptance ของ reconciliation แทนกัน
+
+AI รันรอบสุดท้าย: Goals27 tests + regression40 tests =67ผ่าน ไม่มีfail/skip; backend/frontend buildผ่าน คงคำเตือน frontend bundleเกิน500kB ตรวจ prisma migrate status แบบอ่านอย่างเดียวได้9 migrations และ up to date ไม่ apply/reset/resolve/db push หรือแก้ migration ในรอบปิดงาน
+
+เลือก commit เฉพาะ20 paths ของ Goals รวม schema/migration, services/routes, Transaction guards, หน้า Goals/shared navigation และเอกสาร ใช้ partial staging แยกสูตร reconciliation ใน backend/src/index.ts และส่วนบันทึก reconciliation ออก โดยคง workspace เดิมไว้ schema.prisma/App.tsx มีฐานโค้ดเดิมที่ยังไม่เคยcommitและจำเป็นต่อintegrationจึงรวมทั้งไฟล์ CSS shared navigation เดิมยังuntrackedจึงรวมทั้งไฟล์ ไม่รวมpackage/config/migrationเก่าหรือหน้าอื่น ผลtests/buildเป็นของworkspaceปัจจุบัน ไม่ใช่การรับรองclean checkoutที่ยังขาดไฟล์ฐานค้างนอกcommit
+
+ไม่มี .env/secrets/node_modules/dist/logs/database dump หรือไฟล์ฐานข้อมูลทดสอบรวมในcommit รวมเฉพาะtest sourceและrunnerที่เกี่ยวข้อง ไม่ push รายละเอียดอยู่ GOALS_IMPLEMENTATION.md
