@@ -1,0 +1,313 @@
+.weekly-expenses {
+  min-width: 0;
+  margin-top: 24px;
+  padding: 24px;
+  color: #111827;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  font-family: "Segoe UI", "Noto Sans Thai", sans-serif;
+  text-align: left;
+}
+
+.weekly-expenses *,
+.weekly-expenses *::before,
+.weekly-expenses *::after {
+  box-sizing: border-box;
+}
+
+/* หัวข้อและยอดรวม */
+
+.weekly-expenses-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.weekly-expenses-heading h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.weekly-expenses-heading p {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.weekly-expenses-total {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.weekly-expenses-total span {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.weekly-expenses-total strong {
+  color: #111827;
+  font-size: 20px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* รายการสัปดาห์ */
+
+.weekly-expenses-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.weekly-expenses-week {
+  min-width: 0;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+}
+
+.weekly-expenses-week[open] {
+  border-color: #bfdbfe;
+}
+
+.weekly-expenses-week summary {
+  padding: 18px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.weekly-expenses-week summary::marker {
+  color: #64748b;
+}
+
+.weekly-expenses-week summary:hover {
+  background: #f9fafb;
+}
+
+.weekly-expenses-week[open] summary {
+  background: #f8fbff;
+  border-radius: 12px 12px 0 0;
+}
+
+.weekly-expenses-week summary:focus-visible,
+.weekly-expenses-error button:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 3px;
+}
+
+.weekly-expenses-week-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.weekly-expenses-week-top > div {
+  min-width: 0;
+}
+
+.weekly-expenses-week-top strong {
+  color: #111827;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.weekly-expenses-date {
+  display: block;
+  margin-top: 5px;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.weekly-expenses-amount {
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* แถบยอดรายจ่าย */
+
+.weekly-expenses-track {
+  height: 8px;
+  margin-top: 14px;
+  overflow: hidden;
+  background: #eff6ff;
+  border-radius: 999px;
+}
+
+.weekly-expenses-fill {
+  height: 100%;
+  background: #3b82f6;
+  border-radius: inherit;
+}
+
+.weekly-expenses-detail-hint {
+  display: block;
+  margin-top: 10px;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* หมวดหมู่ภายในสัปดาห์ */
+
+.weekly-expenses-categories {
+  padding: 0 18px 18px;
+}
+
+.weekly-expenses-categories ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.weekly-expenses-categories li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding: 14px 0;
+  border-top: 1px solid #e5e7eb;
+  font-size: 14px;
+}
+
+.weekly-expenses-categories li:last-child {
+  padding-bottom: 0;
+}
+
+.weekly-expenses-categories li > div {
+  min-width: 0;
+}
+
+.weekly-expenses-categories li span {
+  color: #374151;
+  overflow-wrap: anywhere;
+}
+
+.weekly-expenses-categories li strong {
+  color: #111827;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.weekly-expenses-categories small {
+  display: block;
+  margin-top: 4px;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.weekly-expenses-categories > p {
+  margin: 0;
+  padding-top: 16px;
+  color: #6b7280;
+  border-top: 1px solid #e5e7eb;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+/* ข้อความและข้อผิดพลาด */
+
+.weekly-expenses-message {
+  margin: 20px 0 0;
+  padding: 16px;
+  color: #6b7280;
+  background: #f9fafb;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.weekly-expenses-footnote {
+  margin: 16px 0 0;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.8;
+}
+
+.weekly-expenses-error {
+  margin-top: 20px;
+  padding: 16px;
+  color: #991b1b;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+}
+
+.weekly-expenses-error p {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.weekly-expenses-error button {
+  min-height: 40px;
+  padding: 8px 16px;
+  color: #ffffff;
+  background: #2563eb;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+
+.weekly-expenses-error button:hover {
+  background: #1d4ed8;
+}
+
+/* Responsive */
+
+@media (max-width: 600px) {
+  .weekly-expenses {
+    padding: 18px;
+  }
+
+  .weekly-expenses-heading {
+    flex-direction: column;
+  }
+
+  .weekly-expenses-total {
+    width: 100%;
+    padding-top: 12px;
+    border-top: 1px solid #f3f4f6;
+  }
+
+  .weekly-expenses-week summary {
+    padding: 14px;
+  }
+
+  .weekly-expenses-categories {
+    padding: 0 14px 14px;
+  }
+
+  .weekly-expenses-week-top {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .weekly-expenses-week summary,
+  .weekly-expenses-error button {
+    transition: none;
+  }
+}

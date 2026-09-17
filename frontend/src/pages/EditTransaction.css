@@ -1,0 +1,353 @@
+.edit-page {
+  width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+
+  padding: 24px 28px 40px;
+
+  background: #f8fafc;
+
+  color: #111827;
+
+  font-family:
+    "Segoe UI",
+    "Noto Sans Thai",
+    sans-serif;
+
+  font-size: 13px;
+}
+
+.edit-page button,
+.edit-page input,
+.edit-page select {
+  font-family: inherit;
+}
+
+.edit-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 24px;
+}
+
+.edit-header > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.edit-back-button {
+  padding: 4px 9px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+
+  background: #ffffff;
+
+  font-size: 12px;
+
+  cursor: pointer;
+
+  margin-bottom: 14px;
+}
+
+.edit-header h1 {
+  margin: 0;
+
+  font-size: 21px;
+  font-weight: 600;
+}
+
+.edit-header p {
+  margin: 4px 0 0;
+
+  color: #8b95a7;
+
+  font-size: 12px;
+}
+
+.edit-header-right {
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+}
+
+.edit-notification {
+  width: 46px;
+  height: 46px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 13px;
+
+  background: #ffffff;
+
+  cursor: pointer;
+}
+
+.edit-user-box {
+  min-height: 46px;
+
+  display: flex;
+  align-items: center;
+
+  gap: 9px;
+
+  padding: 5px 13px 5px 5px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 13px;
+
+  background: #ffffff;
+}
+
+.edit-avatar {
+  width: 36px;
+  height: 36px;
+
+  display: grid;
+  place-items: center;
+
+  border-radius: 10px;
+
+  background: #111827;
+
+  color: #ffffff;
+
+  font-size: 12px;
+}
+
+.edit-card {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  padding: 16px;
+
+  margin-bottom: 14px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+
+  background: #ffffff;
+
+  overflow: visible;
+}
+
+.edit-card h2 {
+  margin: 0 0 14px;
+
+  text-align: left;
+
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.edit-type-grid {
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 12px;
+}
+
+.edit-type-button {
+  min-height: 86px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 12px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+
+  background: #f9fafb;
+
+  color: #111827;
+
+  cursor: pointer;
+}
+
+.edit-type-button strong {
+  display: block;
+
+  font-size: 14px;
+}
+
+.edit-type-button div > span {
+  display: block;
+
+  margin-top: 2px;
+
+  color: #6b7280;
+
+  font-size: 10px;
+}
+
+.edit-type-icon {
+  font-size: 22px;
+}
+
+.edit-type-button.expense.active {
+  border-color: #ff5b5b;
+
+  background: #fff1f1;
+}
+
+.edit-type-button.income.active {
+  border-color: #31c48d;
+
+  background: #effdf6;
+}
+
+.edit-form-grid {
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 12px 14px;
+}
+
+.edit-field {
+  display: grid;
+
+  gap: 5px;
+}
+
+.edit-field label {
+  color: #374151;
+
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.edit-field label span {
+  color: #ef4444;
+}
+
+.edit-field input,
+.edit-field select,
+.edit-input {
+  width: 100%;
+  height: 40px;
+
+  box-sizing: border-box;
+
+  padding: 0 10px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+
+  background: #ffffff;
+
+  color: #111827;
+
+  font-size: 12px;
+
+  outline: none;
+}
+
+.edit-field input:focus,
+.edit-field select:focus,
+.edit-input:focus {
+  border-color: #6366f1;
+
+  box-shadow:
+    0 0 0 2px rgba(99, 102, 241, 0.08);
+}
+
+.edit-date-time {
+  display: grid;
+
+  grid-template-columns: 1.45fr 1fr;
+
+  gap: 8px;
+
+  overflow: visible;
+}
+
+.edit-datepicker-wrapper,
+.edit-datepicker-wrapper .react-datepicker-wrapper,
+.edit-datepicker-wrapper .react-datepicker__input-container {
+  width: 100%;
+}
+
+.edit-datepicker-popper {
+  z-index: 99999 !important;
+}
+
+.edit-page .react-datepicker {
+  font-family:
+    "Segoe UI",
+    "Noto Sans Thai",
+    sans-serif;
+
+  font-size: 12px;
+}
+
+.edit-actions {
+  display: flex;
+  justify-content: flex-end;
+
+  gap: 12px;
+
+  margin-top: 24px;
+}
+
+.edit-cancel-button {
+  min-width: 90px;
+
+  padding: 8px 14px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+
+  background: #ffffff;
+
+  color: #374151;
+
+  cursor: pointer;
+}
+
+.edit-save-button {
+  min-width: 220px;
+
+  padding: 9px 16px;
+
+  border: none;
+  border-radius: 7px;
+
+  background: #4f5ff5;
+
+  color: #ffffff;
+
+  cursor: pointer;
+}
+
+.edit-save-button:disabled {
+  opacity: 0.6;
+
+  cursor: not-allowed;
+}
+
+.edit-loading {
+  padding: 60px 20px;
+
+  text-align: center;
+
+  color: #6b7280;
+}
+
+@media (max-width: 700px) {
+  .edit-page {
+    padding: 16px;
+  }
+
+  .edit-form-grid,
+  .edit-type-grid,
+  .edit-date-time {
+    grid-template-columns: 1fr;
+  }
+}

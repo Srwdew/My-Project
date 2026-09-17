@@ -1,0 +1,124 @@
+.settings-page {
+  padding: 30px 36px;
+  color: #1e293b;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.settings-header h1 {
+  margin: 0 0 6px;
+  font-size: 24px;
+}
+
+.settings-header p,
+.settings-card > p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.settings-card {
+  max-width: 680px;
+  padding: 28px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+.settings-card h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.settings-card form {
+  display: flex;
+  flex-direction: column;
+  margin-top: 28px;
+}
+
+.settings-card label {
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settings-card input {
+  box-sizing: border-box;
+  width: 100%;
+  margin-bottom: 20px;
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  font: inherit;
+}
+
+.settings-card input:read-only {
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.settings-card input:focus-visible,
+.settings-card button:focus-visible {
+  outline: 2px solid #3f51e8;
+  outline-offset: 3px;
+}
+
+.settings-card small {
+  margin-top: -10px;
+  color: #64748b;
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.settings-card button {
+  padding: 12px 18px;
+  border: none;
+  border-radius: 9px;
+  background: #3f51e8;
+  color: #ffffff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.settings-card .settings-cancel {
+  background: #eef2f6;
+  color: #475569;
+}
+
+.settings-card button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.settings-success {
+  color: #15803d;
+  font-size: 14px;
+}
+
+.settings-error {
+  color: #b91c1c;
+  font-size: 14px;
+}
+
+@media (max-width: 700px) {
+  .settings-page {
+    padding: 20px 16px;
+  }
+
+  .settings-card {
+    padding: 20px;
+  }
+}

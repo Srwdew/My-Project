@@ -1,0 +1,897 @@
+.add-page {
+  min-height: 100vh;
+  width: 100%;
+  box-sizing: border-box;
+
+  background: #f8fafc;
+
+  padding: 20px 24px;
+
+  font-family:
+    "Segoe UI",
+    "Noto Sans Thai",
+    sans-serif;
+
+  font-size: 13px;
+  color: #111827;
+}
+
+.history-page {
+  width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 24px 28px 40px;
+  background: #f6f8fc;
+  color: #111827;
+  font-family:
+    "Segoe UI",
+    "Noto Sans Thai",
+    sans-serif;
+  font-size: 13px;
+}
+
+.history-layout {
+  width: 100%;
+
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1fr)
+    334px;
+
+  gap: 22px;
+
+  align-items: start;
+}
+
+.history-datepicker-popper,
+.react-datepicker-popper {
+  z-index: 99999 !important;
+}
+
+.history-page .react-datepicker {
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  background: #ffffff;
+  font-family:
+    "Segoe UI",
+    "Noto Sans Thai",
+    sans-serif;
+  font-size: 12px;
+  box-shadow:
+    0 12px 32px rgba(15, 23, 42, 0.14);
+}
+
+.history-page .react-datepicker__header {
+  background: #ffffff;
+  border-bottom: 1px solid #f1f5f9;
+  padding-top: 10px;
+}
+
+.history-page .react-datepicker__day--selected,
+.history-page .react-datepicker__day--keyboard-selected {
+  background: #356df3;
+  color: #ffffff;
+}
+
+.history-page .react-datepicker__today-button {
+  background: #ffffff;
+  border-top: 1px solid #e5e7eb;
+  color: #356df3;
+}
+
+/* =========================
+   Header
+========================= */
+
+.add-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 24px;
+}
+
+.add-header > div:first-child{
+  flex: 1;
+  min-width: 0;
+}
+
+.back-button {
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+
+  padding: 4px 9px;
+
+  background: #ffffff;
+  color: #111827;
+
+  font-family: inherit;
+  font-size: 12px;
+
+  cursor: pointer;
+}
+
+.back-button:hover {
+  background: #f3f4f6;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.icon-button {
+  width: 44px;
+  height: 44px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+
+  background: #ffffff;
+
+  cursor: pointer;
+
+  font-size: 18px;
+}
+
+.user-box {
+  min-height: 44px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 13px;
+
+  background: #ffffff;
+
+  display: flex;
+  align-items: center;
+
+  gap: 9px;
+
+  padding: 5px 13px 5px 5px;
+
+  font-size: 13px;
+}
+
+.avatar {
+  width: 36px;
+  height: 36px;
+
+  border-radius: 10px;
+
+  background: #111827;
+  color: #ffffff;
+
+  display: grid;
+  place-items: center;
+
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* =========================
+   Main Layout
+========================= */
+
+.add-layout {
+  width: 100%;
+
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1.15fr)
+    minmax(380px, 0.85fr);
+
+  gap: 22px;
+
+  align-items: start;
+
+  overflow: visible;
+}
+
+.left-column {
+  width: 100%;
+
+  display: grid;
+
+  gap: 12px;
+
+  overflow: visible;
+}
+
+/* =========================
+   Cards
+========================= */
+
+.card {
+  width: 100%;
+
+  box-sizing: border-box;
+
+  background: #ffffff;
+
+  border: 1px solid #d1d5db;
+  border-radius: 11px;
+
+  padding: 14px;
+
+  text-align: left;
+
+  overflow: visible;
+}
+
+.card h2 {
+  width: 100%;
+
+  margin: 0 0 12px;
+
+  text-align: left;
+
+  font-size: 15px;
+  font-weight: 600;
+
+  color: #111827;
+}
+
+/* =========================
+   Transaction Type
+========================= */
+
+.type-grid {
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 10px;
+}
+
+.type-button {
+  width: 100%;
+
+  min-height: 82px;
+
+  border: 1px solid #d1d5db;
+  border-radius: 9px;
+
+  background: #f9fafb;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  gap: 10px;
+
+  font-family: inherit;
+  font-size: 13px;
+
+  color: #111827;
+
+  cursor: pointer;
+
+  transition: 0.2s;
+}
+
+.type-button:hover {
+  background: #f3f4f6;
+}
+
+.type-button strong {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.type-button span {
+  display: block;
+
+  margin-top: 2px;
+
+  font-size: 10px;
+
+  color: #6b7280;
+}
+
+.type-icon {
+  font-size: 21px;
+}
+
+.expense-button.active {
+  border-color: #ff5b5b;
+
+  background: #fff1f1;
+}
+
+.income-button.active {
+  border-color: #31c48d;
+
+  background: #effdf6;
+}
+
+/* =========================
+   Form
+========================= */
+
+.form-grid {
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 11px 13px;
+}
+
+.field {
+  display: grid;
+
+  gap: 5px;
+
+  position: relative;
+}
+
+.field label {
+  font-size: 12px;
+  font-weight: 500;
+
+  color: #374151;
+}
+
+.required {
+  color: #ef4444;
+}
+
+.input {
+  width: 100%;
+  height: 38px;
+
+  box-sizing: border-box;
+
+  border: 1px solid #d1d5db;
+
+  border-radius: 7px;
+
+  padding: 0 9px;
+
+  background: #ffffff;
+
+  color: #111827;
+
+  font-family: inherit;
+  font-size: 12px;
+
+  outline: none;
+}
+
+.input:focus {
+  border-color: #6366f1;
+
+  box-shadow:
+    0 0 0 2px rgba(99, 102, 241, 0.08);
+}
+
+.date-time-grid {
+  display: grid;
+
+  grid-template-columns: 1.45fr 1fr;
+
+  gap: 7px;
+
+  position: relative;
+
+  overflow: visible;
+}
+
+/* =========================
+   React DatePicker
+========================= */
+
+.date-picker-wrapper,
+.react-datepicker-wrapper {
+  width: 100% !important;
+  position: relative;
+}
+
+.react-datepicker__input-container {
+  width: 100%;
+}
+
+.date-picker-wrapper input,
+.react-datepicker-wrapper input {
+  width: 100% !important;
+  height: 38px;
+  box-sizing: border-box;
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  padding: 0 9px;
+  background: #ffffff;
+  color: #111827;
+  font-family:
+    "Segoe UI",
+    "Noto Sans Thai",
+    sans-serif;
+  font-size: 12px;
+}
+
+.react-datepicker__input-container input:focus {
+  border-color: #6366f1;
+
+  box-shadow:
+    0 0 0 2px rgba(99, 102, 241, 0.08);
+}
+
+/* ทำให้ popup ลอยทับ ไม่ดัน element อื่น */
+.transaction-date-popper {
+  z-index: 99999 !important;
+}
+
+.react-datepicker-popper {
+  z-index: 99999 !important;
+
+  position: absolute !important;
+}
+
+.react-datepicker {
+  border: 1px solid #d1d5db;
+
+  border-radius: 8px;
+
+  background: #ffffff;
+
+  font-family:
+    "Segoe UI",
+    "Noto Sans Thai",
+    sans-serif;
+
+  font-size: 12px;
+
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.14);
+}
+
+.react-datepicker__header {
+  background: #ffffff;
+
+  border-bottom: 1px solid #f3f4f6;
+
+  padding-top: 10px;
+}
+
+.react-datepicker__current-month {
+  color: #111827;
+
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.react-datepicker__day-name {
+  color: #4b5563;
+
+  font-size: 11px;
+}
+
+.react-datepicker__day {
+  border-radius: 5px;
+
+  color: #111827;
+
+  font-size: 11px;
+}
+
+.react-datepicker__day:hover {
+  background: #eef2ff;
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
+  background: #2563eb;
+
+  color: #ffffff;
+}
+
+.react-datepicker__day--today {
+  font-weight: 700;
+}
+
+.react-datepicker__navigation {
+  top: 10px;
+}
+
+.react-datepicker__today-button {
+  background: #ffffff;
+
+  border-top: 1px solid #e5e7eb;
+
+  color: #2563eb;
+
+  font-size: 11px;
+
+  padding: 8px;
+}
+
+#root-portal {
+  position: relative;
+  z-index: 999999;
+}
+
+.transaction-date-popper,
+.react-datepicker-popper {
+  z-index: 999999 !important;
+}
+
+/* =========================
+   Receipt Upload
+========================= */
+
+.receipt-actions {
+  display: flex;
+
+  gap: 9px;
+
+  flex-wrap: wrap;
+}
+
+.upload-box {
+  width: 215px;
+
+  min-height: 100px;
+
+  box-sizing: border-box;
+
+  border: 1px solid #d1d5db;
+
+  background: #fafafa;
+
+  padding: 10px;
+
+  display: flex;
+  flex-direction: column;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 3px;
+
+  color: #111827;
+
+  font-family: inherit;
+
+  cursor: pointer;
+}
+
+.upload-box:hover {
+  background: #f3f4f6;
+}
+
+.upload-icon {
+  font-size: 24px;
+}
+
+.upload-box strong {
+  font-size: 13px;
+}
+
+.small-text {
+  display: block;
+
+  margin-top: 2px;
+
+  font-size: 10px;
+
+  color: #6b7280;
+}
+
+.upload-button {
+  margin-top: 6px;
+
+  padding: 4px 8px;
+
+  border: 1px solid #4f6bff;
+
+  border-radius: 5px;
+
+  color: #4f6bff;
+
+  background: #ffffff;
+
+  font-size: 10px;
+}
+
+.file-name {
+  margin-top: 7px;
+
+  font-size: 11px;
+
+  color: #4b5563;
+}
+
+/* =========================
+   Bottom Actions
+========================= */
+
+.footer-actions {
+  display: flex;
+
+  justify-content: flex-end;
+  align-items: center;
+
+  gap: 10px;
+
+  margin-top: 20px;
+}
+
+.cancel-button {
+  min-width: 80px;
+
+  padding: 7px 12px;
+
+  border-radius: 6px;
+
+  border: 1px solid #d1d5db;
+
+  background: #ffffff;
+
+  color: #374151;
+
+  font-family: inherit;
+  font-size: 12px;
+
+  cursor: pointer;
+}
+
+.cancel-button:hover {
+  background: #f3f4f6;
+}
+
+.save-button {
+  min-width: 220px;
+
+  padding: 8px 16px;
+
+  border-radius: 6px;
+
+  border: none;
+
+  background: #4f5ff5;
+
+  color: #ffffff;
+
+  font-family: inherit;
+  font-size: 12px;
+
+  font-weight: 500;
+
+  cursor: pointer;
+}
+
+.save-button:hover {
+  background: #4453e5;
+}
+
+.save-button:disabled {
+  opacity: 0.6;
+
+  cursor: not-allowed;
+}
+
+/* =========================
+   Right Preview
+========================= */
+
+.preview-card {
+  width: 100%;
+  max-width: 460px;
+
+  justify-self: center;
+
+  box-sizing: border-box;
+
+  background: #ffffff;
+
+  border: 1px solid #d1d5db;
+
+  border-radius: 11px;
+
+  padding: 16px;
+
+  font-size: 12px;
+
+  text-align: left;
+}
+
+.preview-header {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+}
+
+.preview-header strong {
+  font-size: 14px;
+
+  font-weight: 600;
+}
+
+.success-badge {
+  padding: 5px 9px;
+
+  border-radius: 999px;
+
+  background: #e9fbf2;
+
+  color: #22b573;
+
+  font-size: 10px;
+}
+
+.receipt-preview {
+  width: 210px;
+  height: 300px;
+
+  margin: 18px auto;
+
+  border: 1px solid #d1d5db;
+
+  display: grid;
+
+  place-items: center;
+
+  overflow: hidden;
+
+  background: #ffffff;
+}
+
+.preview-image {
+  width: 100%;
+  height: 100%;
+
+  object-fit: contain;
+}
+
+.detected-header {
+  display: flex;
+
+  justify-content: space-between;
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 11px 12px;
+
+  border-radius: 6px;
+
+  background: #edf2ff;
+}
+
+.detected-header strong {
+  font-size: 12px;
+}
+
+.success-text {
+  color: #22b573;
+
+  font-size: 11px;
+}
+
+.detected-list {
+  display: grid;
+
+  gap: 12px;
+
+  padding: 14px 5px;
+}
+
+.detected-row {
+  display: flex;
+
+  justify-content: space-between;
+
+  gap: 14px;
+
+  font-size: 12px;
+}
+
+.outline-button {
+  width: 100%;
+
+  padding: 7px;
+
+  border: 1px solid #4f6bff;
+
+  border-radius: 6px;
+
+  background: #ffffff;
+
+  color: #4f6bff;
+
+  font-family: inherit;
+  font-size: 11px;
+
+  cursor: pointer;
+}
+
+.text-button {
+  width: 100%;
+
+  padding: 7px;
+
+  border: none;
+
+  background: transparent;
+
+  color: #4f6bff;
+
+  font-family: inherit;
+  font-size: 11px;
+
+  cursor: pointer;
+}
+
+/* =========================
+   Responsive
+========================= */
+
+@media (max-width: 1200px) {
+  .add-layout {
+    grid-template-columns:
+      minmax(0, 1fr)
+      minmax(340px, 0.8fr);
+  }
+
+  .preview-card {
+    max-width: 420px;
+  }
+}
+
+@media (max-width: 1000px) {
+  .add-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .preview-card {
+    width: 100%;
+    max-width: 520px;
+
+    justify-self: center;
+  }
+}
+
+@media (max-width: 700px) {
+  .add-page {
+    padding: 15px;
+  }
+
+  .form-grid,
+  .type-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .date-time-grid {
+  display: grid;
+  grid-template-columns: 1.45fr 1fr;
+  gap: 7px;
+  width: 100%;
+  }
+
+  .receipt-actions {
+    flex-direction: column;
+  }
+
+  .upload-box {
+    width: 100%;
+  }
+
+  .save-button {
+    min-width: 0;
+
+    flex: 1;
+  }
+
+  .preview-card {
+    max-width: 100%;
+  }
+
+  .receipt-preview {
+    width: 190px;
+    height: 270px;
+  }
+}
