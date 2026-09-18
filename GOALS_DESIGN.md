@@ -81,7 +81,7 @@ The protocol governs application writers. Direct privileged SQL that bypasses it
 
 ## Frontend
 
-Reference: docs/Savings-goals-page.png. Shared UserHeader already includes NotificationBell. No duplicated bell or user data.
+Reference: docs/mockups/Savings-goals-page.png. Shared UserHeader already includes NotificationBell. No duplicated bell or user data.
 
 Card and list views, status/archive filters, create/edit/opening setup/correction, allocation/FIFO release/history/compensation, archive/restore, loading/empty/error/retry and native modal keyboard handling exist. No red annotation borders.
 

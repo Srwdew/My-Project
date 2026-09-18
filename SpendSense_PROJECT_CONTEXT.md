@@ -1149,7 +1149,7 @@ Goals ใช้ append-only Operation/Ledger/OpeningRevision, Decimal money stri
 
 สถานะคำนวณ completed/overdue/not_started/active แยก archivedAt; not_started แสดง “ยังไม่มีเงินจัดสรร”; archive-only; progress ตัวเลขเกิน100ได้แต่ barจำกัด100; เดือนนับรวมเดือนปัจจุบันและเดือนเป้าหมาย, requiredMonthly ปัดขึ้นถึงสตางค์; ไม่มีประวัติแผนรายเดือน
 
-Frontend ใช้ mockup docs/Savings-goals-page.png, UserHeader/NotificationBell เดิม; card/list, create/edit, opening, allocate/release/history/correction, filters/archive/restore, error/retry และ dialog; view preference ต่อ user และ reset state เมื่อเปลี่ยน session; responsive navigation ปรับ Sidebar/AppLayout กลาง
+Frontend ใช้ mockup docs/mockups/Savings-goals-page.png, UserHeader/NotificationBell เดิม; card/list, create/edit, opening, allocate/release/history/correction, filters/archive/restore, error/retry และ dialog; view preference ต่อ user และ reset state เมื่อเปลี่ยน session; responsive navigation ปรับ Sidebar/AppLayout กลาง
 
 ผลรันจริง: Goals27 tests (รวม parent tests) + notification/reconciliation regression40 =67ผ่าน ไม่มีfail/skip; มี HTTP/PostgreSQL จริงและหลาย connection ที่ commit จริง ทดสอบเงินไม่จัดสรรเกิน/คืนเกิน, concurrent retries, source-edit/archive races, append-onlyปฏิเสธUPDATE/DELETE, sourceownershipระดับDB, ลบTransactionหลังnet0แล้วliveFKเป็นnullแต่owner/originalID/ledger/operationคงเดิม และรายงานเดิมไม่เปลี่ยนหลังallocation Backend/frontend buildผ่าน; frontendมีคำเตือนbundleเกิน500kB
 
