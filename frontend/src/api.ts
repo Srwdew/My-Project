@@ -54,7 +54,7 @@ export async function apiFetch(
 
   if (auth && response.ok && getToken() === token &&
       /^(POST|PUT|DELETE)$/i.test(fetchOptions.method ?? 'GET') &&
-      /^\/(transactions(?:\/|$)|budget(?:\/|$)|notification-settings\/budget$)/.test(path)) {
+      /^\/(transactions(?:\/|$)|budget(?:\/|$)|settings$|notification-settings\/budget$)/.test(path)) {
     window.dispatchEvent(new Event('spendsense-data-changed'));
   }
   return response;

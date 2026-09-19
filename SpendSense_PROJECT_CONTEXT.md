@@ -1168,3 +1168,20 @@ AI รันรอบสุดท้าย: Goals27 tests + regression40 tests =
 เลือก commit เฉพาะ20 paths ของ Goals รวม schema/migration, services/routes, Transaction guards, หน้า Goals/shared navigation และเอกสาร ใช้ partial staging แยกสูตร reconciliation ใน backend/src/index.ts และส่วนบันทึก reconciliation ออก โดยคง workspace เดิมไว้ schema.prisma/App.tsx มีฐานโค้ดเดิมที่ยังไม่เคยcommitและจำเป็นต่อintegrationจึงรวมทั้งไฟล์ CSS shared navigation เดิมยังuntrackedจึงรวมทั้งไฟล์ ไม่รวมpackage/config/migrationเก่าหรือหน้าอื่น ผลtests/buildเป็นของworkspaceปัจจุบัน ไม่ใช่การรับรองclean checkoutที่ยังขาดไฟล์ฐานค้างนอกcommit
 
 ไม่มี .env/secrets/node_modules/dist/logs/database dump หรือไฟล์ฐานข้อมูลทดสอบรวมในcommit รวมเฉพาะtest sourceและrunnerที่เกี่ยวข้อง ไม่ push รายละเอียดอยู่ GOALS_IMPLEMENTATION.md
+
+## อัปเดต 19 กันยายน 2026 — Settings
+
+พัฒนาหน้า Settings 4 ส่วนตามภาพที่มีจริง docs/mockups/User-settings.png ใช้ layout/header/bell เดิม ไม่มี annotation หรือข้อมูลตัวอย่างจากภาพ; ผู้ใช้ยืนยัน browser acceptance ผ่านวันที่ 19 กันยายน 2026 แยกจาก automated tests ของ AI; ปิดงานเฉพาะ Settings โดยไม่ push
+
+เพิ่ม atomic GET/PUT /settings ใช้ Profile persistence เดิมร่วมกัน, income Decimal string, payday 1–31/clamp สิ้นเดือน, Budget เดือนปัจจุบัน Bangkok, primary Goal ของบัญชีเดียวกันและรักษา archived pointer/legacy Profile.goal โดยไม่สร้าง Goal/Transaction อัตโนมัติ
+
+เพิ่ม authenticated avatar Bytes/bytea JPEG/PNG/WebP <=1 MB พร้อม MIME/signature checks และ Blob URL cleanup; เพิ่ม change-password/close-account dialogs, authVersion JWT revocation (legacy token =0), soft closure ไม่ hard-delete ประวัติ; ป้องกัน stale session responses และเตือน dirty navigation/logout
+
+near/exceeded ใช้ BudgetNotificationSetting/producer เดียวกับ Budget; เพิ่ม notifyNearLimit, enabled = near OR exceeded, รักษา threshold/scope เดิม; anomaly/weekly summary disabled ไม่มี preference ที่ไม่มี consumer
+
+Migration ใหม่ 20260919010000_add_user_settings: ตรวจ checksum 9 applied migrations เดิมตรงทั้งหมด ทดสอบบนฐานแยกก่อน apply กับ local; ล่าสุด 10 migrations up to date ตรวจ fingerprint 9 ตารางการเงิน/Goals/Notification เดิมไม่เปลี่ยน ไม่ reset/db push/seed/แก้ applied migration
+
+ผลรันจริง: Prisma validate/generate และ backend/frontend build ผ่าน; 77 automated tests (Settings เพิ่ม10 + Goals27 + notification/reconciliation40 รวม parent tests) ผ่าน ไม่มี fail/skip บนฐานทดสอบแยก มี HTTP/PostgreSQL/concurrency จริง Chrome DevTools automation แบบ API double ผ่าน responsive/keyboard/focus/dirty navigation/session race/Blob cleanup แยกจาก user browser acceptance ไม่มี package ใหม่ของแอป
+
+รายละเอียด API/validation/migration/tests/รายชื่อไฟล์/checklist และข้อจำกัดอยู่ SETTINGS_IMPLEMENTATION.md หลักฐาน runtime อยู่ .git/settings-verification ไม่รวมใน Git; ไฟล์ local ที่ค้างมาก่อนรักษาไว้ทั้งหมด
+ปิดงาน Settings 19 กันยายน 2026: เปลี่ยนชื่อ mockup เป็น docs/mockups/User-settings.png และเพิ่ม migration.sql -text ใน .gitattributes ของ migration Settings ตาม convention เดิม โดยไม่เปลี่ยน bytes ของ SQL ที่ apply แล้ว ไฟล์ local ที่ไม่เกี่ยวข้องคงไว้นอก commit

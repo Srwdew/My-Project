@@ -7,6 +7,7 @@ export default function Sidebar() {
   const navigate = useNavigate();
 
 const handleLogout = () => {
+  if (!window.dispatchEvent(new Event("spendsense-before-logout", { cancelable: true }))) return;
   removeToken();
 
   navigate('/login', {

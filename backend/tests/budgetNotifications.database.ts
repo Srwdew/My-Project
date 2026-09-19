@@ -13,9 +13,9 @@ async function main() {
       const b = await tx.user.create({ data: { email: `notification-test-${randomUUID()}@example.invalid`, passwordHash: 'non-login-test-account' } });
       const category = await tx.category.create({ data: { name: `notification-test-${randomUUID()}`, type: 'expense' } });
       stage = 'settings round-trip';
-      const values = { enabled: true, warningPercent: 80, notifyExceeded: true, totalBudget: true, categoryBudgets: true };
+      const values = { enabled: true, notifyNearLimit: true, warningPercent: 80, notifyExceeded: true, totalBudget: true, categoryBudgets: true };
       await tx.budgetNotificationSetting.upsert({ where: { userId: a.id }, create: { userId: a.id, ...values }, update: values });
-      const saved = await tx.budgetNotificationSetting.findUnique({ where: { userId: a.id }, select: { enabled: true, warningPercent: true, notifyExceeded: true, totalBudget: true, categoryBudgets: true } });
+      const saved = await tx.budgetNotificationSetting.findUnique({ where: { userId: a.id }, select: { enabled: true, notifyNearLimit: true, warningPercent: true, notifyExceeded: true, totalBudget: true, categoryBudgets: true } });
       assert.deepEqual(saved, values);
       stage = 'create budget and expense';
       await tx.budget.create({ data: { userId: a.id, year: 2020, month: 9, amount: '100.00' } });

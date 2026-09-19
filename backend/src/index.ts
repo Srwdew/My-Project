@@ -1,3 +1,5 @@
+import { saveProfile } from './lib/profile';
+import { settingsRouter } from './routes/settings';
 import { goalsRouter } from './routes/goals';
 import { withGoalLock, guardFundingTransaction, GoalError } from './lib/goalWriteTransaction';
 import { Prisma } from '@prisma/client';
@@ -20,6 +22,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(goalsRouter);
+app.use(settingsRouter);
 
 function getTransactionTodayKey(): string {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -803,6 +806,7 @@ app.post('/auth/login', async (req, res) => {
         id: true,
         email: true,
         passwordHash: true,
+        authVersion: true,
       },
     });
 
@@ -827,6 +831,7 @@ app.post('/auth/login', async (req, res) => {
       {
         userId: user.id,
         email: user.email,
+        authVersion: user.authVersion,
       },
       secret,
       {
@@ -904,6 +909,7 @@ app.get(
           profile: {
             select: {
               displayName: true,
+              avatarMime: true,
             },
           },
         },
@@ -919,6 +925,7 @@ app.get(
         userId: user.id,
         email: user.email,
         displayName: user.profile?.displayName ?? null,
+        hasAvatar: Boolean(user.profile?.avatarMime),
       });
     } catch (error) {
       console.error('GET PROFILE ERROR:', error);
@@ -975,21 +982,7 @@ app.put(
         });
       }
 
-      const profile = await prisma.profile.upsert({
-        where: {
-          userId,
-        },
-        create: {
-          userId,
-          displayName: trimmedName,
-        },
-        update: {
-          displayName: trimmedName,
-        },
-        select: {
-          displayName: true,
-        },
-      });
+      const profile = await saveProfile(prisma, userId, { displayName: trimmedName });
 
       return res.json({
         userId: user.id,
@@ -1441,6 +1434,7 @@ app.get(
           enabled: true,
           warningPercent: true,
           notifyExceeded: true,
+          notifyNearLimit: true,
           totalBudget: true,
           categoryBudgets: true,
         },
@@ -1450,7 +1444,8 @@ app.get(
         setting ?? {
           enabled: false,
           warningPercent: 80,
-          notifyExceeded: true,
+          notifyExceeded: false,
+          notifyNearLimit: false,
           totalBudget: true,
           categoryBudgets: true,
         }
@@ -1513,10 +1508,13 @@ app.put(
         });
       }
 
+      const near = req.body.notifyNearLimit ?? enabled;
+      if (typeof near !== "boolean") return res.status(400).json({ error: "Invalid near toggle" });
       const values = {
-        enabled,
+        enabled: enabled && (near || notifyExceeded),
+        notifyNearLimit: enabled && near,
         warningPercent,
-        notifyExceeded,
+        notifyExceeded: enabled && notifyExceeded,
         totalBudget,
         categoryBudgets,
       };
@@ -1532,6 +1530,7 @@ app.put(
           enabled: true,
           warningPercent: true,
           notifyExceeded: true,
+          notifyNearLimit: true,
           totalBudget: true,
           categoryBudgets: true,
         },

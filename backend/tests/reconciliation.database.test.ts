@@ -42,7 +42,7 @@ test('PostgreSQL HTTP reconciliation against independent integer-satang totals',
       }
       redirect(prisma, '$transaction', (arg: any) => Array.isArray(arg) ? Promise.all(arg) : arg(tx));
       redirect(prisma, '$executeRaw', tx.$executeRaw.bind(tx));
-      const existingUsers = await tx.user.findMany({ where: { deletedAt: null }, select: { id: true, email: true } });
+      const existingUsers = await tx.user.findMany({ where: { deletedAt: null }, select: { id: true, email: true, authVersion: true } });
       const expenseA = await tx.category.create({ data: { name: `reconciliation-a-${randomUUID()}`, type: 'expense' } });
       const expenseB = await tx.category.create({ data: { name: `reconciliation-b-${randomUUID()}`, type: 'expense' } });
       const incomeCategory = await tx.category.create({ data: { name: `reconciliation-income-${randomUUID()}`, type: 'income' } });
@@ -208,7 +208,7 @@ test('PostgreSQL HTTP reconciliation against independent integer-satang totals',
         for (const [index,user] of existingUsers.entries()) {
           const rows=await tx.transaction.findMany({where:{userId:user.id},select:{transactionDate:true}});
           const months=[...new Set(rows.map(row=>day(row.transactionDate).slice(0,7)))].sort();
-          const authenticated={id:user.id,token:jwt.sign({userId:user.id,email:user.email},process.env.JWT_SECRET!)};
+          const authenticated={id:user.id,token:jwt.sign({userId:user.id,email:user.email,authVersion:user.authVersion},process.env.JWT_SECRET!)};
           for(const monthKey of months) {
             const [year,month]=monthKey.split('-').map(Number);
             const end=day(new Date(Date.UTC(year!,month!,0)));

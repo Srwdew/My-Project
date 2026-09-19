@@ -16,7 +16,7 @@ test('HTTP settings, CRUD hooks, notification ownership, read timestamps and lat
   process.env.JWT_SECRET = randomUUID();
   const tokens = Object.fromEntries(['a', 'b'].map(userId => [userId, jwt.sign({ userId, email: `${userId}@example.invalid` }, process.env.JWT_SECRET!)]));
   const settings = new Map<string, any>();
-  const defaults = { enabled: false, warningPercent: 80, notifyExceeded: true, totalBudget: true, categoryBudgets: true };
+  const defaults = { enabled: false, warningPercent: 80, notifyNearLimit: false, notifyExceeded: false, totalBudget: true, categoryBudgets: true };
   const notices = Array.from({ length: 42 }, (_, i) => ({ id: `a-${i}`, userId: 'a', readAt: null as Date | null, createdAt: new Date(2020, 0, i + 1) }));
   notices.push({ id: 'b-1', userId: 'b', readAt: null, createdAt: new Date() });
   const transactions: any[] = [];
@@ -68,7 +68,7 @@ test('HTTP settings, CRUD hooks, notification ownership, read timestamps and lat
       assert.equal((await request('/notification-settings/budget', 'PUT', { ...defaults, warningPercent: 80.5 })).status, 400);
       assert.equal((await request('/notification-settings/budget', 'PUT', { ...defaults, enabled: 'true' })).status, 400);
       assert.equal((await request('/notification-settings/budget', 'PUT', { ...defaults, enabled: true, totalBudget: false, categoryBudgets: false })).status, 400);
-      const values = { ...defaults, enabled: true, warningPercent: 90 };
+      const values = { ...defaults, enabled: true, notifyNearLimit: true, notifyExceeded: true, warningPercent: 90 };
       assert.equal((await request('/notification-settings/budget', 'PUT', { ...values, userId: 'b' })).status, 200);
       assert.deepEqual(await (await request('/notification-settings/budget')).json(), values);
       assert.deepEqual(await (await request('/notification-settings/budget', 'GET', undefined, 'b')).json(), defaults);

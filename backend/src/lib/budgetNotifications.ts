@@ -15,10 +15,10 @@ export function transactionPeriod(date: Date): Period {
   return { year: date.getUTCFullYear(), month: date.getUTCMonth() + 1 };
 }
 export function noticeType(spent: Prisma.Decimal, budget: Prisma.Decimal,
-  warningPercent: number, notifyExceeded: boolean, exceededBefore: boolean) {
+  warningPercent: number, notifyExceeded: boolean, exceededBefore: boolean, notifyNearLimit = true) {
   if (budget.lte(0)) return null;
   if (spent.gt(budget) && notifyExceeded) return 'budget_exceeded' as const;
-  if (!exceededBefore && spent.mul(100).gte(budget.mul(warningPercent))) {
+  if (notifyNearLimit && !exceededBefore && spent.mul(100).gte(budget.mul(warningPercent))) {
     return 'budget_near_limit' as const;
   }
   return null;
@@ -59,7 +59,7 @@ export async function checkBudgetMonth(tx: Prisma.TransactionClient, userId: str
     const exceeded = await tx.notification.findUnique({
       where: { userId_eventKey: { userId, eventKey: exceededKey } }, select: { id: true },
     });
-    const type = noticeType(scope.spent, scope.amount, setting.warningPercent, setting.notifyExceeded, Boolean(exceeded));
+    const type = noticeType(scope.spent, scope.amount, setting.warningPercent, setting.notifyExceeded, Boolean(exceeded), setting.notifyNearLimit ?? true);
     if (!type) continue;
     const over = scope.spent.gt(scope.amount);
     // Immutable snapshot. A warning can truthfully describe spending above budget when exceeded is disabled.

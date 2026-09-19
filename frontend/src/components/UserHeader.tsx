@@ -3,7 +3,7 @@ import { useProfile } from '../contexts/ProfileContext';
 import './UserHeader.css';
 
 export default function UserHeader() {
-  const { profile, loading } = useProfile();
+  const { profile, loading, avatarUrl } = useProfile();
 
   const name =
     profile?.displayName ||
@@ -20,7 +20,7 @@ export default function UserHeader() {
 
       <div className="user-header-profile">
         <div className="user-header-avatar">
-          {initial}
+          {avatarUrl ? <img src={avatarUrl} alt="" style={{width:"100%",height:"100%",objectFit:"cover",borderRadius:"50%"}} /> : initial}
         </div>
 
         <div className="user-header-info">

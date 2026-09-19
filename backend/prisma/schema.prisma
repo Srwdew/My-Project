@@ -17,6 +17,7 @@ model User {
   passwordHash              String
   createdAt                 DateTime                   @default(now())
   deletedAt                 DateTime?
+  authVersion               Int                        @default(0)
   goals                     Goal[]
   goalFundingSources        GoalFundingSource[]
   goalOperations            GoalOperation[]
@@ -31,14 +32,21 @@ model User {
 }
 
 model Profile {
-  id          String  @id @default(uuid())
-  userId      String  @unique
-  user        User    @relation(fields: [userId], references: [id])
-  displayName String? @db.VarChar(80)
-  occupation  String?
-  income      Float?
-  goal        String?
-  lifestyle   String?
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id])
+  displayName   String?  @db.VarChar(80)
+  occupation    String?
+  income        Decimal? @db.Decimal(12, 2)
+  paydayDay     Int?
+  primaryGoalId String?
+  primaryGoal   Goal?    @relation("PrimaryGoal", fields: [userId, primaryGoalId], references: [userId, id], onDelete: Restrict, onUpdate: Restrict)
+  avatarData    Bytes?
+  avatarMime    String?  @db.VarChar(32)
+  goal          String?
+  lifestyle     String?
+
+  @@index([userId, primaryGoalId])
 }
 
 model Category {
@@ -146,7 +154,8 @@ model BudgetNotificationSetting {
   userId          String   @unique
   enabled         Boolean  @default(false)
   warningPercent  Int      @default(80)
-  notifyExceeded  Boolean  @default(true)
+  notifyNearLimit Boolean  @default(false)
+  notifyExceeded  Boolean  @default(false)
   totalBudget     Boolean  @default(true)
   categoryBudgets Boolean  @default(true)
   createdAt       DateTime @default(now())
@@ -185,6 +194,7 @@ enum GoalOperationKind {
 }
 
 model Goal {
+  primaryProfiles      Profile[]         @relation("PrimaryGoal")
   id                   String            @id @default(uuid())
   userId               String
   name                 String            @db.VarChar(120)

@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma';
 type JwtPayload = {
   userId: string;
   email: string;
+  authVersion?: number;
 };
 
 export interface AuthRequest extends Request {
@@ -57,7 +58,9 @@ export async function authMiddleware(
       });
     }
 
+    if (decoded.authVersion !== undefined && (!Number.isInteger(decoded.authVersion) || decoded.authVersion < 0)) return res.status(401).json({ error: "Invalid token version" });
     payload = {
+      authVersion: decoded.authVersion ?? 0,
       userId: decoded.userId,
       email: decoded.email,
     };
@@ -76,16 +79,18 @@ export async function authMiddleware(
       select: {
         id: true,
         email: true,
+        authVersion: true,
       },
     });
 
-    if (!user) {
+    if (!user || (user.authVersion ?? 0) !== (payload.authVersion ?? 0)) {
       return res.status(401).json({
         error: 'บัญชีนี้ไม่สามารถใช้งานได้ กรุณาเข้าสู่ระบบใหม่',
       });
     }
 
     req.user = {
+      authVersion: user.authVersion ?? 0,
       userId: user.id,
       email: user.email,
     };

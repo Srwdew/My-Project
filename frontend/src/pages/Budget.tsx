@@ -828,6 +828,7 @@ type BudgetNoticeSettings = {
   enabled: boolean;
   warningPercent: number;
   notifyExceeded: boolean;
+  notifyNearLimit: boolean;
   totalBudget: boolean;
   categoryBudgets: boolean;
 };
@@ -904,11 +905,11 @@ function BudgetNotificationSettings({
   }, [revision]);
 
   function toggle(
-    field: 'enabled' | 'notifyExceeded' | 'totalBudget' | 'categoryBudgets',
+    field: 'enabled' | 'notifyNearLimit' | 'notifyExceeded' | 'totalBudget' | 'categoryBudgets',
     checked: boolean
   ) {
     setSettings((current) =>
-      current ? { ...current, [field]: checked } : current
+      current ? (() => { const next={...current,[field]:checked}; if(field==='enabled'){next.notifyNearLimit=checked;next.notifyExceeded=checked;} next.enabled=next.notifyNearLimit||next.notifyExceeded; return next; })() : current
     );
     setSuccess('');
     setError('');
@@ -1034,6 +1035,7 @@ function BudgetNotificationSettings({
               เปิดการแจ้งเตือนงบประมาณ
             </label>
 
+            <label><input type="checkbox" style={checkboxStyle} checked={settings.notifyNearLimit} onChange={event=>toggle('notifyNearLimit',event.target.checked)} />แจ้งเตือนเมื่อถึงเกณฑ์งบประมาณ</label>
             <label htmlFor="budget-warning-percent">
               เตือนเมื่อใช้ถึง (%) ของงบ
             </label>
