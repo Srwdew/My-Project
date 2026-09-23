@@ -1,3 +1,6 @@
+import { dashboardRouter } from './routes/dashboard';
+import { dashboardPeriod, DashboardInputError } from './lib/dashboard';
+import { bangkokToday } from './lib/goalCalculations';
 import { saveProfile } from './lib/profile';
 import { settingsRouter } from './routes/settings';
 import { goalsRouter } from './routes/goals';
@@ -23,6 +26,7 @@ app.use(cors());
 app.use(express.json());
 app.use(goalsRouter);
 app.use(settingsRouter);
+app.use(dashboardRouter);
 
 function getTransactionTodayKey(): string {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -256,10 +260,12 @@ app.get(
   async (req: AuthRequest, res) => {
     try {
       const userId = req.user!.userId;
+      const monthPeriod = req.query.month === undefined ? null : dashboardPeriod(req.query.month, bangkokToday());
 
       const transactions = await prisma.transaction.findMany({
         where: {
           userId,
+          ...(monthPeriod ? { transactionDate: { gte: new Date(monthPeriod.startDate + 'T00:00:00Z'), lte: new Date(monthPeriod.effectiveEndDate + 'T00:00:00Z') } } : {}),
         },
         include: {
           category: true,
@@ -276,6 +282,7 @@ app.get(
 
       return res.json(transactions);
     } catch (error) {
+      if (error instanceof DashboardInputError) return res.status(400).json({ error: error.message });
       console.error(error);
 
       return res.status(500).json({

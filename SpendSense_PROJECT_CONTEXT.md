@@ -1185,3 +1185,21 @@ Migration ใหม่ 20260919010000_add_user_settings: ตรวจ checksum 9
 
 รายละเอียด API/validation/migration/tests/รายชื่อไฟล์/checklist และข้อจำกัดอยู่ SETTINGS_IMPLEMENTATION.md หลักฐาน runtime อยู่ .git/settings-verification ไม่รวมใน Git; ไฟล์ local ที่ค้างมาก่อนรักษาไว้ทั้งหมด
 ปิดงาน Settings 19 กันยายน 2026: เปลี่ยนชื่อ mockup เป็น docs/mockups/User-settings.png และเพิ่ม migration.sql -text ใน .gitattributes ของ migration Settings ตาม convention เดิม โดยไม่เปลี่ยน bytes ของ SQL ที่ apply แล้ว ไฟล์ local ที่ไม่เกี่ยวข้องคงไว้นอก commit
+
+## Monthly Dashboard — 19 กันยายน 2026 (Asia/Bangkok)
+
+เปลี่ยน /overview เป็น Dashboard รายเดือนผ่าน ?month=YYYY-MM และเพิ่ม GET /dashboard โดยไม่เปลี่ยน GET /overview หรือ /overview/weekly เดิม ไม่อนุญาตเดือนอนาคต ใช้ asOfDate Bangkok ครั้งเดียวต่อ request และ UTC surrogate dates เดือนปัจจุบันถึงวันนี้ เดือนย้อนหลังครบเดือน
+
+รวม Transaction จริงด้วย DB groupBy และ Prisma Decimal ส่งเงินเป็นstring รายรับ/รายจ่าย/cash flow/งบคงเหลือ งบไม่มีค่าเป็นnull และติดลบได้ รายหมวดครบทุกหมวดกับรายวันตรวจผลรวมเทียบ summary ได้ รายการล่าสุด5เรียง transactionDate/createdAt/id แบบ deterministic ไม่รวม Profile.income หรือเงิน Goals เป็นรายรับ/รายจ่าย
+
+Goals แสดงสถานะปัจจุบัน active/not_started/overdue แยกกัน ใช้ calculateGoal เดิม และ canonical netGoalAllocation helper ร่วมกับ goalSaved รวม ledger ของ correction/release/replacement ถูกต้อง เงินจัดสรรรวม completed/archived ด้วย primaryGoal ของ Settings เก็บสถานะ archived ให้เห็น ไม่สร้าง snapshot ย้อนหลัง
+
+Frontend ใช้ AppLayout/UserHeader/Bell เดิม SVG/CSS พร้อมตาราง keyboard-accessible แยกไม่มีรายการ/ยอด0ที่บันทึก/วันอนาคต มี loading/empty/error/retry, responsive และ keyed month/session + abort/active/token guards เพิ่ม /transactions?month ให้กรองใน DB และ History รองรับ URL โดยไม่มีmonthรักษาพฤติกรรมเดิม
+
+ลบ WeeklyExpenses.tsx/CSS หลังตรวจว่ามี Overview เรียกเพียงหน้าเดียว คง overviewPeriod.ts เพื่อ regression วันที่ของ contractเก่าที่ test ยังอ้างถึง ไม่มีruntime importในDashboardใหม่ ไม่เพิ่ม Analysis/Data Readiness/dependency/schema/migration
+
+ผล AI รันจริง: Prisma validate/generate และ buildทั้งสองฝั่งผ่าน (bundle warningเดิม); Dashboard14 + regression77 =91testsผ่าน0fail/skip บนฐานทดสอบใหม่แยก Chrome API-double8กลุ่มผ่านรวม responsive/keyboard/monthและsessionrace/History links ตรวจ SQLจริงพบ Transaction GROUP BY3query และ latest LIMIT1query พร้อม user/date predicates; ledger GROUP BY1query ไม่โหลดTransaction/ledgerทั้งบัญชีเข้าmemory
+
+ผู้ใช้ยืนยัน browser acceptance ของ Dashboard และ History month filter ผ่านวันที่ 20 กันยายน 2026 แยกจาก automated tests ของ AI รายละเอียดอยู่ DASHBOARD_IMPLEMENTATION.md ปิดงานเฉพาะ Dashboard โดยไม่ push และคงไฟล์ local เดิม ข้อจำกัด: Goal metadata ยังอ่านทั้งหมดของบัญชี และยังไม่ benchmark ฐานขนาดใหญ่
+
+ปิดงาน Dashboard 23 กันยายน 2026: staged candidate แยกตรงกับ index ทั้ง329ไฟล์; npm ci จาก lockfiles ของ candidate, Prisma validate/generate, backend/frontend build และ Dashboard14+regression77=91testsผ่าน ไม่มีfail/skip; Chrome API-mock8กลุ่มผ่านกับ buildของcandidate แยกจาก browser acceptance โดยผู้ใช้20กันยายน2026 เลือกเฉพาะ18paths ไม่รวมlocalเดิมและไม่push npm ciรายงานช่องโหว่backendเดิม6รายการ(1moderate/5high), frontend0 ไม่แก้dependencyนอกขอบเขต

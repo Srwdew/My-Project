@@ -3,7 +3,9 @@ import {
   useEffect,
   useMemo,
   useState,
-} from 'react';import { useNavigate } from 'react-router-dom';
+} from 'react';import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { getToken, useSessionKey } from '../auth';
+import { validDashboardMonth } from '../utils/dashboard';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { CalendarDays } from 'lucide-react';
@@ -43,6 +45,14 @@ type GroupedTransactions = {
 
 
 export default function TransactionHistory() {
+  const session = useSessionKey(); const [params] = useSearchParams();
+  return <TransactionHistorySession key={`${session}:${params.toString()}`} session={session} />;
+}
+function TransactionHistorySession({ session }: { session: string | null }) {
+  const [params] = useSearchParams(); const values = params.getAll('month');
+  const month = values[0] ?? null;
+  const validMonth = values.length <= 1 && (month === null || validDashboardMonth(month));
+  const [error, setError] = useState(''); const [revision, setRevision] = useState(0);
   const navigate = useNavigate();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -77,39 +87,23 @@ useEffect(() => {
 }, []);
 
   useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      setLoading(true);
-
-      const [transactionsRes, categoriesRes] = await Promise.all([
-        apiFetch('/transactions'),
-        apiFetch('/categories'),
-      ]);
-
-      if (!transactionsRes.ok) {
-        throw new Error('Failed to load transactions');
-      }
-
-      if (!categoriesRes.ok) {
-        throw new Error('Failed to load categories');
-      }
-
-      const transactionsData = await transactionsRes.json();
-      const categoriesData = await categoriesRes.json();
-
-      setTransactions(transactionsData);
-      setCategories(categoriesData);
-    } catch (error) {
-      console.error(error);
-      alert('ไม่สามารถโหลดข้อมูลธุรกรรมได้');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+    const controller = new AbortController(); let active = true;
+    setLoading(true); setTransactions([]); setError('');
+    if (!validMonth || !session) { setLoading(false); return () => { active = false; controller.abort(); }; }
+    void (async () => {
+      try {
+        const [transactionsRes, categoriesRes] = await Promise.all([
+          apiFetch('/transactions' + (month === null ? '' : '?month=' + encodeURIComponent(month)), { signal: controller.signal }),
+          apiFetch('/categories', { signal: controller.signal }),
+        ]);
+        if (!transactionsRes.ok || !categoriesRes.ok) throw Error();
+        const [items, categories] = await Promise.all([transactionsRes.json(), categoriesRes.json()]);
+        if (active && getToken() === session) { setTransactions(items); setCategories(categories); }
+      } catch { if (active && !controller.signal.aborted && getToken() === session) setError('ไม่สามารถโหลดข้อมูลธุรกรรมได้ กรุณาลองใหม่'); }
+      finally { if (active && getToken() === session) setLoading(false); }
+    })();
+    return () => { active = false; controller.abort(); };
+  }, [session, month, validMonth, revision]);
   const filteredTransactions = useMemo(() => {
     const keyword = search.trim().toLowerCase();
 
@@ -160,6 +154,7 @@ useEffect(() => {
   }, [filteredTransactions]);
 
 const hasActiveFilters =
+  month !== null ||
   search.trim() !== '' ||
   categoryFilter !== '' ||
   typeFilter !== '' ||
@@ -170,7 +165,7 @@ const visibleGroups =
     ? groupedTransactions
     : groupedTransactions.slice(0, 3);
 
-const historyViewLabel = hasActiveFilters
+const historyViewLabel = month !== null ? 'รายการของเดือน ' + month : hasActiveFilters
   ? 'ผลการค้นหาและกรองจากประวัติทั้งหมด'
   : showAllHistory
     ? 'ประวัติทั้งหมด'
@@ -300,6 +295,9 @@ const historyViewLabel = hasActiveFilters
         <UserHeader />
       </header>
 
+      {month !== null && <p>กรองเดือน {month} · <Link to="/transactions">ดูประวัติทั้งหมด</Link></p>}
+      {!validMonth && <p role="alert">เดือนที่ระบุไม่ถูกต้องหรือเป็นเดือนอนาคต</p>}
+      {error && <div role="alert"><p>{error}</p><button onClick={() => setRevision(v => v + 1)}>ลองใหม่</button></div>}
       <div className="history-layout">
         <section className="history-main-card">
           <div className="history-top-bar">

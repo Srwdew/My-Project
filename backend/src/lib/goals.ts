@@ -1,3 +1,4 @@
+import { netGoalAllocation } from './goalAllocation';
 import { randomUUID, createHash } from 'node:crypto';
 import { Prisma, type Goal, type GoalOperationKind, type GoalFundingSource, type GoalLedgerEntry } from '@prisma/client';
 import { D, bangkokToday, dateKey, calculateGoal, type SourceInput } from './goalCalculations';
@@ -41,7 +42,7 @@ export async function getGoal(tx: GoalTx, userId: string, id: string) {
 }
 export async function goalSaved(tx: GoalTx, userId: string, goalId: string) {
     const rows = await tx.goalLedgerEntry.groupBy({ by: ['kind'], where: { userId, goalId }, _sum: { amount: true } });
-    return rows.reduce((n, r) => r.kind === 'ALLOCATE' ? n.plus(r._sum.amount ?? 0) : n.minus(r._sum.amount ?? 0), new D(0));
+    return netGoalAllocation(rows);
 }
 export function goalView(goal: Goal, saved: Prisma.Decimal.Value, today = bangkokToday()) {
     return { ...goal, targetAmount: goal.targetAmount.toFixed(2), targetDate: goal.targetDate ? dateKey(goal.targetDate) : null, plannedMonthlyAmount: goal.plannedMonthlyAmount?.toFixed(2) ?? null, ...calculateGoal(goal, saved, today) };
