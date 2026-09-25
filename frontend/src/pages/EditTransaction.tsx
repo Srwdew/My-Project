@@ -1,3 +1,5 @@
+import AnomalyDetails from '../components/AnomalyDetails';
+import { useSessionKey } from '../auth';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import DatePicker from 'react-datepicker';
@@ -23,12 +25,14 @@ type Transaction = {
   amount: string | number;
   transactionDate: string;
   transactionTime: string | null;
+  transactionTimeConfirmed: boolean;
   paymentMethod?: string | null;
   description?: string | null;
   note?: string | null;
 };
 
-export default function EditTransaction() {
+export default function EditTransaction() { const session=useSessionKey();const {id}=useParams();return <EditTransactionSession key={session + ':' + id} />; }
+function EditTransactionSession() {
   const navigate = useNavigate();
   const { id } = useParams();
   const [type, setType] = useState<TransactionType>('expense');
@@ -37,6 +41,7 @@ export default function EditTransaction() {
   const [amount, setAmount] = useState('');
   const [transactionDate, setTransactionDate] = useState<Date>(new Date());
   const [transactionTime, setTransactionTime] = useState('');
+  const [transactionTimeConfirmed,setTransactionTimeConfirmed] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('');
   const [description, setDescription] = useState('');
   const [note, setNote] = useState('');
@@ -73,6 +78,7 @@ export default function EditTransaction() {
 
       setCategories(categoryData);
 
+      setTransactionTimeConfirmed(transaction.transactionTimeConfirmed ?? false);
       setType(transaction.type);
       setCategoryId(transaction.categoryId);
       setAmount(String(transaction.amount));
@@ -183,7 +189,7 @@ if (isFutureTransactionDate(transactionDate)) {
       amount: amountText,
       transactionDate:
         formatDateForBackend(transactionDate),
-      transactionTime: transactionTime || null,
+      transactionTime: transactionTime || null, transactionTimeConfirmed,
       paymentMethod: paymentMethod || null,
       description: description || null,
       note: note || null,
@@ -234,6 +240,7 @@ if (isFutureTransactionDate(transactionDate)) {
 
         <UserHeader />
       </header>
+      {id && <AnomalyDetails path={'/transactions/' + id + '/anomaly'} />}
 
       <section className="edit-card">
         <h2>1. ประเภทธุรกรรม</h2>
@@ -306,7 +313,7 @@ if (isFutureTransactionDate(transactionDate)) {
                 maxDate={getTransactionMaxDate()}
                 onChange={(date: Date | null) => {
   if (date) {
-    setTransactionDate(date);
+    setTransactionDate(date); setTransactionTimeConfirmed(false);
   }
 }}
                 dateFormat="dd/MM/yyyy"
@@ -322,8 +329,8 @@ if (isFutureTransactionDate(transactionDate)) {
                 className="edit-input"
                 type="time"
                 value={transactionTime}
-                onChange={(e) => setTransactionTime(e.target.value)}
-              />
+                onChange={(e) => (setTransactionTime(e.target.value), setTransactionTimeConfirmed(false))}
+              /><label style={{display:'block',marginTop:8}}><input type="checkbox" checked={transactionTimeConfirmed} disabled={!transactionTime} onChange={e=>setTransactionTimeConfirmed(e.target.checked)} /> ยืนยันว่าเป็นเวลาที่เกิดรายการจริงตามเวลาไทย (Asia/Bangkok)</label><small>ไม่ทราบเวลาจริงให้เว้นว่างหรือไม่ยืนยัน ระบบจะไม่ประเมินด้านเวลา</small>
             </div>
           </div>
 

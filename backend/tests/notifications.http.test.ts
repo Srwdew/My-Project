@@ -1,5 +1,6 @@
 // Real HTTP routing/auth/validation with an in-memory Prisma double, NOT a real DB test.
 import test from 'node:test';
+import { Prisma } from '@prisma/client';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import jwt from 'jsonwebtoken';
@@ -23,7 +24,8 @@ test('HTTP settings, CRUD hooks, notification ownership, read timestamps and lat
   const checked: string[] = [];
   let failCheck = false;
   const errors = console.error;
-  mock(prisma.user, 'findFirst', async ({ where }: any) => ({ id: where.id, email: `${where.id}@example.invalid` }));
+  mock(prisma.user, 'findFirst', async ({ where }: any) => ({ id: where.id, email: `${where.id}@example.invalid`, authVersion: 0 }));
+  mock(prisma.anomalyNotificationSetting, 'findUnique', async () => null);
   mock(prisma.category, 'findFirst', async () => ({ id: 'food', type: 'expense' }));
   mock(prisma.category, 'findUnique', async () => ({ id: 'food', type: 'expense' }));
   mock(prisma.budgetNotificationSetting, 'findUnique', async ({ where }: any) => settings.get(where.userId) ?? null);
@@ -43,9 +45,9 @@ test('HTTP settings, CRUD hooks, notification ownership, read timestamps and lat
     if (failCheck && options?.timeout !== 20000) throw new Error('simulated producer failure');
     return argument(prisma);
   });
-  mock(prisma.transaction, 'create', async ({ data }: any) => { const row = { id: randomUUID(), ...data }; transactions.push(row); return row; });
+  mock(prisma.transaction, 'create', async ({ data }: any) => { const row = { id: randomUUID(), ...data, amount: new Prisma.Decimal(data.amount) }; transactions.push(row); return row; });
   mock(prisma.transaction, 'findFirst', async ({ where }: any) => transactions.find(row => row.id === where.id && row.userId === where.userId) ?? null);
-  mock(prisma.transaction, 'update', async ({ where, data }: any) => { const i = transactions.findIndex(row => row.id === where.id); transactions[i] = { ...transactions[i], ...data }; return transactions[i]; });
+  mock(prisma.transaction, 'update', async ({ where, data }: any) => { const i = transactions.findIndex(row => row.id === where.id); transactions[i] = { ...transactions[i], ...data, amount: new Prisma.Decimal(data.amount) }; return transactions[i]; });
   mock(prisma.transaction, 'delete', async ({ where }: any) => { const i = transactions.findIndex(row => row.id === where.id); return transactions.splice(i, 1)[0]; });
   const matches = (row: any, where: any) => Object.entries(where).every(([key, value]) => row[key] === value);
   mock(prisma.notification, 'findMany', async ({ where, take }: any) => notices.filter(n => matches(n, where)).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).slice(0, take));

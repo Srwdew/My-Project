@@ -1,10 +1,11 @@
+import AnomalyDetails, { AnomalyReconcileButton } from './AnomalyDetails';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { getToken } from '../auth';
 
-type Notice = { id: string; title: string; message: string; link: string | null; readAt: string | null; createdAt: string };
+type Notice = { id: string; type?: string; title: string; message: string; link: string | null; readAt: string | null; createdAt: string };
 type NoticeList = { items: Notice[]; unreadCount: number };
 
 export default function NotificationBell() {
@@ -34,6 +35,7 @@ function SessionBell({ session }: { session: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [retryCheck, setRetryCheck] = useState(false);
+  const [anomalyId,setAnomalyId] = useState<string|null>(null);
   const valid = useCallback(() => alive.current && getToken() === session, [session]);
 
   const load = useCallback(async (reconcile = false) => {
@@ -109,6 +111,7 @@ function SessionBell({ session }: { session: string }) {
       locked.current = false;
       await load();
       if (valid() && !controller.signal.aborted && item) {
+        if(item.type==='transaction_anomaly'){setAnomalyId(item.id);return;}
         close();
         // Only internal paths; reject protocol-relative and backslash URLs.
         if (item.link?.startsWith('/') && !item.link.startsWith('//') && !item.link.includes(String.fromCharCode(92))) navigate(item.link);
@@ -131,7 +134,7 @@ function SessionBell({ session }: { session: string }) {
     <dialog ref={dialog} className="notification-dialog" aria-label="การแจ้งเตือนล่าสุด 30 รายการ" onCancel={() => trigger.current?.focus()}>
       <div className="notification-heading"><h2>การแจ้งเตือนล่าสุด 30 รายการ</h2><button type="button" onClick={close} aria-label="ปิดการแจ้งเตือน">×</button></div>
       <p aria-live="polite">ยังไม่อ่านทั้งหมด {data.unreadCount} รายการ</p>
-      <div className="notification-actions">
+      <div className="notification-actions"><AnomalyReconcileButton onDone={()=>void load()} />
         <button type="button" disabled={busy || loading || data.unreadCount === 0} onClick={() => void read()}>อ่านทั้งหมด</button>
         <button type="button" disabled={busy || loading} onClick={() => void load(true)}>ตรวจงบและโหลดใหม่</button>
       </div>
@@ -139,6 +142,7 @@ function SessionBell({ session }: { session: string }) {
       {error && <p role="alert">{error}</p>}
       {retryCheck && <p role="alert">ตรวจงบซ้ำไม่สำเร็จ รายการด้านล่างเป็นประวัติที่โหลดได้ กรุณากดตรวจงบและโหลดใหม่</p>}
       {!loading && !error && data.items.length === 0 && <p>ยังไม่มีการแจ้งเตือน</p>}
+      {anomalyId && <AnomalyDetails path={'/notifications/' + anomalyId + '/anomaly'} />}
       <ul className="notification-list">{data.items.map(item => <li key={item.id}>
         <button type="button" disabled={busy} className={item.readAt ? 'notification-item' : 'notification-item unread'} onClick={() => void read(item)}>
           <strong>{!item.readAt && <span className="notification-unread">ยังไม่อ่าน · </span>}{item.title}</strong>

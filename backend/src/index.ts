@@ -1,3 +1,5 @@
+import { anomalyRouter } from './routes/anomaly';
+import { assertAnomalyActor, confirmedTime, anomalyWriteFields, checkTransactionAnomaly } from './lib/anomaly';
 import { dashboardRouter } from './routes/dashboard';
 import { dashboardPeriod, DashboardInputError } from './lib/dashboard';
 import { bangkokToday } from './lib/goalCalculations';
@@ -27,6 +29,7 @@ app.use(express.json());
 app.use(goalsRouter);
 app.use(settingsRouter);
 app.use(dashboardRouter);
+app.use(anomalyRouter);
 
 function getTransactionTodayKey(): string {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -224,9 +227,14 @@ if (!validated.ok) {
         });
       }
 
-      const transaction = await withGoalLock(userId, tx => tx.transaction.create({
+      const transaction = await withGoalLock(userId, async tx => {
+        await assertAnomalyActor(tx, req.user!);
+        const confirmation = confirmedTime(req.body.transactionTimeConfirmed, validated.transactionTime, validated.transactionDate);
+        const anomalyFields = await anomalyWriteFields(tx,userId,{type,categoryId,amount:validated.amount,transactionDate:validated.transactionDate,transactionTime:validated.transactionTime,transactionTimeConfirmed:confirmation,paymentMethod:paymentMethod||null,description:description||null,note:note||null});
+        return tx.transaction.create({
         data: {
           userId,
+          ...anomalyFields, transactionTimeConfirmed: confirmation,
           categoryId,
           type,
           amount: validated.amount,
@@ -239,9 +247,11 @@ if (!validated.ok) {
         include: {
           category: true,
         },
-      }));
+      });
+      });
 
       await checkBudgetNotifications(userId, [transactionPeriod(transaction.transactionDate)]);
+      await checkTransactionAnomaly(req.user!,transaction.id);
       return res.status(201).json(transaction);
     } catch (error) {
       if(error instanceof GoalError) return res.status(error.status).json({error:error.message,code:error.code});
@@ -564,14 +574,18 @@ if (!validated.ok) {
       }
 
       const {transaction,previousDate} = await withGoalLock(userId,async tx=>{
+        await assertAnomalyActor(tx,req.user!);
         const current=await tx.transaction.findFirst({where:{id,userId}});
         if(!current) throw new GoalError(404,'TRANSACTION_NOT_FOUND','ไม่พบรายการ');
         await guardFundingTransaction(tx,userId,id,{type,amount:validated.amount,transactionDate:validated.transactionDate});
+        const confirmation=confirmedTime(req.body.transactionTimeConfirmed,validated.transactionTime,validated.transactionDate,current);
+        const anomalyFields=await anomalyWriteFields(tx,userId,{type,categoryId,amount:validated.amount,transactionDate:validated.transactionDate,transactionTime:validated.transactionTime,transactionTimeConfirmed:confirmation,paymentMethod:paymentMethod||null,description:description||null,note:note||null},current);
         const transaction=await tx.transaction.update({
         where: {
           id, userId,
         },
         data: {
+          ...anomalyFields, transactionTimeConfirmed: confirmation,
           categoryId,
           type,
           amount: validated.amount,
@@ -589,6 +603,7 @@ if (!validated.ok) {
         return {transaction,previousDate:current.transactionDate};
       });
       await checkBudgetNotifications(userId, [transactionPeriod(previousDate), transactionPeriod(transaction.transactionDate)]);
+      await checkTransactionAnomaly(req.user!,transaction.id);
       return res.json(transaction);
     } catch (error) {
       if(error instanceof GoalError) return res.status(error.status).json({error:error.message,code:error.code});
@@ -630,6 +645,7 @@ if (typeof id !== 'string' || id.trim() === '') {
       }
 
       await withGoalLock(userId,async tx=>{
+        await assertAnomalyActor(tx,req.user!);
         const current=await tx.transaction.findFirst({where:{id,userId}});
         if(!current) throw new GoalError(404,'TRANSACTION_NOT_FOUND','ไม่พบรายการ');
         await guardFundingTransaction(tx,userId,id);

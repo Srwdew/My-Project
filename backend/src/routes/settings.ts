@@ -13,7 +13,7 @@ export const settingsInput = z.object({
     displayName: displayNameInput, income: money.nullable(),
     paydayDay: z.number().int().min(1).max(31).nullable(), primaryGoalId: z.string().uuid().nullable(),
     budgetMonth: z.string().regex(/^\d{4}-\d{2}$/), budgetAmount: money.refine(s => new Prisma.Decimal(s).gt(0)).nullable(),
-    notifyNearLimit: z.boolean(), notifyExceeded: z.boolean(),
+    notifyNearLimit: z.boolean(), notifyExceeded: z.boolean(), notifyAnomaly: z.boolean().optional(),
 }).strict();
 export function paydayDate(year: number, month: number, day: number) {
     return new Date(Date.UTC(year, month - 1, Math.min(day, new Date(Date.UTC(year, month, 0)).getUTCDate())));
@@ -24,11 +24,12 @@ async function view(tx: GoalTx, userId: string, period = currentBudgetPeriod()) 
     const profile = await tx.profile.findUnique({ where: { userId }, select: { displayName: true, income: true, paydayDay: true, primaryGoalId: true, goal: true, avatarMime: true, primaryGoal: { select: { id: true, name: true, archivedAt: true } } } });
     const budget = await tx.budget.findUnique({ where: { userId_year_month: { userId, ...period } } });
     const notification = await tx.budgetNotificationSetting.findUnique({ where: { userId }, select: { enabled: true, notifyNearLimit: true, notifyExceeded: true, warningPercent: true, totalBudget: true, categoryBudgets: true } });
+    const anomaly = await tx.anomalyNotificationSetting.findUnique({where:{userId}});
     const goals = await tx.goal.findMany({ where: { userId, archivedAt: null }, select: { id: true, name: true }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
     return { userId, email: user.email, displayName: profile?.displayName ?? null, income: profile?.income?.toFixed(2) ?? null,
         paydayDay: profile?.paydayDay ?? null, effectivePaydayDate: profile?.paydayDay ? paydayDate(period.year, period.month, profile.paydayDay).toISOString().slice(0, 10) : null, primaryGoalId: profile?.primaryGoalId ?? null, primaryGoal: profile?.primaryGoal ?? null,
         legacyGoal: profile?.goal ?? null, hasAvatar: Boolean(profile?.avatarMime), goals, budgetMonth: `${period.year}-${String(period.month).padStart(2, '0')}`,
-        budgetAmount: budget?.amount.toFixed(2) ?? null, notifications: notification ?? defaults };
+        budgetAmount: budget?.amount.toFixed(2) ?? null, notifications: {...(notification ?? defaults), notifyAnomaly: anomaly?.enabled ?? false} };
 }
 function handle(work: (req: AuthRequest, res: Response) => Promise<unknown>) {
     return async (req: AuthRequest, res: Response) => {
@@ -85,6 +86,10 @@ settingsRouter.put('/settings', authMiddleware, handle(async (req, res) => {
             throw new GoalError(400, 'NO_SCOPE', 'กรุณาเลือกขอบเขตการแจ้งเตือนที่หน้างบประมาณก่อน');
         const toggles = { enabled, notifyNearLimit: input.notifyNearLimit, notifyExceeded: input.notifyExceeded };
         await tx.budgetNotificationSetting.upsert({ where: { userId }, create: { userId, ...toggles }, update: toggles });
+        if(input.notifyAnomaly!==undefined){
+          await tx.anomalyNotificationSetting.upsert({where:{userId},create:{userId,enabled:input.notifyAnomaly},update:{enabled:input.notifyAnomaly}});
+          if(!input.notifyAnomaly)await tx.transaction.updateMany({where:{userId,anomalyPending:true},data:{anomalyPending:false}});
+        }
         return view(tx, userId, period);
     });
     // Producer contains failures; a successful transaction must never be reported as failed.

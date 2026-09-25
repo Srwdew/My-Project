@@ -12,12 +12,16 @@ datasource db {
 }
 
 model User {
-  id                        String                     @id @default(uuid())
-  email                     String                     @unique
+  anomalyReviews            AnomalyReview[]
+  anomalyReviewRequests     AnomalyReviewRequest[]
+  anomalySetting            AnomalyNotificationSetting?
+  anomalyEvaluations        AnomalyEvaluation[]
+  id                        String                      @id @default(uuid())
+  email                     String                      @unique
   passwordHash              String
-  createdAt                 DateTime                   @default(now())
+  createdAt                 DateTime                    @default(now())
   deletedAt                 DateTime?
-  authVersion               Int                        @default(0)
+  authVersion               Int                         @default(0)
   goals                     Goal[]
   goalFundingSources        GoalFundingSource[]
   goalOperations            GoalOperation[]
@@ -62,9 +66,12 @@ model Category {
 }
 
 model Transaction {
-  goalFundingSource GoalFundingSource?
-  id                String             @id @default(uuid())
-  userId            String
+  transactionTimeConfirmed Boolean            @default(false)
+  anomalyRevision          Int                @default(0)
+  anomalyPending           Boolean            @default(false)
+  goalFundingSource        GoalFundingSource?
+  id                       String             @id @default(uuid())
+  userId                   String
 
   categoryId String
 
@@ -86,6 +93,7 @@ model Transaction {
   @@index([userId])
   @@index([categoryId])
   @@index([transactionDate])
+  @@index([userId, categoryId, transactionDate])
 }
 
 model Budget {
@@ -303,4 +311,59 @@ model GoalOpeningRevision {
 
   @@unique([userId, operationId])
   @@index([userId, sourceId, createdAt, id])
+}
+
+model AnomalyNotificationSetting {
+  userId    String   @id
+  enabled   Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+}
+
+model AnomalyEvaluation {
+  reviews               AnomalyReview[]
+  id                    String          @id @default(uuid())
+  userId                String
+  originalTransactionId String
+  revision              Int
+  ruleVersion           String          @db.VarChar(100)
+  evaluatedAt           DateTime        @default(now()) @db.Timestamptz(3)
+  outcome               String          @db.VarChar(32)
+  snapshot              Json
+  user                  User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, id, revision])
+  @@unique([userId, originalTransactionId, revision, ruleVersion], map: "anomaly_evaluation_revision_key")
+  @@index([userId, originalTransactionId, revision])
+}
+
+model AnomalyReview {
+  id                    String                 @id @default(uuid())
+  userId                String
+  evaluationId          String
+  originalTransactionId String
+  revision              Int
+  action                String                 @db.VarChar(32)
+  sequence              Int
+  reviewedAt            DateTime               @default(now()) @db.Timestamptz(3)
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  evaluation            AnomalyEvaluation      @relation(fields: [userId, evaluationId, revision], references: [userId, id, revision], onDelete: Restrict, onUpdate: Restrict)
+  requests              AnomalyReviewRequest[]
+
+  @@unique([userId, id])
+  @@unique([userId, originalTransactionId, revision, sequence])
+}
+
+model AnomalyReviewRequest {
+  userId             String
+  idempotencyKey     String        @db.Uuid
+  requestFingerprint String        @db.VarChar(64)
+  reviewId           String
+  responseStatus     Int
+  createdAt          DateTime      @default(now()) @db.Timestamptz(3)
+  user               User          @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  review             AnomalyReview @relation(fields: [userId, reviewId], references: [userId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([userId, idempotencyKey])
+  @@index([userId, reviewId])
 }

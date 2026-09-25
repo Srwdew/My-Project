@@ -1203,3 +1203,48 @@ Frontend ใช้ AppLayout/UserHeader/Bell เดิม SVG/CSS พร้อ�
 ผู้ใช้ยืนยัน browser acceptance ของ Dashboard และ History month filter ผ่านวันที่ 20 กันยายน 2026 แยกจาก automated tests ของ AI รายละเอียดอยู่ DASHBOARD_IMPLEMENTATION.md ปิดงานเฉพาะ Dashboard โดยไม่ push และคงไฟล์ local เดิม ข้อจำกัด: Goal metadata ยังอ่านทั้งหมดของบัญชี และยังไม่ benchmark ฐานขนาดใหญ่
 
 ปิดงาน Dashboard 23 กันยายน 2026: staged candidate แยกตรงกับ index ทั้ง329ไฟล์; npm ci จาก lockfiles ของ candidate, Prisma validate/generate, backend/frontend build และ Dashboard14+regression77=91testsผ่าน ไม่มีfail/skip; Chrome API-mock8กลุ่มผ่านกับ buildของcandidate แยกจาก browser acceptance โดยผู้ใช้20กันยายน2026 เลือกเฉพาะ18paths ไม่รวมlocalเดิมและไม่push npm ciรายงานช่องโหว่backendเดิม6รายการ(1moderate/5high), frontend0 ไม่แก้dependencyนอกขอบเขต
+
+## Transaction screening — 24 กันยายน 2026 (Asia/Bangkok)
+
+พัฒนาระบบคัดกรอง expense ที่ควรตรวจสอบด้วยกฎสถิติ ไม่ใช่การยืนยันการทุจริต ใช้ประวัติ auth user/หมวดเดียวกันย้อนหลัง180วันก่อนวันรายการ จำนวนเงิน modified Z/MAD, IQR fallback และ zero-dispersion ตามกติกาที่อนุมัติ; ทุก flag ใช้ strict threshold และข้อมูลไม่พอเป็น not_evaluated เวลาใช้เฉพาะ Bangkok wall-clock ที่ผู้ใช้ยืนยัน ไม่ใช้ createdAt
+
+เปิด Settings notifyAnomaly จริง defaultfalse ไม่มี backfill; Add/Edit ไม่เติมและยืนยันเวลาอัตโนมัติ NotificationBell/รายละเอียด Transaction เดิมแยก snapshot ตอนแจ้งกับ latest evaluation พร้อมสถานะต้นทางแก้/ลบและ session guard ไม่มีหน้าใหม่/dependencyใหม่
+
+Migration 20260923010000_add_transaction_anomaly เพิ่ม preference, revision/pending, append-only Evaluation พร้อม PostgreSQL trigger กัน UPDATE/DELETE/ผิด ownership และ partial pending index. ทดสอบ migrate upgrade10→11บนฐานแยกพร้อม legacy timed row ยืนยัน confirmationfalse/no backfill. ฐานใช้งานจริงยังมี10 applied migrations checksumตรงทั้งหมด และ migrationใหม่ยัง pending ไม่ได้ apply
+
+CRUD, toggle และ finalize ใช้ user row lock/authVersion protocol เดิม; producer failure ไม่ทำให้ CRUD ที่ commitแล้วล้มเหลว; eventKey transaction-anomaly:<transactionId> หนึ่ง notificationตลอดอายุรายการ; revisionใหม่เก็บEvaluationไม่แก้snapshotเก่า; ลบก่อนตรวจยกเลิกpendingไม่สร้างผลหลังลบ. POST /notifications/anomaly/reconcile แยกจาก budget contract เดิม limit1–50/cursor ตรวจlatestrevisionเท่านั้น ไม่มีประเมินรายการอื่นย้อนหลังเมื่อbaselineเปลี่ยน
+
+ผล AI รันจริงรอบสุดท้าย:109testsผ่าน0fail/skip (รวม18 anomaly calculation/HTTP/PostgreSQL/concurrency tests และ91regressionเดิม); Prisma validate/generate และ build backend/frontendผ่าน; Chrome API mocks anomaly7กลุ่ม, Settings11กลุ่ม, Dashboard8กลุ่มผ่าน รวมresponsive/keyboard/error/retry/delayed session response; query PostgreSQLจริงคืนaggregateแถวเดียวพร้อมuser/category/window predicates ไม่มีโหลดประวัติทั้งบัญชีเข้าNode memory
+
+Browser acceptance กับ backendจริงของงานนี้ยังไม่ได้ทดสอบโดยผู้ใช้ ต้องอนุมัติและapply migrationฐานใช้งานจริงก่อนเปิดใช้ ไม่อ้างผลAPI mocksแทน acceptance. ยังไม่มีscheduler/durable queue/event log มีpending flagรองรับretry revisionล่าสุด ต้องกดตรวจค้าง/เรียกreconcileหากprocessหยุดหลังCRUD. Synthetic calibrationตรวจขอบกฎ ไม่ใช่อัตราความแม่นยำจริง
+
+รายละเอียดschema/API/lifecycle/files/ข้อจำกัดอยู่ ANOMALY_IMPLEMENTATION.md และ ANOMALY_CALIBRATION.md; หลักฐานruntimeใน.git/settings-verificationไม่รวมGit. ไม่แก้สูตรรายงานเดิม/Goals allocation ไม่ใช้ข้อมูลผู้ใช้อื่นทำfixture ไม่แตะไฟล์localเดิม และยังไม่stage/commit/push
+## Anomaly user feedback — 24 กันยายน 2026
+
+เพิ่ม append-only AnomalyReview + AnomalyReviewRequest receipts ด้วย migration แยก 20260924010000_add_anomaly_review; ไม่แก้ bytes migration anomaly เดิมที่เคยapplyแล้ว. FK/triggerบังคับownership/evaluation/revision/sequence และปฏิเสธUPDATE/DELETE เก็บหลักฐานหลังTransactionลบได้
+
+Baseline ใช้revisionปัจจุบันเท่านั้น: pending/problem/flagged-unreviewed ไม่เข้า, normalหรือnot_flaggedเข้าได้, not_evaluatedเพราะข้อมูลประวัติไม่พอเข้าได้เพื่อcold start. แยกamount/time eligibility โดยเวลาต้องมีและผู้ใช้ยืนยัน; reviewเก่าไม่ผูกrevisionใหม่ตลอดไป. การแก้ค่าTransactionรวมnote/description/paymentMethodสร้างrevisionใหม่; PUTค่าเดิมไม่เพิ่มrevision. Technicalfailureยังpendingไม่สร้างผลปลอม
+
+POST /anomaly/evaluations/:id/reviews ใช้Idempotency-Key/fingerprint/expectedReviewSequence/userlock/authVersion; replay/no-opไม่appendซ้ำ, conflict409. GET reviewsมีpagination; รายละเอียดเดิมแยกreviewState/currentRevision/latestEvaluation/notificationSnapshot/eligibilityพร้อมเหตุผล. UIยืนยันnormal/problemและhistoryอยู่ในรายละเอียดเดิม อ่านnotificationไม่ใช่review. Feedbackไม่แก้snapshot/threshold ไม่backfill. เพิ่มpolicy versionในconstantsครั้งนี้โดยไม่เปลี่ยนstatistical thresholds
+
+ทดสอบฐานว่าง12migrations+119tests และฐานทดสอบเดิม11→12+28focusedtestsผ่าน; fingerprintตารางเดิมก่อน/หลังmigrationไม่เปลี่ยน. Chrome review API mocks6กลุ่มผ่าน และregression anomaly7/Settings11/Dashboard8ผ่าน (Dashboardรอบรวมมีmonth-race timing failure ก่อนรันแยกซ้ำผ่านโดยไม่แก้Dashboard). Browser acceptanceของผู้ใช้ยังไม่เกิดขึ้นในรอบนี้. รายละเอียด/ไฟล์/ข้อจำกัดอยู่ ANOMALY_IMPLEMENTATION.md
+
+ฐานapplicationยัง10applied มีanomalyและreviewรอapply; ไม่applyฐานจริง ไม่stage/commit/push และรักษาไฟล์localเดิมทั้งหมด
+## Migration และ browser verification — 25 กันยายน 2026 (Asia/Bangkok)
+
+สถานะล่าสุดแทนข้อความก่อนหน้าที่ระบุว่า application ยังมี 10 migrations: deploy สอง migration anomaly/review ที่ได้รับอนุมัติแล้วด้วย prisma migrate deploy; application มี 12 migrations up to date และ checksum ตรงทั้งหมด ไม่แก้ applied SQL ไม่ reset/db push/resolve สำรอง pg_dump แบบ custom นอก Git ก่อน deploy และตรวจ archive อ่านได้ Fingerprint จำนวน/ผลรวม/แถวเดิมของ Transaction, Budget, Goals และ Notification ก่อน/หลังตรงกัน Transaction เดิมมี transactionTimeConfirmed=false ตรวจ append-only trigger definitions ของ Evaluation/Review/receipt ตรงกับฐานทดสอบที่ทดสอบ UPDATE/DELETE rejection แล้ว (ไม่ทดลอง mutation บน application) /health และ /health/db ตอบ 200
+
+Dashboard failure เป็น test harness race: URL เริ่มต้นไม่มี month ทำให้ null !== currentMonth ผ่านก่อน React navigation เสร็จ ปุ่มเดือนถัดไปยัง disabled จึงไม่เกิด request กลับเดือนปัจจุบัน แก้การรอเป็น URL/input/button/request/DOM ที่ตรงกัน ใช้ deferred response gates ตรวจ abort และปล่อย stale response หลังผลปัจจุบันแสดงแล้ว ผ่าน 10/10 รอบ ไม่เพิ่ม random sleep หรือลด assertion ไม่พบ product race และไม่ได้แก้ Overview product code Dashboard, Anomaly และ Review browser suites รันร่วมชุดจาก candidate แล้วผ่านทั้งหมด
+
+Candidate แยกสร้างจาก HEAD และ allowlist ของงาน ไม่รวม local App.css/root package/docker/environment changes npm ci, Prisma validate/generate และ backend/frontend build ผ่าน ระหว่างเตรียม candidate พบ git archive แปลง SQL เก่าบางไฟล์เป็น CRLF จึงคืนเฉพาะสำเนา candidate จาก raw Git blobs และตรวจ bytes ตรง workspace/ฐานข้อมูลก่อน deploy ไม่แตะ migration ต้นฉบับ ผล automated PostgreSQL/regression เดิม 119 tests ผ่าน; รอบนี้เพิ่ม real HTTP/Chrome acceptance บนฐาน acceptance แยกและบัญชีสังเคราะห์ ไม่มี fixture ใน application
+
+AI browser acceptance ผ่าน: เปิด/ปิด setting และ refresh, ประวัติไม่พอไม่แจ้ง, flagged แจ้งครั้งเดียว, read ไม่เปลี่ยน review, keyboard normal/problem/เปลี่ยนใจและ sequence/history เพิ่ม, amount/time eligibility แยกกัน, snapshot เดิมคงอยู่, revision ใหม่ไม่รับ review เก่า, not_flagged กลับ baseline, flagged ใหม่ unreviewed, ลบต้นทางแล้วยังอ่านหลักฐานได้, network error/retry, mobile และ response จริงที่ถูกหน่วงไม่ทับ session ใหม่ Test ใหม่ไม่มี API mock; ใช้ CDP ควบคุม network delivery เท่านั้น
+
+แยกจาก user browser acceptance: ผู้ใช้ยังไม่ได้ยืนยันการตรวจรับ Anomaly/Review ด้วยตนเอง เปิด acceptance UI ที่ http://127.0.0.1:5175 (backend 4001, ฐานแยก) เพื่อทดสอบต่อได้ บัญชี automation เป็นข้อมูลสังเคราะห์และไม่เผยแพร่ credential
+
+ไฟล์ที่เปลี่ยนเพิ่มในรอบนี้: backend/tests/dashboard.browser.cjs, backend/tests/anomaly.acceptance.browser.cjs, ANOMALY_IMPLEMENTATION.md และ SpendSense_PROJECT_CONTEXT.md หลักฐาน logs อยู่ .git/settings-verification ไม่รวม Git สำรองอยู่ C:/Users/zuxas/AppData/Local/SpendSense/backups/2026-09-24T15-49-09-837Z/before-anomaly-review.dump ไม่ stage/commit/push และรักษา local changes เดิม
+## User browser acceptance ผ่าน — 25 กันยายน 2026
+
+ผู้ใช้ยืนยันการตรวจรับ Anomaly/Review ผ่านด้วย backend/PostgreSQL acceptance จริง: amount anomaly แบบ zero-dispersion, time anomaly จากเวลาที่ยืนยัน, NotificationBell ข้อความถูกต้องและไม่แจ้งซ้ำ, readAt ไม่ใช่ review, confirmed_normal/confirmed_problem/เปลี่ยนใจพร้อมประวัติ, revision แยกจาก snapshot เก่า, ลบ Transaction แล้วยังอ่าน snapshot และ ownership แยก baseline ตามบัญชีถูกต้อง
+
+ผลนี้เป็น user browser acceptance แยกจาก automated tests/Chrome automation ที่ AI รายงานก่อนหน้า และแทนสถานะก่อนหน้าที่ยังรอผู้ใช้ตรวจรับ ไม่มีการปรับ threshold หรือ ruleVersion จาก feedback ข้อมูลจำลองและบัญชี acceptance อยู่เฉพาะฐานทดสอบ ไม่รวมใน commit; scripts เตรียม baseline, database dump, logs และ artifacts ไม่รวม Git

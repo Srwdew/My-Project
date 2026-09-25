@@ -23,16 +23,8 @@ export default function AddTransaction() {
 
   const [transactionDate, setTransactionDate] = useState<Date>(new Date());
 
-  const getCurrentTime = () => {
-    const now = new Date();
-
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-
-    return `${hours}:${minutes}`;
-  };
-
-  const [transactionTime, setTransactionTime] = useState(getCurrentTime());
+  const [transactionTime, setTransactionTime] = useState('');
+  const [transactionTimeConfirmed,setTransactionTimeConfirmed] = useState(false);
 
   const [paymentMethod, setPaymentMethod] = useState('');
   const [description, setDescription] = useState('');
@@ -89,7 +81,7 @@ export default function AddTransaction() {
     setCategoryId('');
     setAmount('');
     setTransactionDate(new Date());
-    setTransactionTime(getCurrentTime());
+    setTransactionTime(''); setTransactionTimeConfirmed(false);
     setPaymentMethod('');
     setDescription('');
     setNote('');
@@ -159,7 +151,7 @@ if (isFutureTransactionDate(transactionDate)) {
       type,
       amount: amountText,
       transactionDate: formattedDate,
-      transactionTime: transactionTime || null,
+      transactionTime: transactionTime || null, transactionTimeConfirmed,
       paymentMethod: paymentMethod || null,
       description: description || null,
       note: note || null,
@@ -286,7 +278,7 @@ if (isFutureTransactionDate(transactionDate)) {
                 maxDate={getTransactionMaxDate()}
   onChange={(date: Date | null) => {
   if (date) {
-    setTransactionDate(date);
+    setTransactionDate(date); setTransactionTimeConfirmed(false);
   }
 }}
   dateFormat="dd/MM/yyyy"
@@ -304,9 +296,9 @@ if (isFutureTransactionDate(transactionDate)) {
                     type="time"
                     value={transactionTime}
                     onChange={(e) =>
-                      setTransactionTime(e.target.value)
+                      (setTransactionTime(e.target.value), setTransactionTimeConfirmed(false))
                     }
-                  />
+                  /><label style={{display:'block',marginTop:8}}><input type="checkbox" checked={transactionTimeConfirmed} disabled={!transactionTime} onChange={e=>setTransactionTimeConfirmed(e.target.checked)} /> ยืนยันว่าเป็นเวลาที่เกิดรายการจริงตามเวลาไทย (Asia/Bangkok)</label><small>ไม่ทราบเวลาจริงให้เว้นว่างหรือไม่ยืนยัน ระบบจะไม่ประเมินด้านเวลา</small>
                 </div>
               </div>
 
