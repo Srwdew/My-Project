@@ -22,6 +22,7 @@ const handleLogout = () => {
       </div>
 
       <nav className="sidebar-menu">
+        <NavLink to="/forecast" className={({ isActive }) => "sidebar-item" + (isActive ? " active" : "")}>พยากรณ์ค่าใช้จ่าย</NavLink>
         <NavLink
           to="/overview"
           className={({ isActive }) =>

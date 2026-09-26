@@ -1,3 +1,4 @@
+import { forecastRouter } from './routes/forecast';
 import { anomalyRouter } from './routes/anomaly';
 import { assertAnomalyActor, confirmedTime, anomalyWriteFields, checkTransactionAnomaly } from './lib/anomaly';
 import { dashboardRouter } from './routes/dashboard';
@@ -29,6 +30,7 @@ app.use(express.json());
 app.use(goalsRouter);
 app.use(settingsRouter);
 app.use(dashboardRouter);
+app.use(forecastRouter);
 app.use(anomalyRouter);
 
 function getTransactionTodayKey(): string {

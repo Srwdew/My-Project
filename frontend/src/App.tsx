@@ -1,3 +1,4 @@
+import Forecast from './pages/Forecast';
 import {
   Link,
   Navigate,
@@ -78,6 +79,7 @@ function App() {
                 />
 
 <Route path="/goals" element={<Goals />} />
+<Route path="/forecast" element={<Forecast />} />
 
 <Route
   path="*"

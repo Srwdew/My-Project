@@ -1248,3 +1248,39 @@ AI browser acceptance ผ่าน: เปิด/ปิด setting และ ref
 ผู้ใช้ยืนยันการตรวจรับ Anomaly/Review ผ่านด้วย backend/PostgreSQL acceptance จริง: amount anomaly แบบ zero-dispersion, time anomaly จากเวลาที่ยืนยัน, NotificationBell ข้อความถูกต้องและไม่แจ้งซ้ำ, readAt ไม่ใช่ review, confirmed_normal/confirmed_problem/เปลี่ยนใจพร้อมประวัติ, revision แยกจาก snapshot เก่า, ลบ Transaction แล้วยังอ่าน snapshot และ ownership แยก baseline ตามบัญชีถูกต้อง
 
 ผลนี้เป็น user browser acceptance แยกจาก automated tests/Chrome automation ที่ AI รายงานก่อนหน้า และแทนสถานะก่อนหน้าที่ยังรอผู้ใช้ตรวจรับ ไม่มีการปรับ threshold หรือ ruleVersion จาก feedback ข้อมูลจำลองและบัญชี acceptance อยู่เฉพาะฐานทดสอบ ไม่รวมใน commit; scripts เตรียม baseline, database dump, logs และ artifacts ไม่รวม Git
+
+## Category Forecast — 26 กันยายน 2026 (Asia/Bangkok)
+
+Implement ตามแบบที่ผู้ใช้อนุมัติ: /forecast แยกหน้า ใช้ Holt linear trend รายหมวดและรวมผลเฉพาะหมวดที่พร้อมหลังปัด Decimal ไม่มี Holt ยอดรวมคู่ขนาน ฝึกถึงเมื่อวานและพยากรณ์วันนี้ถึงอีก6วัน รวม7วัน ใช้ย้อนหลังไม่เกิน180วัน;เกณฑ์ v1 ต่อหมวด42วันปฏิทิน/14วันที่มีexpense/มีexpenseใน7วันเต็มล่าสุด ไม่มีการอ้างความแม่นยำจากเกณฑ์
+
+Initialization OLS7วันแรก,grid121คู่ alpha/betaStar,inner chronological folds3x7วัน,outputติดลบclamp0,policyทุกส่วนอยู่ใน modelVersion; missing daysเติม0สำหรับseriesพร้อมwarningไม่ได้ยืนยันไม่มีรายจ่ายจริง ไม่เติมfuture ไม่รวมProfile/Goals และไม่ตัดexpenseตามanomalyreview
+
+GET /forecast auth userเท่านั้น ไม่รับquery client,RepeatableRead snapshot,จับasOfDateครั้งเดียว,private no-store,DB GROUP BYตามuser/type/category/date bounded180วันถึงวันนี้ ไม่มีfull-row history read GET /dashboardเดิมไม่เปลี่ยน เพิ่มเพียงลิงก์จากOverview/Sidebar ใช้layout/header/bellเดิม ไม่มี migration/dependency ใหม่
+
+available/partial/unavailable;unavailable forecastเป็นnull;partialเทียบactual7วันเฉพาะชุดหมวดที่forecastได้ ห้ามสรุปโดยรวมอยู่ในงบเมื่อหมวดขาด งบใช้actualเดือนนี้ทุกหมวดถึงปัจจุบัน หักactualวันนี้จากforecastวันนี้แยกหมวดก่อนเทียบวงเงินk/rของงบเหลือ คาดการณ์ครบ7วันแต่เทียบงบเฉพาะวันในเดือนนี้ งบเกินแล้วdailyadvice0 ไม่ติดลบ
+
+ผล AI รันจริงรอบสุดท้าย:136testsผ่าน0fail/skip รวมcalculation,HTTP,PostgreSQL,backtest,Dashboard/Goals/Settings/Anomaly/Review/Notifications/Reconciliation ฐานทดสอบแยก (initial empty DB apply12 migrationsเดิมครบ ไม่มีเปลี่ยนapplication) Prisma validate/generate และ backend/frontend buildผ่าน ทั้งworkspaceและcandidateที่ไม่รวมlocalApp.css/packagechanges มีbundle warning>500kBเดิม
+
+Chrome/API mocksผ่านForecast6กลุ่ม,Dashboard17กลุ่มรวม10controlledmonthrounds,Anomaly7,Review6,Settings12 ตรวจkeyboard/mobile/longnames/retry/session/navigationrace
+แก้productเฉพาะForecast:ไม่ถอดDOMเมื่อrefreshในsessionเดิมเพื่อรักษาkeyboardfocus และจำกัดselectชื่อหมวดยาวไม่ให้ล้นจอ
+Regressionพบtest AnomalyReview observerอ่านpg_stat_activityในtransactionที่ถือlock จึงแก้เฉพาะtests/anomalyReview.database.test.ts ใช้autocommit observerอีกconnectionตรวจpg_blocking_pidsตรงlocker และassert401หลังrevocation ไม่เพิ่มrandomsleepหรือแก้productionAnomaly;ผลfullsuiteหลังแก้136ผ่าน
+
+Backtestเป็นsynthetic3scenarios/8outerwindowsพร้อมcounterfactualfuturecheck ไม่ใช้ข้อมูลจริงผู้ใช้อื่น Variable fixture MAE75.80–87.10บาท/RMSE80.35–92.03บาท coverageรายงานแยก ไม่คัดหมวดตามaccuracy ดู FORECAST_BACKTEST_REPORT.md ไม่ใช่หลักฐานความแม่นยำกับผู้ใช้จริง
+รายละเอียดAPI/สูตร/ข้อจำกัด/รายการตรวจรับอยู่ FORECAST_IMPLEMENTATION.md ผู้ใช้ยังไม่ได้ทำForecast browser acceptanceกับbackendจริง ต้องตรวจสถานะครบ/partial/unavailable,งบไม่มี/ครบ/เกิน,ข้ามเดือน,ตารางหมวด/ยอดรวม,CRUD refresh และsession/mobile/keyboard
+ไม่มีภาพรูป12ต้นฉบับ จัดตามข้อกำหนดข้อความที่อนุมัติ ยังไม่อ้างว่าlayoutตรงภาพ
+รักษาlocalเดิม .env.example/docker-compose/App.css/rootpackage/seed/placeholderทั้งหมด ไม่stage/commit/push
+
+
+## User browser acceptance — 26 กันยายน 2026
+ผู้ใช้ยืนยันตรวจ Forecast ครบและผ่านบน frontend/backend และ PostgreSQL acceptance จริง แยกจาก automated tests/Chrome API mocks และ synthetic backtest ที่รายงานก่อนหน้า ผลนี้แทนสถานะก่อนหน้าที่ยังรอผู้ใช้ตรวจรับ
+ตรวจ available/partial/unavailable,รายวันรายหมวดและยอดรวม,เทียบ actual หมวดชุดเดียวกัน,ข้ามเดือน,งบครบ/เกิน,refreshหลังCRUD,keyboard/mobile และคำเตือนวันเติม0 ไม่ใช้ผลนี้กล่าวอ้างความแม่นยำเชิงสถิติ
+ข้อมูลบัญชีและbaseline acceptance, database dumps, logs และ artifacts ไม่รวม commit
+การแก้ AnomalyReview concurrency observer เป็นการแก้ test harness อิสระ ไม่ใช่ dependency ของ Forecast จึงรักษาไว้ใน working tree แต่นอก commit Forecast ผล136 testsก่อนหน้านี้เป็นผลworkspaceที่มีการแก้ observer; staged candidate ตรวจจาก AnomalyReview test เวอร์ชันในGitเดิมแยกต่างหากแล้ว และผ่าน
+
+
+## Staged candidate verification — 26 กันยายน 2026
+ส่งออกไฟล์361ไฟล์จาก Git index เป็น candidate แยกและติดตั้งด้วย npm ci จาก lockfiles; ไม่คัดลอก source/config หรือ dependencies จาก dirty workspace
+Prisma validate/generate, backend/frontend build ผ่าน; automated calculation/HTTP/isolated PostgreSQL/backtest/regression 136/136 ผ่าน ไม่มี fail/skip โดยใช้ AnomalyReview test เวอร์ชัน Git เดิม ไม่รวม local concurrency observer fix
+ฐานทดสอบใหม่ apply migrations เดิม12ตัวครบ ไม่มี migration/schema/dependency ใหม่ และไม่เปลี่ยนฐาน application
+Chrome API-mock suites Forecast, Dashboard (10 controlled month-race rounds), Anomaly, Review และ Settings ผ่านจาก candidate เดียวกัน; ผลนี้แยกจาก user browser acceptance/backendจริงด้านบน
+ตรวจเฉพาะ17 staged paths: ไม่มี .env/seed/acceptance fixtures/dump/log/screenshot/generated artifact; ไม่พบ secret patterns ที่ตรวจ และ git diff --cached --check ผ่าน มีเพียง frontend bundle warning >500kB

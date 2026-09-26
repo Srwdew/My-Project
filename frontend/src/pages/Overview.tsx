@@ -35,6 +35,7 @@ function OverviewMonth({ session, month, today, valid, setMonth }: { session: st
   }, [session, month, valid, revision]);
   const g = data?.goals.primaryGoal;
   return <div className="overview-page dashboard-page"><header className="overview-header"><div><h1>ภาพรวมทางการเงิน</h1><p>ยอดจริงจากธุรกรรมที่คุณบันทึก</p></div><UserHeader /></header>
+    <p><Link to="/forecast">ดูประมาณการ 7 วันตั้งแต่วันนี้</Link></p>
     <nav className="dashboard-month" aria-label="เลือกเดือน"><button disabled={!valid || month === '0001-01'} onClick={() => setMonth(shiftMonth(month, -1))}>เดือนก่อน</button><label>เดือน <input aria-label="เดือน" type="month" min="0001-01" max={today.slice(0,7)} value={valid ? month : ''} onChange={e => { if (e.target.value) setMonth(e.target.value); }} /></label><button disabled={!valid || month >= today.slice(0,7)} onClick={() => setMonth(shiftMonth(month, 1))}>เดือนถัดไป</button></nav>
     {!valid && <div role="alert"><p>กรุณาเลือกเดือนที่ถูกต้องและไม่เป็นเดือนอนาคต</p><button onClick={() => setMonth(today.slice(0,7))}>กลับเดือนปัจจุบัน</button></div>}
     {loading && valid && <p role="status">กำลังโหลด Dashboard...</p>}
