@@ -1,3 +1,4 @@
+import WeeklyExpenses from '../components/WeeklyExpenses';
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { apiFetch } from '../api';
@@ -49,5 +50,6 @@ function OverviewMonth({ session, month, today, valid, setMonth }: { session: st
       <section className="dashboard-panel"><h2>Goals — สถานะปัจจุบัน</h2><p>ณ {data.goals.asOfDate} ไม่ใช่สถานะย้อนหลังของเดือนที่เลือก</p><dl className="dashboard-goal-counts"><div><dt>กำลังออม</dt><dd>{data.goals.activeCount}</dd></div><div><dt>ยังไม่มีเงินจัดสรร</dt><dd>{data.goals.notStartedCount}</dd></div><div><dt>เลยกำหนด</dt><dd>{data.goals.overdueCount}</dd></div></dl><p>เงินที่จัดสรรอยู่ <strong>{moneyText(data.goals.allocatedAmount)} บาท</strong></p><p>รวมทุกเป้าหมาย รวมเป้าหมายครบแล้วและเก็บถาวรที่ยังมีเงินจัดสรร</p>
       {g ? <div><h3>เป้าหมายหลัก: {g.name}</h3><p>{g.archivedAt ? 'เก็บถาวรแล้ว · ' : ''}{statuses[g.calculatedStatus]}</p><p>จัดสรร {moneyText(g.savedAmount)} / {moneyText(g.targetAmount)} บาท ({g.progressPercent}%)</p><div className="dashboard-bar" aria-hidden="true"><span style={{ width: `${Number(g.progressBarPercent)}%` }} /></div><p>ต้องการอีก {moneyText(g.remainingAmount)} บาท</p></div> : <p>ยังไม่ได้เลือกเป้าหมายหลัก <Link to="/settings">เลือกใน Settings</Link></p>}<Link to="/goals">ไปหน้า Goals</Link></section></div>
     </>}
+    {valid && <WeeklyExpenses month={month} today={today} session={session} />}
   </div>;
 }

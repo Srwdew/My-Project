@@ -82,3 +82,23 @@ Exported the staged index to an isolated directory under .git and verified all32
 Prisma validate/generate, backend TypeScript build and frontend build passed from the candidate. Dashboard14 + regression77 =91tests passed,0fail/skip, on spendsense_goals_test_1789841861080_f7ac97. Chrome8API-double groups passed against the candidate's built frontend served on temporary port5174. This is separate from browser acceptance confirmed by the user on20September2026.
 Only acceptance/verification documentation was updated after code-candidate verification. Staged18paths include no environment files, credentials, screenshots, logs, node_modules or dist. Existing local changes remain outside this commit. No push.
 Known dependency audit result from npm ci: backend6vulnerabilities (1moderate,5high), frontend0; dependency graph unchanged in this work. Frontend bundle warning >500kB remains. No automatic audit fix or dependency upgrade performed.
+## Weekly expense chart restored - 27 September 2026 (Asia/Bangkok)
+
+Current branch inspection found only the daily chart in Overview; GET /overview/weekly still existed. Added a separate weekly chart below the monthly Dashboard without changing monthly cards, Behavior, Forecast, backend formulas or API contracts. No migration/dependency changes.
+
+WeeklyExpenses uses the existing authenticated expense-only API with startDate/endDate. Default range is the selected Dashboard month (current month ends today); custom range up to 366 days and category/all-category controls affect this section only. Changing Dashboard month resets weekly controls to that month. Weeks are Monday-Sunday clipped to range, chronologically sorted. Category filtering uses per-week category aggregates returned by the same API. Frontend total sums integer satang with BigInt; numeric API values outside safe cent range show error instead of silently displaying inaccurate totals. SVG conversion to Number is for geometry only.
+
+Includes explicit no-record empty state, per-week missing-record markers, accessible data table, keyboard controls, horizontal graph scrolling on mobile, loading/error/retry and active/AbortController/session checks. Transaction change events refresh the weekly data. No weekly notifications are created.
+
+AI verification: frontend/backend builds PASS; 13 focused unit/date/Dashboard tests PASS; 13 real HTTP/PostgreSQL reconciliation tests PASS on isolated test database using rollback, including independent totals, empty/income-only, decimal, leap/year/month boundaries, category totals, CRUD and account separation. Weekly browser API mocks PASS (filtering, graph/table, empty/retry, range/session race, mobile); Dashboard browser regression PASS including 10 controlled month races. Initial weekly browser fixture selected a range longer than 366 days; corrected fixture to a date relative to current month, preserving assertions. No application database connection/writes.
+
+Behavior and Forecast browser API-mock regression also PASS.
+
+User browser acceptance subsequently passed on 27 September 2026 (see separate user acceptance below). Check /overview, select dates and category, compare bars/table sum with expense Transactions in the same scope, check an empty range and mobile/keyboard. Monthly cards retain their month scope.
+Existing limitations retained: legacy weekly API returns numeric money and loads only the selected range's transaction rows; no new database aggregation or API contract refactor in this UI task. Existing frontend bundle >500 kB warning remains.
+No stage/commit/push; preserve the original 12 local paths.
+
+## Weekly chart user acceptance — 27 กันยายน 2026 (Asia/Bangkok)
+ผู้ใช้ยืนยันว่า User acceptance ของกราฟรายจ่ายย้อนหลังรายสัปดาห์ผ่านแล้ว วันที่ 27 กันยายน 2026 (Asia/Bangkok) บันทึกนี้เป็นผลตรวจรับของผู้ใช้ แยกจาก automated tests และ browser verification ของ AI ที่รายงานไว้ก่อนหน้า และแทนสถานะที่เคยระบุว่ายังรอตรวจรับ
+AI ตรวจ browser/backend/PostgreSQL acceptance จริงก่อนหน้านี้แล้ว: ช่วงวันที่/หมวด สัปดาห์คร่อมเดือน ยอดสตางค์ ช่วงว่าง keyboard/mobile และการ์ด Dashboard รายเดือนคงเดิม การเปลี่ยนหมวดกรอง aggregate ที่โหลดแล้วใน frontend จึงไม่ส่ง GET ใหม่; การเปลี่ยนช่วงวันที่ที่ถูกต้องส่ง GET /overview/weekly และได้ 200
+รอบบันทึก acceptance นี้ไม่ได้รัน tests ใหม่ จัด stage เฉพาะ allowlist งาน Weekly 8 ไฟล์เพื่อให้ผู้ใช้ตรวจ staged diff ยังไม่ commit หรือ push ข้อมูลบัญชี acceptance, credentials, logs และ screenshots ไม่รวมใน staged files
