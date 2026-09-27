@@ -1284,3 +1284,48 @@ Prisma validate/generate, backend/frontend build ผ่าน; automated calcula
 ฐานทดสอบใหม่ apply migrations เดิม12ตัวครบ ไม่มี migration/schema/dependency ใหม่ และไม่เปลี่ยนฐาน application
 Chrome API-mock suites Forecast, Dashboard (10 controlled month-race rounds), Anomaly, Review และ Settings ผ่านจาก candidate เดียวกัน; ผลนี้แยกจาก user browser acceptance/backendจริงด้านบน
 ตรวจเฉพาะ17 staged paths: ไม่มี .env/seed/acceptance fixtures/dump/log/screenshot/generated artifact; ไม่พบ secret patterns ที่ตรวจ และ git diff --cached --check ผ่าน มีเพียง frontend bundle warning >500kB
+
+
+## Behavior — 26 กันยายน 2026 (Asia/Bangkok)
+พัฒนาหน้า /behavior และ GET /behavior ตามข้อกำหนดรวมเล่มที่ผู้ใช้ระบุ 2.2.2.6/วิธีวิเคราะห์/5.3.1–5.3.2 ใช้ AppLayout/UserHeader/Bell เดิม เพิ่มลิงก์ Sidebar/Overview ไม่สร้าง Analysis/Data Readiness ไม่เปลี่ยน Dashboard/Forecast/Anomaly contracts ไม่มี migration/schema/dependency ใหม่
+
+เลือกช่วงไม่เกิน366วันเต็มถึงเมื่อวาน Bangkok ค่าเริ่มต้น30วัน ช่วงก่อนหน้ายาวเท่ากันและไม่ทับกัน ใช้ auth expense เท่านั้น เงิน Decimal string รวม flagged/pending/confirmed_problem ที่ยังเป็นTransaction ไม่มี Profile/Goals
+แต่ละช่วงพร้อมเมื่อ>=30รายการและ first..last expense inclusive>=30วัน; ถ้าฝั่งใดไม่พร้อม comparison=null ทั้งsummary/category/weekday และไม่มีข้อค้นพบเปรียบเทียบ ข้อเท็จจริงยังแสดงได้ ไม่อ้างว่าข้อมูลครบหรือมีนัยสำคัญ
+รายหมวดรวมไม่ระบุหมวดด้วยLEFT JOIN; schemaเดิมมีFKห้ามorphan จึงไม่แก้constraintเพื่อทดลอง กราฟจัดตามdayIndexมีวันที่จริงทั้งสองฝั่งและhasExpenseRecords แยกไม่มีรายการจากยอดศูนย์ วันในสัปดาห์มีcalendarOccurrencesและค่าเฉลี่ยต่อวันประเภทนั้น
+เวลายืนยันเท่านั้น bucket4ชั่วโมง เกณฑ์30confirmed/coverage80%/bucket50%/5distinctdays; guardข้อค้นพบรายหมวด5รายการ3วันต่อช่วง กฎหลายเงื่อนไขยอด/จำนวน/เฉลี่ย/สัดส่วน พร้อมevidenceและคำแนะนำไม่อ้างเหตุและผล
+Possible recurrence หมวด+ยอดเดียวกัน>=3วัน วันละ1รายการ ห่าง7วันตรงทุกครั้งหรือเดือนติดกันวันเดียว/สิ้นเดือน SQLกรองและLIMIT51 แสดง50+hasMore ไม่เรียกบิล/subscription ไม่สร้างTransactionอนาคต
+
+AIรันจริง:Prisma validate/generate,backend/frontend buildผ่าน;158testsผ่าน0fail/skip รวมBehavior22และregressionเดิม136 บนฐานทดสอบใหม่12migrationsเดิมครบ ไม่แก้ฐานapplication;SQLตรวจ3boundedaggregate queries ไม่มีfull-row history/ledger read
+Chrome API mocks Behavior9กลุ่มผ่าน (category/date/session race,keyboard/mobile/retry) พร้อมForecast/Dashboard/Anomaly/Review/Settings regressionผ่าน ยังไม่ใช่user browser acceptance/backendจริง;ผู้ใช้ต้องตรวจตาม checklistใน BEHAVIOR_IMPLEMENTATION.md
+คงlocal12ไฟล์เดิม ไม่stage/commit/push Existing AnomalyReview observer fixถูกใช้ในworkspace regressionแต่ไม่แก้/รวมในงานBehavior;ยังมีbundle warning>500kBและไม่มีproduction-scale benchmark
+ไฟล์ใหม่:backend/src/lib/behavior.ts,behaviorRules.ts;routes/behavior.ts;tests/behavior.test.ts,behavior.database.test.ts,behavior.browser.cjs,runBehaviorDatabase.cjs;frontend/src/pages/Behavior.tsx,Behavior.css;BEHAVIOR_IMPLEMENTATION.md
+ไฟล์ร่วมแก้เฉพาะmount/route/link:backend/src/index.ts,frontend/src/App.tsx,components/Sidebar.tsx,pages/Overview.tsx และบันทึกนี้
+
+## Behavior layout and automatic filters - 27 September 2026
+
+Updated the page using docs/mockups/Behavior Analysis.png: navy evidence summary, four KPI strip, chart and category table, findings and evidence-linked advice. Red annotation frames and sample claims from the image are not reproduced. Existing shared layout/header/bell/navigation retained.
+
+There is one control group and one report. No analysis form/submit button. Entry, valid date/category changes, transaction-data event and window focus fetch automatically. Default is 30 complete Bangkok days through yesterday; 7/30/90-day presets and custom range are available. Category changes preserve URL dates; refresh restores URL filters. Session key, AbortController, active flag and query-tagged response prevent stale scope/account data. Invalid custom dates show validation without submitting an invalid query.
+
+Backend rules/source/schema/dependencies were not changed in this layout revision. Equal prior periods, 30 transaction/30-day span readiness, hidden unready comparisons, confirmed-time coverage, recurrence rules and inclusion of flagged/reviewed expenses are preserved. Missing-record days use markers rather than invented zero observations. Additional readiness/time/weekday/recurrence evidence remains accessible below the main sections.
+
+Verification actually run for this revision:
+- Backend/frontend builds PASS; existing bundle >500 kB warning remains.
+- 158/158 calculation/HTTP/PostgreSQL/regression tests PASS, zero failures, on a newly created isolated test database with 12 existing migrations.
+- Behavior Chrome API-mock regression: 9 groups PASS, including automatic dates/categories, deferred old responses, account switch, keyboard retry and mobile long-text containment. Initial harness failure expected the old empty-state wording; assertion updated to the new equivalent message, without relaxing empty-graph behavior.
+- Real Chrome -> frontend 5178 -> backend 4003 -> isolated Behavior acceptance database: automatic category changes, retained URL dates/reload, readiness boundaries, reviewed expense inclusion, keyboard table, offline/error/retry, mobile, account switch PASS. All observed API calls used 4003.
+- Actual temporary acceptance CRUD: 3000.00 -> 3111.11 -> 3222.22 -> 3000.00. Data-change/focus events refreshed the same report automatically. Only the newly created temporary transaction was removed; existing fixtures preserved. No application database writes.
+- Before/after desktop and after-mobile screenshots kept outside repository in the private acceptance directory, not Git.
+- This is AI-run real-backend browser verification; user acceptance was pending at that time and subsequently passed on 27 September 2026 (see separate user acceptance below).
+
+Acceptance URL: http://127.0.0.1:5178/behavior?startDate=2026-08-27&endDate=2026-09-25
+Primary account: behavior.primary@example.test; secondary: behavior.secondary@example.test. Credentials remain in the private local acceptance file, not this document. Existing private acceptance instructions that mention pressing Analyze are superseded: changing filters now fetches automatically.
+
+Files touched by this layout revision: frontend/src/pages/Behavior.tsx, Behavior.css, backend/tests/behavior.browser.cjs, BEHAVIOR_IMPLEMENTATION.md, SpendSense_PROJECT_CONTEXT.md. Other uncommitted Behavior implementation remains as before. No stage/commit/push.
+
+Additional browser regression: Dashboard PASS (including 10 controlled month races); Forecast PASS (6 groups), with SETTINGS_BROWSER_ORIGIN explicitly set to preview 5177. Initial Dashboard invocation used its obsolete default port 5173 and timed out; no product code was changed to address that harness configuration.
+
+## User browser acceptance — 27 กันยายน 2026 (Asia/Bangkok)
+ผู้ใช้ยืนยันว่าตรวจรับหน้า Behavior แบบใหม่ผ่านแล้ว เมื่อวันที่ 27 กันยายน 2026 (Asia/Bangkok) ผลนี้เป็นการตรวจรับโดยผู้ใช้ แยกจาก automated tests, API mocks และ real-backend browser tests ที่ AI รันและบันทึกไว้ก่อนหน้า ไม่ใช่การรัน tests ใหม่ในรอบบันทึกนี้
+สถานะนี้แทนข้อความก่อนหน้าที่ระบุว่ายังรอผู้ใช้ตรวจรับหน้าแบบใหม่ โดยไม่เปลี่ยนผลหรือขอบเขตการทดสอบของ AI ไม่มีการอ้างว่าผู้ใช้ได้ตรวจกรณีเพิ่มเติมนอกเหนือจากที่ยืนยัน
+รอบนี้ตรวจ repository/diff เพื่อเสนอรายการไฟล์สำหรับ commit เท่านั้น ยังไม่ stage, commit หรือ push และคงไฟล์ local เดิมทั้ง 12 ไฟล์ไว้

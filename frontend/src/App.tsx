@@ -1,3 +1,4 @@
+import Behavior from './pages/Behavior';
 import Forecast from './pages/Forecast';
 import {
   Link,
@@ -80,6 +81,7 @@ function App() {
 
 <Route path="/goals" element={<Goals />} />
 <Route path="/forecast" element={<Forecast />} />
+<Route path="/behavior" element={<Behavior />} />
 
 <Route
   path="*"

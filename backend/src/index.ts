@@ -1,3 +1,4 @@
+import { behaviorRouter } from './routes/behavior';
 import { forecastRouter } from './routes/forecast';
 import { anomalyRouter } from './routes/anomaly';
 import { assertAnomalyActor, confirmedTime, anomalyWriteFields, checkTransactionAnomaly } from './lib/anomaly';
@@ -31,6 +32,7 @@ app.use(goalsRouter);
 app.use(settingsRouter);
 app.use(dashboardRouter);
 app.use(forecastRouter);
+app.use(behaviorRouter);
 app.use(anomalyRouter);
 
 function getTransactionTodayKey(): string {
