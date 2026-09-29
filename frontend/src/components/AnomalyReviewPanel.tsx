@@ -5,7 +5,7 @@ type Action='confirmed_normal'|'confirmed_problem';
 type Review={id:string;action:Action;sequence:number;revision:number;reviewedAt:string};
 type View={reviewState:Action|'unreviewed';reviewSequence:number;reviewHistory:{items:Review[];hasMore:boolean;nextCursor:number|null}};
 const labels={unreviewed:'ยังไม่ได้ตรวจสอบ',confirmed_normal:'ยืนยันว่าปกติ',confirmed_problem:'ยืนยันว่ามีปัญหา'};
-export default function AnomalyReviewPanel({evaluationId,revision,onDone}:{evaluationId:string;revision:number;onDone:()=>void}){
+export default function AnomalyReviewPanel({evaluationId,revision,onDone,explicitRevision=false}:{evaluationId:string;revision:number;onDone:()=>void;explicitRevision?:boolean}){
  const session=useSessionKey();const [data,setData]=useState<View|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[reload,setReload]=useState(0);
  const active=useRef(true),locked=useRef(false),request=useRef<{key:string;body:string}|null>(null);
  useEffect(()=>{active.current=true;return()=>{active.current=false;};},[]);
@@ -34,7 +34,7 @@ export default function AnomalyReviewPanel({evaluationId,revision,onDone}:{evalu
   <p>“ยืนยันว่าปกติ” หมายถึงอนุญาตให้ revision นี้เป็นข้อมูลอ้างอิงในอนาคตตามข้อมูลที่ใช้ได้ ไม่อนุญาตเวลาโดยอัตโนมัติ</p>
   <p>“ยืนยันว่ามีปัญหา” หมายถึงไม่นำ revision นี้ไปสร้างพฤติกรรมอ้างอิงทั้งจำนวนเงินและเวลา</p>
   <p>การกดอ่านแจ้งเตือนไม่ใช่การยืนยันผล คำยืนยัน revision เก่าหรือรายการที่ลบแล้วเก็บเป็นหลักฐานเท่านั้น</p>
-  <div style={{display:'flex',flexWrap:'wrap',gap:8}}><button type="button" disabled={busy||!data} onClick={()=>void submit('confirmed_normal')}>ยืนยันว่าปกติ</button><button type="button" disabled={busy||!data} onClick={()=>void submit('confirmed_problem')}>ยืนยันว่ามีปัญหา</button></div>
+  <div style={{display:'flex',flexWrap:'wrap',gap:8}}><button type="button" disabled={busy||!data} onClick={()=>void submit('confirmed_normal')}>ยืนยันว่าปกติ{explicitRevision&&` · revision ${revision}`}</button><button type="button" disabled={busy||!data} onClick={()=>void submit('confirmed_problem')}>ยืนยันว่ามีปัญหา{explicitRevision&&` · revision ${revision}`}</button></div>
   {busy&&<p role="status">กำลังบันทึกหรือโหลด...</p>}{error&&<p role="alert">{error} <button type="button" disabled={busy} onClick={()=>{setError('');setReload(n=>n+1);}}>โหลดสถานะใหม่</button></p>}
   {data&&<details><summary>ประวัติการยืนยัน revision นี้</summary>{data.reviewHistory.items.length===0?<p>ยังไม่มีการยืนยัน</p>:<ol>{data.reviewHistory.items.map(r=><li key={r.id}>ครั้งที่ {r.sequence}: {labels[r.action]} · {new Date(r.reviewedAt).toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</li>)}</ol>}{data.reviewHistory.hasMore&&<button type="button" disabled={busy} onClick={()=>void more()}>โหลดประวัติเพิ่ม</button>}</details>}
  </section>;

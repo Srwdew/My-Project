@@ -1,0 +1,20 @@
+.anomaly-page{padding:28px;max-width:1250px;margin:auto;color:#23354d;font-family:system-ui,sans-serif;overflow-wrap:anywhere}
+.anomaly-page-header{display:flex;justify-content:space-between;gap:24px;align-items:start;margin-bottom:24px}
+.anomaly-page h1{font-size:26px;margin:12px 0}.anomaly-page h2{font-size:18px;margin:0 0 12px}.anomaly-page h3{font-size:15px;margin:0 0 10px}
+.anomaly-page p{line-height:1.7}.anomaly-page a{color:#245acc}
+.anomaly-card{background:white;border:1px solid #dfe6ef;border-radius:16px;padding:24px;margin-bottom:20px}
+.anomaly-page button{font:inherit;padding:10px 14px;border:1px solid #c7d5e8;border-radius:9px;background:#f6f9ff;color:#254e86;cursor:pointer;white-space:normal}
+.anomaly-page button:disabled{opacity:.55;cursor:wait}
+.anomaly-page :is(button,a,summary):focus-visible{outline:3px solid #5782da;outline-offset:3px}
+.anomaly-current>button{margin-left:12px}.anomaly-current>strong{font-size:20px}
+.anomaly-comparison{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px}
+.anomaly-comparison button{text-align:left;display:grid;gap:8px;background:white}
+.anomaly-comparison button[aria-pressed=true]{border:2px solid #2860d5;background:#eef4ff}
+.anomaly-revision{color:#476994}.anomaly-transaction{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;padding:18px 0}
+.anomaly-transaction>strong{font-size:26px}.anomaly-dimensions{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.anomaly-dimension{border:1px solid #e2e8f0;background:#f8fafc;border-radius:12px;padding:18px;min-width:0}
+.anomaly-dimension.flagged{border-color:#e9bc72;background:#fffbef}.anomaly-dimension.not_flagged{background:#f2f7ff}
+.anomaly-method{margin:20px 0;border-block:1px solid #e2e8f0;padding:15px 0}
+.anomaly-page summary{cursor:pointer;padding:8px 0;font-weight:600}.anomaly-review h5{font-size:17px;margin:10px 0}
+.anomaly-review ol{padding-left:22px}.anomaly-review li{padding:8px 0}.anomaly-page [role=alert]{color:#a12b34}
+@media(max-width:700px){.anomaly-page{padding:18px 14px}.anomaly-page-header{flex-wrap:wrap}.anomaly-page h1{font-size:23px}.anomaly-card{padding:18px}.anomaly-dimensions,.anomaly-comparison{grid-template-columns:1fr}.anomaly-current>button{margin:12px 0 0;display:block}}

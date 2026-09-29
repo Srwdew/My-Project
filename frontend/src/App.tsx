@@ -1,3 +1,4 @@
+import AnomalyDetailPage from './pages/AnomalyDetail';
 import Behavior from './pages/Behavior';
 import Forecast from './pages/Forecast';
 import {
@@ -81,6 +82,8 @@ function App() {
 
 <Route path="/goals" element={<Goals />} />
 <Route path="/forecast" element={<Forecast />} />
+<Route path="/notifications/:notificationId/anomaly" element={<AnomalyDetailPage />} />
+<Route path="/transactions/:transactionId/anomaly" element={<AnomalyDetailPage />} />
 <Route path="/behavior" element={<Behavior />} />
 
 <Route
