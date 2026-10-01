@@ -60,6 +60,7 @@ type Mode = 'create' | 'edit' | 'opening' | 'allocate' | 'release' | 'history' |
 type Modal = {
     mode: Mode;
     goal?: Goal;
+    initialName?: string;
 };
 const categories = { home: { label: 'บ้าน / รถ', Icon: House }, travel: { label: 'ท่องเที่ยว', Icon: Plane }, education: { label: 'การศึกษา', Icon: GraduationCap }, emergency: { label: 'เงินสำรอง', Icon: Shield }, other: { label: 'อื่น ๆ', Icon: Target } };
 const statusLabels: Record<string, string> = { active: 'กำลังดำเนินการ', completed: 'ครบเป้าหมาย', overdue: 'เลยกำหนด', not_started: 'ยังไม่มีเงินจัดสรร' };
@@ -83,6 +84,15 @@ function GoalsSession({ session }: {
     session: string | null;
 }) {
     const owner = ownerFromToken(session);
+    const [intention, setIntention] = useState<string | null>(null);
+    const [intentionError, setIntentionError] = useState(false), [intentionRetry, setIntentionRetry] = useState(0);
+    useEffect(() => {
+        const controller = new AbortController(); setIntention(null); setIntentionError(false);
+        request<{legacyGoal?: unknown}>('/settings', {signal: controller.signal}).then(data => {
+            if (!controller.signal.aborted && getToken() === session) setIntention(data.legacyGoal === 'เงินสำรองฉุกเฉิน' || data.legacyGoal === 'ออมเงินซื้อของ' ? data.legacyGoal : null);
+        }).catch(() => { if (!controller.signal.aborted && getToken() === session) setIntentionError(true); });
+        return () => controller.abort();
+    }, [session, intentionRetry]);
     const [goals, setGoals] = useState<Goal[]>([]), [cursor, setCursor] = useState<string | null>(null), [status, setStatus] = useState(''), [archived, setArchived] = useState('exclude');
     const [view, setView] = useState<'card' | 'list'>('card'), [loading, setLoading] = useState(true), [error, setError] = useState(''), [revision, setRevision] = useState(0);
     const [modal, setModal] = useState<Modal | null>(null), [opening, setOpening] = useState<Opening | null>(null), [incomes, setIncomes] = useState<Income[]>([]), [entries, setEntries] = useState<Entry[]>([]);
@@ -176,7 +186,7 @@ function GoalsSession({ session }: {
             setModalLoading(false); });
         return () => controller.abort();
     }, [modal, modalReload, session]);
-    function open(mode: Mode, goal?: Goal) { pending.current = null; setModalError(''); setModalLoading(true); setModal(goal ? { mode, goal } : { mode }); }
+    function open(mode: Mode, goal?: Goal, initialName?: string) { pending.current = null; setModalError(''); setModalLoading(true); setModal(goal ? { mode, goal } : { mode, initialName }); }
     function close() { if (!actionBusy.current) {
         setModal(null);
         pending.current = null;
@@ -275,6 +285,8 @@ function GoalsSession({ session }: {
     const g = modal?.goal;
     return <div className="goals-page">
   <header className="goals-header"><div><h1>เป้าหมายการออมเงิน</h1><p>ติดตามเป้าหมายการออมเงินของคุณ</p></div><button className="goals-primary" onClick={() => open('create')}><Plus size={18}/>สร้างเป้าหมายใหม่</button><UserHeader /></header>
+  {intention && <aside className="goals-intention" aria-labelledby="goals-intention-title"><div><h2 id="goals-intention-title">เริ่มเป้าหมายจากความตั้งใจของคุณ</h2><p>คุณเลือก “{intention}” ไว้ เริ่มร่างเป้าหมายแล้วกำหนดยอดและวันที่ได้ด้วยตัวเอง</p></div><button type="button" className="goals-primary" onClick={() => open('create', undefined, intention)}>เริ่มสร้างเป้าหมาย</button></aside>}
+  {intentionError && <div className="goals-error" role="status">โหลดคำแนะนำจากความตั้งใจไม่สำเร็จ ยังใช้งาน Goals ได้ตามปกติ <button type="button" onClick={() => setIntentionRetry(n => n + 1)}>ลองโหลดคำแนะนำใหม่</button></div>}
   <section className="goals-panel" aria-label="เป้าหมายของคุณ"><div className="goals-toolbar"><h2>เป้าหมายของคุณ</h2><label>สถานะ <select value={status} onChange={e => setStatus(e.target.value)}><option value="">ทั้งหมด</option>{Object.entries(statusLabels).map(([k, label]) => <option key={k} value={k}>{label}</option>)}</select></label><label>คลัง <select value={archived} onChange={e => setArchived(e.target.value)}><option value="exclude">ใช้งานอยู่</option><option value="only">จัดเก็บแล้ว</option><option value="include">ทั้งหมด</option></select></label><div className="goals-view" role="group" aria-label="มุมมอง"><button aria-pressed={view === 'card'} onClick={() => changeView('card')}><LayoutGrid size={18}/>การ์ด</button><button aria-pressed={view === 'list'} onClick={() => changeView('list')}><List size={18}/>รายการ</button></div></div>
    <div className="goals-funding-note"><button onClick={() => open('opening')}>ตั้งค่า / แก้ไขเงินออมตั้งต้น</button><span>การจัดสรรเป็นการกันเงินไว้ ไม่เปลี่ยนรายรับ รายจ่าย หรืองบประมาณ และไม่ใช่ยอดเงินสดคงเหลือ</span></div>
    {error && <div role="alert" className="goals-error">{error} <button onClick={() => setRevision(x => x + 1)}>ลองใหม่</button></div>}
@@ -298,7 +310,7 @@ function GoalsSession({ session }: {
    {modal && <><div className="goals-dialog-header"><h2 id="goal-dialog-title">{titles[modal.mode]}</h2><button aria-label="ปิด" disabled={busy} onClick={close}><X /></button></div>
    {modalError && <div className="goals-error" role="alert">{modalError} <button disabled={busy} onClick={() => setModalReload(x => x + 1)}>โหลดข้อมูลใหม่</button></div>}
    {modalLoading ? <p role="status">กำลังโหลด…</p> : !modalReady ? <p role="status">ยังโหลดข้อมูลไม่สำเร็จ กรุณากดลองใหม่</p> : modal.mode === 'history' ? <><p>ยอดนี้เป็นประวัติ ณ เวลาบันทึก</p>{entries.length === 0 ? <p>ยังไม่มีการจัดสรร</p> : <ol className="goal-history">{entries.map(e => <li key={e.id}><strong>{e.kind === 'ALLOCATE' ? 'จัดสรรเข้า' : 'คืนออก'} {money(e.amount)} บาท</strong><span>{new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Bangkok' }).format(new Date(e.createdAt))}</span><span>{e.sourceSnapshot.sourceType === 'OPENING_BALANCE' ? 'เงินออมตั้งต้น' : e.sourceSnapshot.description || 'รายรับ'}</span>{e.operation.reason && <span>{e.operation.reason}</span>}</li>)}</ol>}<button onClick={() => open('correct', g)}>แก้รายการผิดด้วยรายการชดเชย</button></> : <form key={modal.mode + (g?.id ?? '') + modalReload} onSubmit={e => void submit(e)}>
-    {(modal.mode === 'create' || modal.mode === 'edit') && <><label>ชื่อเป้าหมาย<input name="name" required maxLength={120} defaultValue={g?.name} autoFocus/></label><label>ยอดเป้าหมาย (บาท)<input name="targetAmount" required inputMode="decimal" pattern="[0-9]{1,10}([.][0-9]{1,2})?" defaultValue={g?.targetAmount}/></label><label>ประเภท<select name="categoryKey" defaultValue={g?.categoryKey ?? 'other'}>{Object.entries(categories).map(([k, c]) => <option value={k} key={k}>{c.label}</option>)}</select></label><label>กำหนดเสร็จ (ไม่บังคับ)<input type="date" name="targetDate" defaultValue={g?.targetDate ?? ''}/></label><label>แผนจัดสรรต่อเดือน (ไม่บังคับ)<input name="plannedMonthlyAmount" inputMode="decimal" pattern="[0-9]{1,10}([.][0-9]{1,2})?" defaultValue={g?.plannedMonthlyAmount ?? ''}/></label><label>หมายเหตุ<textarea name="note" maxLength={1000} defaultValue={g?.note ?? ''}/></label></>}
+    {(modal.mode === 'create' || modal.mode === 'edit') && <><label>ชื่อเป้าหมาย<input name="name" required maxLength={120} defaultValue={g?.name ?? modal.initialName} autoFocus/></label><label>ยอดเป้าหมาย (บาท)<input name="targetAmount" required inputMode="decimal" pattern="[0-9]{1,10}([.][0-9]{1,2})?" defaultValue={g?.targetAmount}/></label><label>ประเภท<select name="categoryKey" defaultValue={g?.categoryKey ?? 'other'}>{Object.entries(categories).map(([k, c]) => <option value={k} key={k}>{c.label}</option>)}</select></label><label>กำหนดเสร็จ (ไม่บังคับ)<input type="date" name="targetDate" defaultValue={g?.targetDate ?? ''}/></label><label>แผนจัดสรรต่อเดือน (ไม่บังคับ)<input name="plannedMonthlyAmount" inputMode="decimal" pattern="[0-9]{1,10}([.][0-9]{1,2})?" defaultValue={g?.plannedMonthlyAmount ?? ''}/></label><label>หมายเหตุ<textarea name="note" maxLength={1000} defaultValue={g?.note ?? ''}/></label></>}
     {modal.mode === 'opening' && <><p>ยอดเงินที่มีอยู่ ณ สิ้นวันตัดยอดตามเวลาไทย รายรับก่อนหรือเท่ากับวันนั้นจะใช้จัดสรรซ้ำไม่ได้</p><label>จำนวนเงิน (บาท)<input name="amount" required inputMode="decimal" pattern="[0-9]{1,10}([.][0-9]{1,2})?" defaultValue={opening?.openingAmount} autoFocus/></label><label>วันตัดยอด<input name="cutoffDate" type="date" required max={todayKey()} disabled={opening?.cutoffLocked} defaultValue={opening?.cutoffDate ?? todayKey()}/></label>{opening?.cutoffLocked && <p>วันตัดยอดถูกล็อกเพราะมีประวัติการจัดสรรแล้ว</p>}<label>ที่มา / หมายเหตุ<textarea name="note" required maxLength={1000} defaultValue={opening?.note}/></label>{opening && <label>เหตุผลที่แก้ไข<textarea name="reason" required maxLength={1000}/></label>}</>}
     {(modal.mode === 'allocate' || modal.mode === 'correct') && <label>แหล่งเงิน{modal.mode === 'correct' ? 'ทดแทน (ไม่เลือก = คืนเงินอย่างเดียว)' : ''}<select name="source" required={modal.mode === 'allocate'} defaultValue=""><option value="">เลือกแหล่งเงิน</option>{opening && <option value="opening">เงินตั้งต้น — เหลือ {money(opening.availableAmount)} บาท</option>}{incomes.map(i => <option value={i.id} key={i.id}>{dateLabel(i.transactionDate)} {i.description || 'รายรับ'} — เหลือ {money(i.availableAmount)} บาท</option>)}</select></label>}
     {modal.mode === 'correct' && <label>รายการจัดสรรที่ต้องการแก้<select name="allocationId" required><option value="">เลือกรายการต้นทาง</option>{entries.filter(e => e.kind === 'ALLOCATE').map(e => <option value={e.id} key={e.id}>{new Date(e.createdAt).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })} — {money(e.amount)} บาท</option>)}</select></label>}
