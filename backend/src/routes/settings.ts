@@ -11,6 +11,8 @@ export const settingsRouter = express.Router();
 const money = z.string().regex(/^\d{1,10}(?:\.\d{1,2})?$/).refine(s => new Prisma.Decimal(s).lte('9999999999.99'));
 export const settingsInput = z.object({
     displayName: displayNameInput, income: money.nullable(),
+    completeSetup: z.literal(true).optional(),
+    financialIntention: z.enum(['เงินสำรองฉุกเฉิน','ออมเงินซื้อของ','ลดหนี้','ลงทุน']).optional(),
     paydayDay: z.number().int().min(1).max(31).nullable(), primaryGoalId: z.string().uuid().nullable(),
     budgetMonth: z.string().regex(/^\d{4}-\d{2}$/), budgetAmount: money.refine(s => new Prisma.Decimal(s).gt(0)).nullable(),
     notifyNearLimit: z.boolean(), notifyExceeded: z.boolean(), notifyAnomaly: z.boolean().optional(),
@@ -20,13 +22,13 @@ export function paydayDate(year: number, month: number, day: number) {
 }
 const defaults = { enabled: false, notifyNearLimit: false, notifyExceeded: false, warningPercent: 80, totalBudget: true, categoryBudgets: true };
 async function view(tx: GoalTx, userId: string, period = currentBudgetPeriod()) {
-    const user = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { email: true } });
+    const user = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { email: true, setupCompletedAt: true } });
     const profile = await tx.profile.findUnique({ where: { userId }, select: { displayName: true, income: true, paydayDay: true, primaryGoalId: true, goal: true, avatarMime: true, primaryGoal: { select: { id: true, name: true, archivedAt: true } } } });
     const budget = await tx.budget.findUnique({ where: { userId_year_month: { userId, ...period } } });
     const notification = await tx.budgetNotificationSetting.findUnique({ where: { userId }, select: { enabled: true, notifyNearLimit: true, notifyExceeded: true, warningPercent: true, totalBudget: true, categoryBudgets: true } });
     const anomaly = await tx.anomalyNotificationSetting.findUnique({where:{userId}});
     const goals = await tx.goal.findMany({ where: { userId, archivedAt: null }, select: { id: true, name: true }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
-    return { userId, email: user.email, displayName: profile?.displayName ?? null, income: profile?.income?.toFixed(2) ?? null,
+    return { userId, email: user.email, setupCompletedAt: user.setupCompletedAt, displayName: profile?.displayName ?? null, income: profile?.income?.toFixed(2) ?? null,
         paydayDay: profile?.paydayDay ?? null, effectivePaydayDate: profile?.paydayDay ? paydayDate(period.year, period.month, profile.paydayDay).toISOString().slice(0, 10) : null, primaryGoalId: profile?.primaryGoalId ?? null, primaryGoal: profile?.primaryGoal ?? null,
         legacyGoal: profile?.goal ?? null, hasAvatar: Boolean(profile?.avatarMime), goals, budgetMonth: `${period.year}-${String(period.month).padStart(2, '0')}`,
         budgetAmount: budget?.amount.toFixed(2) ?? null, notifications: {...(notification ?? defaults), notifyAnomaly: anomaly?.enabled ?? false} };
@@ -76,6 +78,7 @@ settingsRouter.put('/settings', authMiddleware, handle(async (req, res) => {
         }
         const data = { displayName: input.displayName, income: input.income, paydayDay: input.paydayDay, primaryGoalId: input.primaryGoalId };
         await saveProfile(tx, userId, data);
+        if (input.financialIntention !== undefined) await tx.profile.update({ where: { userId }, data: { goal: input.financialIntention } });
         if (input.budgetAmount === null)
             await tx.budget.deleteMany({ where: { userId, ...period } });
         else
@@ -90,6 +93,7 @@ settingsRouter.put('/settings', authMiddleware, handle(async (req, res) => {
           await tx.anomalyNotificationSetting.upsert({where:{userId},create:{userId,enabled:input.notifyAnomaly},update:{enabled:input.notifyAnomaly}});
           if(!input.notifyAnomaly)await tx.transaction.updateMany({where:{userId,anomalyPending:true},data:{anomalyPending:false}});
         }
+        if (input.completeSetup) await tx.user.updateMany({ where: { id: userId, setupCompletedAt: null }, data: { setupCompletedAt: new Date() } });
         return view(tx, userId, period);
     });
     // Producer contains failures; a successful transaction must never be reported as failed.

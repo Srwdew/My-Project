@@ -866,7 +866,12 @@ app.post('/auth/login', async (req, res) => {
       }
     );
 
+    const invitation = await prisma.user.updateMany({
+      where: { id: user.id, deletedAt: null, authVersion: user.authVersion, setupCompletedAt: null, setupPromptedAt: null },
+      data: { setupPromptedAt: new Date() },
+    });
     return res.json({
+      showSetup: invitation.count === 1,
       message: 'Login successful',
       token,
       user: {
@@ -898,6 +903,7 @@ app.get(
           id: true,
           email: true,
           createdAt: true,
+          setupCompletedAt: true,
         },
       });
 
@@ -907,6 +913,7 @@ app.get(
         });
       }
 
+      res.set('Cache-Control', 'no-store');
       return res.json(user);
     } catch (error) {
       console.error(error);

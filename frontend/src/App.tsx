@@ -1,3 +1,4 @@
+import Setup from './pages/Setup';
 import AnomalyDetailPage from './pages/AnomalyDetail';
 import Behavior from './pages/Behavior';
 import Forecast from './pages/Forecast';
@@ -80,6 +81,7 @@ function App() {
                   element={<EditTransaction />}
                 />
 
+<Route path="/setup" element={<Setup />} />
 <Route path="/goals" element={<Goals />} />
 <Route path="/forecast" element={<Forecast />} />
 <Route path="/notifications/:notificationId/anomaly" element={<AnomalyDetailPage />} />

@@ -1,0 +1,24 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import bcrypt from 'bcrypt';
+import {app} from '../src/index';
+import {prisma} from '../src/lib/prisma';
+const db=new URL(process.env.DATABASE_URL!).pathname.slice(1);
+if(!db.startsWith('spendsense_goals_test_')||process.env.GOALS_TEST_DATABASE!==db)throw Error('Isolated database required');
+test('first login invitation is atomic, account scoped and independent of completion',async t=>{
+ process.env.JWT_SECRET=randomUUID(); const password=randomUUID();
+ const users=await Promise.all([0,1,2].map(async i=>prisma.user.create({data:{email:randomUUID()+'@example.invalid',passwordHash:await bcrypt.hash(password,4),...(i===2?{setupCompletedAt:new Date()}: {})}})));
+ const server=app.listen(0,'127.0.0.1');await new Promise<void>(r=>server.once('listening',r));const a=server.address();assert.ok(a&&typeof a!=='string');
+ t.after(async()=>{await new Promise<void>(r=>server.close(()=>r()));await prisma.$disconnect();});
+ const login=async(i:number,p=password)=>{const r=await fetch('http://127.0.0.1:'+a.port+'/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:users[i]!.email,password:p})});return {status:r.status,body:await r.json() as any};};
+ assert.equal((await login(0,'incorrect')).status,401);
+ assert.equal((await prisma.user.findUniqueOrThrow({where:{id:users[0]!.id}})).setupPromptedAt,null);
+ const results=await Promise.all(Array.from({length:5},()=>login(0)));
+ assert.ok(results.every(r=>r.status===200));assert.equal(results.filter(r=>r.body.showSetup===true).length,1);
+ assert.equal((await login(0)).body.showSetup,false);
+ const user=await prisma.user.findUniqueOrThrow({where:{id:users[0]!.id}});assert.ok(user.setupPromptedAt);assert.equal(user.setupCompletedAt,null);
+ assert.equal((await login(1)).body.showSetup,true);assert.equal((await login(2)).body.showSetup,false);
+ assert.equal(await prisma.transaction.count({where:{userId:users[0]!.id}}),0);
+ assert.equal(await prisma.goal.count({where:{userId:users[0]!.id}}),0);
+});

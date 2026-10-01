@@ -1,22 +1,7 @@
 import type { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
-import { isLoggedIn } from '../auth';
-
-type ProtectedRouteProps = {
-  children: ReactNode;
-};
-
-export default function ProtectedRoute({
-  children,
-}: ProtectedRouteProps) {
-  if (!isLoggedIn()) {
-    return (
-      <Navigate
-        to="/login"
-        replace
-      />
-    );
-  }
-
-  return children;
+import { useSessionKey } from '../auth';
+export default function ProtectedRoute({ children }: { children: ReactNode }) {
+  const session = useSessionKey();
+  return session ? children : <Navigate to="/login" replace />;
 }

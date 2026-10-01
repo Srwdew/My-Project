@@ -12,6 +12,8 @@ datasource db {
 }
 
 model User {
+  setupCompletedAt          DateTime?
+  setupPromptedAt           DateTime?
   anomalyReviews            AnomalyReview[]
   anomalyReviewRequests     AnomalyReviewRequest[]
   anomalySetting            AnomalyNotificationSetting?

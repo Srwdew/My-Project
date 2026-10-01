@@ -6,6 +6,7 @@ import './Login.css';
 import { apiFetch } from '../api';
 
 type LoginResponse = {
+  showSetup?: boolean;
   message?: string;
   token?: string;
   user?: {
@@ -60,7 +61,7 @@ export default function Login() {
 
       saveToken(data.token);
 
-      navigate('/overview', {
+      navigate(data.showSetup === true ? '/setup' : '/overview', {
         replace: true,
       });
     } catch (error) {
