@@ -34,27 +34,93 @@ test('Forecast HTTP/PostgreSQL ownership, query shape, no mutation and CRUD',asy
   assert.deepEqual({transactions:await prisma.transaction.count(),evaluations:await prisma.anomalyEvaluation.count(),notifications:await prisma.notification.count(),budgets:await prisma.budget.count()},before);
  });
  const todayRow=await create(a.id,other.id,'0.07',today);
- await t.test('partial new category, budget lookup, live today and no double subtraction',async()=>{
+ await t.test('new category does not gate total, budget lookup, live today and no double subtraction',async()=>{
   await prisma.budget.create({data:{userId:a.id,year:Number(today.slice(0,4)),month:Number(today.slice(5,7)),amount:'99999'}});
-  const v=(await req()).data;assert.equal(v.status,'partial');assert.equal(v.budgetComparison.status,'partial_cannot_conclude');assert.equal(v.categories.find((c:any)=>c.categoryId===other.id).daily,null);
-  assert.equal(v.summary.previousSevenDayActualComparableCategories,'700.00');
+  const v=(await req()).data;assert.equal(v.status,'available');assert.equal(v.budgetComparison.status,'below_reference');assert.equal(v.recordedExpenseToday,'0.07');assert(!('categories' in v));assert(!('coverage' in v));
+  assert.equal(v.summary.previousSevenDayActual,'700.00');
  });
  await t.test('actual Transaction update category/type/date and delete refresh forecast',async()=>{
   const edit=await req('/transactions/'+todayRow.id,a,'PUT',{categoryId:cat.id,type:'expense',amount:'0.08',transactionDate:shiftDay(today,-1),transactionTime:null});
-  assert.equal(edit.status,200);let v=(await req()).data;assert.equal(v.coverage.unavailableCategories,0);
+  assert.equal(edit.status,200);let v=(await req()).data;assert.equal(v.status,'available');
   const change=await req('/transactions/'+todayRow.id,a,'PUT',{categoryId:income.id,type:'income',amount:'0.08',transactionDate:today,transactionTime:null});assert.equal(change.status,200);
   assert.equal((await req()).data.summary.sevenDayForecastTotal,'700.00');
   assert.equal((await req('/transactions/'+todayRow.id,a,'DELETE')).status,200);
  });
- await t.test('review states do not remove genuine expense; SQL is bounded category/day aggregate',async()=>{
+
+ await t.test('total invariant to category moves/renames; PostgreSQL aggregates multiple categories on same day',async()=>{
+  const original=(await req()).data;
+  const row=await prisma.transaction.findFirstOrThrow({where:{userId:a.id,type:'expense',transactionDate:{lt:new Date(today+'T00:00:00Z')}}});
+  await prisma.transaction.update({where:{id:row.id},data:{categoryId:other.id}});
+  await prisma.category.update({where:{id:other.id},data:{name:'synthetic-renamed-'+randomUUID()}});
+  assert.deepEqual((await req()).data,original);
+  const extra=await create(a.id,other.id,'0.07',shiftDay(today,-1));
+  const extra2=await create(a.id,cat.id,'0.01',shiftDay(today,-1));
+  const value=await prisma.$transaction(tx=>forecastInput(tx,a.id,today),{isolationLevel:'RepeatableRead'});
+  const daily=value.rows.filter(r=>r.date===shiftDay(today,-1));assert.equal(daily.length,1);assert.equal(daily[0]!.amount,'100.08');
+  const v=(await req()).data;assert.equal(v.status,'available');
+  const walk=(obj:any)=>{if(!obj||typeof obj!=='object')return;for(const [key,value] of Object.entries(obj)){assert(!['categoryId','categoryName','categories','coverage','comparableAmount','previousSevenDayActualComparableCategories'].includes(key),key);walk(value);}};
+  walk(v);assert.equal(v.aggregation,'daily_expense_total_before_holt');
+  await prisma.transaction.deleteMany({where:{id:{in:[extra.id,extra2.id]}}});
+ });
+ await t.test('HTTP readiness boundaries and cutoff count use observed first-last dates',async()=>{
+  for(const count of [29,30])for(const span of [29,30]){
+   const owner=await account(),first=shiftDay(today,-40),last=shiftDay(first,span-1);
+   await prisma.transaction.createMany({data:Array.from({length:count},(_,i)=>({userId:owner.id,categoryId:cat.id,type:'expense' as const,amount:'1.00',transactionDate:new Date((i===count-1?last:first)+'T00:00:00Z')}))});
+   await create(owner.id,cat.id,'99',today);await create(owner.id,cat.id,'99',shiftDay(today,1));
+   const r=await req('/forecast',owner);assert.equal(r.status,200);
+   assert.equal(r.data.readiness.transactionCount,count);assert.equal(r.data.readiness.observedSpanDays,span);
+   assert.equal(r.data.status,count===30&&span===30?'available':'unavailable');
+   assert.equal(r.data.summary.daily===null,!(count===30&&span===30));
+  }
+ });
+ await t.test('review states do not remove genuine expense; SQL is bounded total/day aggregate',async()=>{
   const row=await prisma.transaction.findFirstOrThrow({where:{userId:a.id,type:'expense',transactionDate:{lt:new Date(today+'T00:00:00Z')}}});
   const evaluation=await prisma.anomalyEvaluation.create({data:{userId:a.id,originalTransactionId:row.id,revision:row.anomalyRevision,ruleVersion:'synthetic-forecast-invariance',outcome:'flagged',snapshot:{}}});
   await prisma.anomalyReview.create({data:{userId:a.id,originalTransactionId:row.id,evaluationId:evaluation.id,revision:row.anomalyRevision,action:'confirmed_problem',sequence:1}});
   assert.equal((await req()).data.summary.sevenDayForecastTotal,'700.00');
   const client=new PrismaClient({adapter:new PrismaPg({connectionString:process.env.DATABASE_URL!}),log:[{emit:'event',level:'query'}]});const queries:string[]=[];client.$on('query',e=>queries.push(e.query));
   try{const input=await client.$transaction(tx=>forecastInput(tx,a.id,today),{isolationLevel:'RepeatableRead'});assert.equal(buildForecast(input).summary.sevenDayForecastTotal,'700.00');}finally{await client.$disconnect();}
-  const reads=queries.filter(q=>/FROM\s+"(?:public"\.")?Transaction"/i.test(q));assert.equal(reads.length,1);assert.match(reads[0]!,/GROUP BY/);assert.match(reads[0]!,/userId/);assert.match(reads[0]!,/transactionDate/);assert.match(reads[0]!,/type/);
+  const reads=queries.filter(q=>/FROM\s+"(?:public"\.")?Transaction"/i.test(q));assert.equal(reads.length,2);const grouped=reads.find(q=>/GROUP BY/.test(q))!;assert.ok(grouped);assert.match(grouped,/transactionDate/);assert.doesNotMatch(grouped,/categoryId/);for(const q of reads){assert.match(q,/userId/);assert.match(q,/type/);assert.match(q,/transactionDate/);}assert(!queries.some(q=>/FROM.*Category/.test(q)));
   assert(!queries.some(q=>/GoalLedgerEntry|AnomalyReview/.test(q)));
-  console.log('FORECAST_SQL: one user/type/date-filtered category/day GROUP BY; no full-row history or ledger read');
+  console.log('FORECAST_SQL: lifetime cutoff aggregate + bounded daily-total GROUP BY; no category/history/ledger rows');
  });
+ await t.test('HTTP RepeatableRead keeps readiness, daily totals and budget in one snapshot during CRUD',async()=>{
+  const original=prisma.$transaction.bind(prisma);
+  for(const cut of ['aggregate','groupBy']){
+   const owner=await account();
+   await prisma.transaction.createMany({data:Array.from({length:30},(_,i)=>({userId:owner.id,categoryId:cat.id,type:'expense' as const,amount:'100.00',transactionDate:new Date(shiftDay(today,i-30)+'T00:00:00Z')}))});
+   const budget=await prisma.budget.create({data:{userId:owner.id,year:Number(today.slice(0,4)),month:Number(today.slice(5,7)),amount:'10000'}});
+   const victim=await prisma.transaction.findFirstOrThrow({where:{userId:owner.id},orderBy:{transactionDate:'asc'}});
+   const before=await req('/forecast',owner);let committed=false,isolation:string|undefined;
+   (prisma as any).$transaction=(callback:any,options:any)=>{
+    isolation=options?.isolationLevel;
+    return original(async tx=>callback(new Proxy(tx,{get(target,property){
+     if(property!=='transaction')return Reflect.get(target,property);
+     return new Proxy(target.transaction,{get(delegate,method){
+      const fn=Reflect.get(delegate,method);
+      if(method!==cut)return typeof fn==='function'?fn.bind(delegate):fn;
+      return async(...args:any[])=>{
+       const result=await fn.apply(delegate,args);
+       if(!committed){
+        await original(async writer=>{
+         await writer.transaction.delete({where:{id:victim.id}});
+         await writer.transaction.create({data:{userId:owner.id,categoryId:other.id,type:'expense',amount:'200.00',transactionDate:new Date(today+'T00:00:00Z')}});
+         await writer.budget.update({where:{id:budget.id},data:{amount:'20000'}});
+        });committed=true;
+       }
+       return result;
+      };
+     }});
+    }})),options);
+   };
+   let during:Awaited<ReturnType<typeof req>>;
+   try{during=await req('/forecast',owner);}finally{(prisma as any).$transaction=original;}
+   assert.equal(isolation,'RepeatableRead');assert.equal(committed,true);
+   assert.equal(during.status,200);assert.deepEqual(during.data,before.data);
+   const after=(await req('/forecast',owner)).data;
+   assert.equal(after.status,'unavailable');assert.equal(after.readiness.transactionCount,29);
+   assert.equal(after.recordedExpenseToday,'200.00');assert.equal(after.budgetComparison.budgetAmount,'20000.00');
+  }
+ });
+
 });

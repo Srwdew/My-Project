@@ -3,16 +3,18 @@ import { createHash } from 'node:crypto';
 
 export const D = Prisma.Decimal.clone({ precision: 40, rounding: Prisma.Decimal.ROUND_HALF_UP });
 export const FORECAST_RULE = Object.freeze({
-  method: 'holt_linear_category', windowDays: 180, horizon: 7,
-  minDays: 42, minExpenseDays: 14, recentDays: 7,
+  method: 'holt_linear_total', windowDays: 180, horizon: 7,
+  minTransactions: 30, minObservedDays: 30, tuningMinDays: 42,
+  defaultAlpha: '0.2', defaultBetaStar: '0.1', defaultSource: 'engineering-fixed-before-total-outer-benchmark',
+  staleDays: 7, longGapDays: 7, readiness: 'lifetime-expense-count-and-inclusive-first-last-through-cutoff',
   initialization: 'ols-first-7-level-at-7-recur-from-8',
   grid: '0.0:0.1:1.0', folds: 'last-three-nonoverlapping-7-day-inner-folds',
   objective: 'rounded-clipped-MAE-then-MSE-then-alpha-then-beta',
   missing: 'zero-after-first-expense', negative: 'clip-output-only',
-  rounding: '40-digit-decimal-half-up-cents-before-aggregation',
-  coverage: 'cutoff-eligible-categories-only', version: 1,
+  rounding: '40-digit-decimal-half-up-daily-total-cents-before-seven-day-sum',
+  coverage: 'all-expenses-total', version: 2,
 });
-export const MODEL_VERSION = 'holt-category-v1-' + createHash('sha256').update(JSON.stringify(FORECAST_RULE)).digest('hex').slice(0, 16);
+export const MODEL_VERSION = 'holt-total-v2-' + createHash('sha256').update(JSON.stringify(FORECAST_RULE)).digest('hex').slice(0, 16);
 export const sum = (values: readonly Prisma.Decimal.Value[]) => values.reduce<Prisma.Decimal>((a, v) => a.plus(v), new D(0));
 export const money = (v: Prisma.Decimal.Value) => new D(v).toFixed(2);
 
@@ -37,7 +39,7 @@ export function holt(values: readonly Prisma.Decimal.Value[], alpha: string, bet
     initialLevel: money(initialize(values).level), initialTrend: money(initialize(values).trend) };
 }
 export function fitHolt(values: readonly Prisma.Decimal.Value[]) {
-  if (values.length < 42) throw Error('HOLT_TUNING_REQUIRES_42_DAYS');
+  if (values.length < FORECAST_RULE.tuningMinDays) throw Error('HOLT_TUNING_REQUIRES_42_DAYS');
   let best: { alpha: string; betaStar: string; absolute: Prisma.Decimal; squared: Prisma.Decimal } | undefined;
   for (let ai = 0; ai <= 10; ai++) for (let bi = 0; bi <= 10; bi++) {
     const alpha = new D(ai).div(10).toFixed(1), betaStar = new D(bi).div(10).toFixed(1);

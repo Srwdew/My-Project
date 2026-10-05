@@ -2,16 +2,17 @@ const fs=require('fs'),path=require('path'),os=require('os'),cp=require('child_p
 const delay=ms=>new Promise(r=>setTimeout(r,ms));const origin=process.env.SETTINGS_BROWSER_ORIGIN||'http://127.0.0.1:5174';
 const {buildForecast,shiftDay}=require('../dist/lib/expenseForecast');
 const {bangkokToday}=require('../dist/lib/goalCalculations');
-const today=bangkokToday(),rows=Array.from({length:42},(_,i)=>({categoryId:'a',date:shiftDay(today,i-42),amount:'100.00',count:1}));
-const input={asOfDate:today,rows,categories:[{id:'a',name:'หมวดยาว '.repeat(40)},{id:'b',name:'ข้อมูลไม่พอ'}],budgetAmount:null};
-const payloads={available:buildForecast(input),empty:buildForecast({...input,rows:[]}),partial:buildForecast({...input,budgetAmount:'9999999999999999.99',rows:[...rows,{categoryId:'b',date:today,amount:'0.07',count:1}]})};
+const today=bangkokToday(),rows=Array.from({length:30},(_,i)=>({date:shiftDay(today,i-30),amount:'100.00',count:1}));
+const input={asOfDate:today,rows,history:{transactionCount:30,firstDate:rows[0].date,lastDate:rows[29].date},budgetAmount:null};
+const payloads={available:buildForecast(input),empty:buildForecast({...input,rows:[],history:{transactionCount:0,firstDate:null,lastDate:null}}),budget:buildForecast({...input,budgetAmount:'9999999999999999.99'})};
 const mock=(payloads)=>{
- localStorage.setItem('spendsense_token','session-a');window.__mode='partial';window.__payloads=payloads;window.__requests=[];window.__gates=[];window.__release=()=>window.__gates.splice(0).forEach(r=>r());
+ localStorage.setItem('spendsense_token','session-a');window.__mode='budget';window.__payloads=payloads;window.__requests=[];window.__gates=[];window.__release=()=>window.__gates.splice(0).forEach(r=>r());
  const native=window.fetch.bind(window);
  window.fetch=async(url,options={})=>{
-  if(!String(url).startsWith('http://localhost:4000'))return native(url,options);
+  const target=new URL(String(url),location.origin);if(target.origin===location.origin)return native(url,options);
   const route=new URL(url).pathname,session=new Headers(options.headers).get('Authorization')?.replace('Bearer ','');
   let data={};
+  if(route==='/settings')data={setupCompletedAt:'2026-01-01',setupPromptedAt:'2026-01-01'};
   if(route==='/profile')data={userId:session,email:session+'@example.invalid',displayName:session,hasAvatar:false};
   if(route==='/notifications')data={items:[],unreadCount:0};
   if(route==='/transactions'||route==='/categories')data=[];
@@ -20,7 +21,7 @@ const mock=(payloads)=>{
    options.signal?.addEventListener('abort',()=>{record.aborted=true;},{once:true});
    if(window.__hold){record.held=true;await new Promise(r=>window.__gates.push(r));}
    if(window.__fail){window.__fail=false;return new Response('{}',{status:503});}
-   data=structuredClone(payloads[window.__mode]);data.categories.forEach(c=>c.categoryName=session+' '+c.categoryName);
+   data=structuredClone(payloads[window.__mode]);data.modelVersion+='-'+session;
    const response=new Response(JSON.stringify(data),{headers:{'Content-Type':'application/json'}});
    const json=response.json.bind(response);response.json=async()=>{const value=await json();record.consumed=true;return value;};return response;
   }
@@ -34,19 +35,18 @@ const mock=(payloads)=>{
 
  await send('Page.enable');await send('Runtime.enable');await send('Page.addScriptToEvaluateOnNewDocument',{source:'('+mock.toString()+')('+JSON.stringify(payloads)+')'});
  await send('Page.navigate',{url:origin+'/forecast'});
- await waitFor("document.querySelectorAll('.forecast-table tbody tr').length>=3");
- assert.ok(await evaluate("document.querySelector('.forecast-page').textContent.includes('รวมเฉพาะหมวดที่พร้อม')"));
- assert.ok(await evaluate("document.querySelector('.forecast-page').textContent.includes('ยังสรุปแนวโน้มรวมไม่ได้')"));
+ await waitFor("document.querySelectorAll('.forecast-table tbody tr').length===14");
+ assert.ok(await evaluate("document.querySelector('.forecast-page').textContent.includes('ประมาณการรวม 7 วัน')"));
+ assert.equal(await evaluate("document.querySelectorAll('.forecast-page select').length"),0);
+ assert.equal(await evaluate("document.querySelector('.forecast-page').textContent.includes('ค่าพยากรณ์แยกตามหมวด')"),false);
  assert.ok(await evaluate("document.querySelector('.forecast-warning').textContent.includes('ไม่ได้ยืนยัน')"));
  assert.equal(await evaluate("document.querySelectorAll('.forecast-panel svg').length"),1);
- console.log('PASS partial category coverage, exact dates, missing-day warning, no within-budget claim');
+ console.log('PASS total-only UI, exact dates, missing-day warning, no category forecast controls');
  await evaluate("document.querySelector('details summary').focus()");await send('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
  await waitFor("document.querySelector('details').open");assert.equal(await evaluate("document.querySelector('details tbody').rows.length"),14);
- await evaluate("document.querySelector('.forecast-panel select').value='a';document.querySelector('.forecast-panel select').dispatchEvent(new Event('change',{bubbles:true}))");
- assert.equal(await evaluate("document.querySelector('.forecast-panel select').value"),'a');
- console.log('PASS keyboard accessible actual/forecast table and category selector');
+ console.log('PASS keyboard accessible total actual/forecast table');
  await evaluate("window.__mode='empty';window.dispatchEvent(new Event('spendsense-data-changed'))");
- await waitFor("document.querySelector('.forecast-page').textContent.includes('ยังไม่มีรายการรายจ่ายในช่วงอ้างอิง')");
+ await waitFor("document.querySelector('.forecast-page').textContent.includes('มีรายจ่ายก่อนวันตัดข้อมูลไม่ครบ 30 รายการ')");
  assert.equal(await evaluate("document.querySelectorAll('.forecast-panel svg').length"),0);
  assert.ok(await evaluate("document.querySelector('.forecast-cards strong').textContent.includes('ยังพยากรณ์ไม่ได้')"));
  console.log('PASS unavailable is null/no forecast graph, not a zero forecast');
@@ -72,7 +72,7 @@ const mock=(payloads)=>{
  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
  console.log('MOBILE_DIAGNOSTIC',await evaluate('[...document.querySelectorAll(".forecast-page select,.forecast-panel,.forecast-table,.forecast-header")].map(e=>({tag:e.tagName,cls:e.className,width:e.getBoundingClientRect().width,right:e.getBoundingClientRect().right}))')); assert.equal(await evaluate('document.documentElement.scrollWidth<=window.innerWidth'),true);
  assert.ok(await evaluate("[...document.querySelectorAll('.forecast-table')].every(el=>el.scrollWidth>=el.clientWidth)"));
- console.log('PASS navigation cancellation and mobile long category/money overflow containment');
+ console.log('PASS navigation cancellation and mobile money overflow containment');
  await send('Browser.close').catch(()=>{});
  }finally{socket?.close();browser.kill();console.log('Forecast browser: API mocks only, no application database.');}
 })().catch(e=>{console.error(e.message);process.exitCode=1;});

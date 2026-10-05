@@ -1,3 +1,5 @@
+> Historical category-v1 report. These scores and acceptance claims do not apply to total-v2. See [total-only report](FORECAST_TOTAL_BACKTEST_REPORT.md). The reproduction commands below refer to the category harness at Git HEAD 712199d5b04b8b9c2cf7c71b31b1b907e438224f, not the current harness; the current --report command generates the new total report. Historical contents and numbers below are preserved.
+
 # Forecast research benchmark - 28 September 2026 (Asia/Bangkok)
 
 MAE/RMSE are research evaluation metrics, NOT a requirement for the application to display accuracy scores. No UI, API, model, threshold, dependency or migration changes are made by this benchmark.

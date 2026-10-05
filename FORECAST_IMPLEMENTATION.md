@@ -1,70 +1,91 @@
-# Forecast — 26 กันยายน 2026 (Asia/Bangkok)
+# Forecast total-only — 4 October 2026 (Asia/Bangkok)
 
-## Scope
-หน้า /forecast แยกจาก Dashboard เชื่อมด้วย Sidebar และลิงก์ Overview ใช้ AppLayout, UserHeader และ NotificationBell เดิม GET /dashboard และรายงานเดิมคง contract เดิม ไม่มี migration/dependency ใหม่ ไม่สร้าง forecast notification ไม่เขียน forecast กลับ Transaction/Budget
+## Current scope and thesis mapping
+GET /forecast and /forecast use one Holt model on daily expense totals, not a sum of category forecasts. Authentication, strict no-query contract (400), 401, private/no-store, Bangkok date capture, RepeatableRead snapshot, and frontend abort/session guards are retained. No schema, migration, dependency, notification or financial write is added.
 
-ใช้ GET /forecast จาก auth user เท่านั้น ไม่รับ query (รวม userId/cutoff/month/horizon) ตอบ400; ไม่มี auth ตอบ401; private,no-store จับ asOfDate Bangkok ครั้งเดียว อ่าน bounded expense aggregates/category labels/month Budget ใน RepeatableRead แล้วคำนวณจาก snapshot นั้นนอก DB transaction
+Reference: C:\Doc Project\รวมเล่ม (3-67).pdf, PDF pages21–22 describe daily expense aggregation/Holt, seven-day total and current-month budget comparison; page55 gives general readiness of30 transactions/30days; pages40–41 cover Holt and held-out MAE/RMSE. Page20 mentions category forecasting: total-only is the user's explicit superseding scope decision, not a claim that the thesis has no category wording. Inclusive observed span and expense-only count follow the approved implementation specification.
+Initialization, defaults, tuning threshold, training window and warning thresholds below are engineering policies, not thesis requirements or statistically established guarantees.
 
-## Algorithm (approved)
-Holt linear trend แยกหมวดเท่านั้น:
-l_t = alpha*y_t + (1-alpha)*(l_previous+b_previous)
-b_t = betaStar*(l_t-l_previous) + (1-betaStar)*b_previous
-forecast_h = l_t+h*b_t, h=1..7
+## Input and readiness
+Only auth user's type=expense transactions, including Anomaly-flagged/reviewed expenses. Category assignment/name/age has no effect; no Category query or category eligibility.
+- Lifetime count/min/max dates through yesterday's cutoff are aggregated in PostgreSQL.
+- Ready iff count>=30 AND inclusive(lastExpenseDate-firstExpenseDate)+1>=30.
+- Today's and future expenses cannot unlock readiness or enter fitting. Today is read separately for budget reconciliation.
+- unavailable: summary.daily, sevenDayForecastTotal, periodDifference, parameters and parameterMode are null; reasons insufficient_expense_count / insufficient_observed_span. Actual facts remain available.
+- available applies to all recorded expense. No partial status or category coverage.
 
-ข้อมูลถึงเมื่อวาน forecast วันนี้ถึงอีก6วัน วันที่เก็บ/เพิ่มแบบ UTC surrogate ใช้ประวัติไม่เกิน180วัน เริ่มที่ expense แรกในหน้าต่างของหมวด เติมวันที่ไม่มีรายการหลังวันเริ่มเป็น0สำหรับโมเดลเท่านั้น ไม่ยืนยันข้อมูลครบ ไม่เติมวันอนาคต ไม่รวมวันนี้ที่ยังไม่ครบวัน
-เกณฑ์ v1 ต่อหมวด:42วันปฏิทิน,14วันที่มี expense,มี expense ใน7วันเต็มล่าสุด ไม่อ้างว่าเป็นหลักประกันความแม่นยำ
+A second PostgreSQL GROUP BY transactionDate returns at most181 daily rows through today, not transaction histories. Training uses at most180 days ending cutoff, starting at max(first lifetime expense, cutoff-179). Fill missing historical dates with0, never future dates. Zeros indicate missing records, not verified zero spending.
+Readiness spans lifetime, unlike the bounded fit: an old ready account can have180 zero-filled training dates and a zero model output. Show last recorded expense, zero-filled count, longest gap and warnings; do not invent expense or silently gate it as unavailable.
+Stale warning: last expense >=7 days before cutoff. Long-gap warning: >=7 consecutive dates without records within training. These versioned warning thresholds do not change readiness.
 
-Initialization: OLS วันที่1..7 (x mean4, denominator28), slope=b0, level fitted at day7=l0; recur ตั้งแต่day8
-Grid alpha/betaStar 0.0..1.0 step0.1 รวม121คู่ Validation ภายในชุดฝึก3folds cut n-21,n-14,n-7 แต่ละfold7วัน เลือก absolute error sum ต่ำสุด แล้ว squared error sum แล้ว alphaต่ำ/betaต่ำ Fit ใหม่ด้วย training ทั้งหมด
-Prisma Decimal clone precision40 HALF_UP; clamp เฉพาะ output ติดลบเป็น0; ปัด output รายวันเป็น2ตำแหน่งก่อนรวม/เทียบ และใช้ pipeline เดียวกันตอนเลือกพารามิเตอร์และ backtest
-Constants และนโยบายรวมใน modelVersion hash ไม่มีผู้ใช้แก้ threshold/parameters ผ่าน API ไม่มี confidence interval ที่ไม่ได้คำนวณ
+## Model and reproducibility
+Model: holt-total-v2-e949a61713de0b90; FORECAST_RULE JSON is SHA256-versioned.
+l[t]=alpha*y[t]+(1-alpha)*(l[t-1]+b[t-1])
+b[t]=betaStar*(l[t]-l[t-1])+(1-betaStar)*b[t-1]
+forecast[h]=l[T]+h*b[T], h=1..7.
 
-## Coverage and conservation
-หมวดใน scope มี expense ในหน้าต่าง180วันถึงวันนี้ (ครอบคลุมเดือนปัจจุบันด้วย) หมวดใหม่วันนี้ไม่มีtrainingและเป็นunavailable ไม่ลบ expense ตาม anomaly review/pending/confirmed_problem Profile.income และ Goals ไม่ใช่ source
-ทุกหมวดพร้อม=available,บางหมวดพร้อม=partial,ไม่มีพร้อม=unavailable
-unavailable daily/total=null ไม่ใช่0; category reason codes:
-no_expense_history_before_cutoff / insufficient_calendar_history / insufficient_expense_days / no_recent_expense_records
-root reasons: no_expense_history / no_eligible_categories
-ยอดรวมรายวัน=ผลรวมรายหมวดที่พร้อมหลังปัด; รวม7วัน=ผลรวมรายวัน=ผลรวม7วันรายหมวด
-Previous actual7วันแสดงทั้ง all categories และ comparable categories; ส่วนต่างใช้หมวดชุดเดียวกับ forecast เท่านั้น
-Partial ห้ามกล่าวว่ายอดรวมจะอยู่ในงบ แม้ยอดหมวดที่พร้อมต่ำกว่าวงเงิน หมวดที่ไม่พร้อมยังมีชื่อ/เหตุผล/จำนวนวันในตาราง ไม่มีการกระจายส่วนต่างเป็นหมวดอื่น
+OLS on first7 days initializes trend and level at day7; recur from day8. Prisma Decimal clone precision40, HALF_UP. Clip negative output to0, round each total/day to cents, then sum the displayed seven daily values. No category rounding or category models.
 
-## Budget
-R = Budget.amount - actual expense ทุกหมวดเดือนปัจจุบันถึงขณะอ่าน
-r = วันเหลือในเดือนรวมวันนี้; k=min(7,r)
-reference = max(R,0)*k/r (HALF_UP cents)
-additionalToday = sum per eligible category max(forecastToday-actualTodayOfCategory,0)
-comparableAdditional = additionalToday + forecasts หลังวันนี้เฉพาะวันที่ยังอยู่ในเดือนปัจจุบัน
-difference = comparableAdditional-reference
-suggestedDaily = max(R,0)/r ปัดลงเป็นสตางค์
-แสดงforecastครบ7วันแม้ข้ามเดือน; referenceเปรียบเทียบเฉพาะkวัน
-ไม่มีBudget => comparison=null; R<0=>already_over_budget, R=0=>budget_exhausted; daily adviceไม่ติดลบ
-partial=>partial_forecast_above_reference หรือ partial_cannot_conclude ห้ามสรุปอยู่ในงบ
-available=>above_reference/at_reference/below_reference; unavailable=>forecast_unavailable (แต่รายงานเกินงบจริงได้)
-CategoryBudget ไม่บวกเพิ่มในงบรวม
+Ready training30–41days: parameterMode=fixed_default, alpha0.2, betaStar0.1; validationMAE/RMSE=null. These conservative smoothing starting values (trend updates slower than level) were chosen as engineering defaults before this total-model outer benchmark, not fitted to its results or claimed optimal. Thirty calendar days allow initialization and recursion but do not establish reliable personal accuracy.
 
-## Response / UI
-Response: status/asOfDate/timezone/cutoffDate/forecastStartDate/forecastEndDate/horizonDays/modelVersion/method/aggregation
-coverage {availableCategories,unavailableCategories,completeForObservedCategories}
-categories {categoryId,categoryName,status,training,parameters,clampedDays,daily,sevenDayTotal,previousDaily,previousSevenDayActual,recordedExpenseToday,reasonCodes}
-summary {scope,daily,sevenDayForecastTotal,previousSevenDayActualAllCategories,previousSevenDayActualComparableCategories,comparablePeriodDifference}
-previousPeriod {startDate,endDate,daily}; budgetComparison และ warningCodes
-ทุกเงินเป็น decimal string ไม่มี JS float สะสมเงิน Number ใช้เฉพาะ SVG geometry
-กราฟ Actualทึบ/Forecastประ มี cutoff และตาราง14วันเปิดด้วยkeyboard; missing dayโปร่งและข้อความไม่มีรายการ ตารางรายหมวด7วัน+รวม; partialมีคำเตือนชัดเจน
-กราฟรวมใช้ hasComparableExpenseRecords แยกจาก hasExpenseRecords ทุกหมวด เพื่อไม่เรียกศูนย์ในหมวดที่เลือกว่ามีรายการจากหมวดอื่น
-Loading/error/retry, responsive/long names/money, session/day key + abort/active/token guards; refreshในsessionเดิมคง DOM/ข้อมูลเดิมขณะรอเพื่อไม่ทำkeyboard focusหาย ส่วนเปลี่ยนsession/dayremountล้างข้อมูล
-Selectจำกัดความกว้างตามcontainerหลังbrowserพบlong-categoryoverflow
+Training>=42days: parameterMode=inner_validation;121 pairs alpha/betaStar0.0..1.0 step0.1. Three inner7-day folds at n-21,n-14,n-7; earliest fold has21training days at n=42. Minimize rounded/clipped absolute error, then squared error, then lower alpha/beta via stable grid order. Refit chosen parameters through cutoff. Forty-two retains the existing three-fold scheme with a minimum21-day inner fit; it is a reproducible heuristic, not evidence that tuning is statistically reliable. All-zero or sparse long histories can still tune; warnings remain.
+Inner errors are selection diagnostics, not held-out accuracy or UI scores.
 
-## Tests and limitations
-Calculation/HTTP/PostgreSQL/backtest/regressionใช้ฐานทดสอบแยก ไม่มีfixturesในapplication ทดสอบactual SQLเป็นuser/type/date bounded category/day GROUP BYหนึ่งquery ไม่อ่านTransactionหรือGoal ledgerทั้งบัญชี
-Backtestมีconstant/linear/declining/variable/gaps/new-category fixtures ใช้ข้อมูลสังเคราะห์เท่านั้น ไม่มี accuracy claim; ดู FORECAST_BACKTEST_REPORT.md
-Chrome API mocksตรวจpartial/unavailable/dates/table/keyboard/retry/session/navigation/mobile และ regression Dashboard/Anomaly/Review/Settings
-ไม่ได้ยืนยัน real-backend Forecast browser acceptance โดยผู้ใช้ ยังต้องตรวจด้วยบัญชีทดสอบแยก:ครบ/partial/ไม่มีข้อมูล/ไม่มีงบ/งบเกิน/ข้ามเดือน/หมวดหลายรายการ/refreshหลังCRUD/สลับsessionและมือถือ
-รูปที่12ต้นฉบับยังไม่ได้รับ จึงจัดองค์ประกอบตามข้อกำหนดข้อความที่อนุมัติ ไม่อ้างว่าpixelตรงภาพ
-ไม่มีการbenchข้อมูลหมวดจำนวนมาก; fittingเป็น synchronous CPU และgrid searchต่อหมวด แม้query/memoryจำกัด180 daily aggregatesต่อหมวด อาจต้องวัดlatencyและแยกworker/cacheเมื่อมีหลักฐานจำเป็น
-ไม่สามารถ reconstructข้อมูลก่อนการแก้/ลบย้อนหลังได้ครบ Backtestจึงอ้างอิงข้อมูลปัจจุบันตามtransactionDate ไม่ใช่ผลที่เคยออกจริง
-Final evidence logs อยู่ .git/settings-verification นอกGit ไม่มี stage/commit/push
+## Dates, actual comparison and budget
+Cutoff=yesterday Bangkok; forecast today..today+6 inclusive, always7 dates, including month/year/leap boundaries. Compare recorded total expense cutoff-6..cutoff (seven equal-length previous days). No category selection for either period.
 
+R=monthly Budget.amount - actual expense this month through now.
+r=remaining calendar days including today; k=min(7,r).
+reference=HALF_UP(max(R,0)*k/r,2).
+additionalToday=max(totalForecastToday-totalActualToday,0).
+predictedAdditionalExpense=additionalToday+sum(forecast on remaining in-month days).
+difference=predictedAdditionalExpense-reference.
+suggestedAdditionalDailyAmount=floorToCents(max(R,0)/r).
+No Budget => budgetComparison=null. R<0 => already_over_budget; R=0 => budget_exhausted. Otherwise forecast_unavailable/above_reference/at_reference/below_reference. Never guarantee staying within the entire month's budget. CategoryBudget is not added to monthly budget. Forecast days next month remain visible but excluded from current month's comparison.
+
+## Breaking API/UI contract
+Retain dates, method=holt_linear, modelVersion and budgetComparison. aggregation=daily_expense_total_before_holt.
+New explicit readiness {ready,transactionCount,firstExpenseDate,lastExpenseDate,observedSpanDays,reasonCodes}, training, parameterMode, parameters, recordedExpenseToday and daysSinceLastExpense.
+summary {daily,sevenDayForecastTotal,previousSevenDayActual,periodDifference}.
+previousPeriod.daily {date,amount,hasExpenseRecords}.
+Remove categories, coverage, category forecasts/parameters, comparable category fields and partial reason/status codes from the actual response (no deprecated aliases). Deploy frontend/backend together.
+UI contains totals, actual comparison, graph/accessibility table, readiness/gap warnings, budget advice and model explanation only; no category select/table. Decimal strings are used for money; Number only for SVG geometry. Refresh retains same-session content while loading; session/day changes clear old state.
+
+## Evaluation, tests and acceptance
+New total benchmark: FORECAST_TOTAL_BACKTEST_REPORT.md. Old category-v1 scores in FORECAST_BACKTEST_REPORT.md are historical, never relabelled as total-v2 evidence.
+Deterministic synthetic data only; independent outer horizons1–7, cutoff-only inner selection. Baselines Seasonal naive and Mean-7 use identical account-origin readiness, history and daily rounding. Report pooled, horizon, scenario, parameter-mode and7-day errors plus coverage separately. No outer-score-based policy changes. Overlapping training/windows/points are dependent, not independent samples; no real-user accuracy claim.
+
+AI execution on4October2026:
+- Backend/frontend builds passed. Frontend main645.14kB (gzip175.16kB), existing >500kB warning. Builds are of this preserved dirty workspace, not an isolated staged candidate.
+- Initial calculation/backtest/benchmark unit run16/16; HTTP/PostgreSQL + Behavior unit regression38/38 on a newly created isolated PostgreSQL16 database. Additional snapshot/budget assertions are recorded in the final verification below.
+- Chrome real browser with API mocks passed total-only display, unavailable, keyboard/table/retry, session race, navigation cancellation and390px overflow checks. This is NOT real-backend user acceptance.
+- Synthetic total benchmark432origins,412ready/20unavailable,2884daily points per model, elapsed98632ms. Mean-7 has lower pooled daily MAE/RMSE and7-day MAE/RMSE than Holt in this benchmark.
+- Existing migrations deployed only to the new isolated test database to initialize its schema. No application database connection or schema/migration source change.
+- Total-v2 User Acceptance: PASS, confirmed by the user in this conversation for all three acceptance accounts; see the separate user-confirmation record below. Historical category-v1 acceptance remains separate.
+
+Manual acceptance on a separate acceptance database: verify29/30count x29/30span, today's exclusion, multiple/new categories, actual today below/above forecast, stale/gaps, absent/exhausted/overbudget, cross-month7dates, CRUD refresh, account switch, keyboard/mobile. Compare totals to expense SQL; never seed application.
+
+
+## User Acceptance — total-v2: PASS (ยืนยันในบทสนทนา)
+
+ผู้ใช้ยืนยันในบทสนทนาว่า User Acceptance ผ่านครบทั้งสามบัญชี: `forecast_not_ready`, `forecast_ready` และ `forecast_stale` บันทึกนี้เป็นคำยืนยันของผู้ใช้ แยกจากผลตรวจอัตโนมัติ/AI ด้านล่าง ผู้ใช้ไม่ได้ระบุวันเวลาเริ่มหรือสิ้นสุดการตรวจรับและค่าตัวเลขที่เห็น จึงไม่ระบุวันเวลาหรืออ้างค่าตัวเลขเป็นผลที่ผู้ใช้ตรวจเห็น
+
+ขั้นตอนตรวจโดยสรุปของชุด acceptance: เข้าสู่ระบบด้วยแต่ละบัญชีบนระบบทดสอบแยก → เปิด /forecast → ตรวจสถานะ ข้อความเหตุผล/คำเตือน และการแสดงยอดรวม → เปิดตารางกราฟและ refresh → logout ก่อนสลับบัญชี รายละเอียดนี้เป็นขั้นตอนของชุดตรวจ ไม่ใช่บันทึกเวลาหรือการคลิกแต่ละขั้นของผู้ใช้
+
+| บัญชีทดสอบ | ผลคาดหวังตามกรณี | ผลที่ผู้ใช้ยืนยัน |
+| --- | --- | --- |
+| forecast_not_ready | รายจ่ายไม่ครบเกณฑ์: unavailable พร้อมเหตุผล; forecast รายวันและยอดรวมเป็น null ไม่ใช่ศูนย์ | ผ่านกรณีนี้ |
+| forecast_ready | available; แสดงยอดรวมรายวันและรวม 7 วัน กราฟ/ตารางและการเทียบงบ ไม่มี forecast รายหมวดหรือ partial | ผ่านกรณีนี้ |
+| forecast_stale | ประวัติผ่าน readiness จึงยัง available พร้อมวันรายการล่าสุดและคำเตือนข้อมูลเก่า/ช่องว่างตาม implementation; ไม่อ้างว่าข้อมูลครบหรือจะไม่มีรายจ่ายจริง | ผ่านกรณีนี้ |
+
+### ผลตรวจ AI แยกต่างหาก — 4 ตุลาคม 2026 (Asia/Bangkok)
+
+AI ทดสอบ Login ผ่านเว็บจริงและ GET /forecast กับ backend/PostgreSQL ทดสอบแยก ผลตรงกับค่าคาดหวังที่คำนวณก่อนสร้างข้อมูล: forecast_not_ready ได้ unavailable/null; forecast_ready ได้ยอดรวม 7 วัน 696.56 บาท; forecast_stale ได้ยอดรวม 0.00 บาทพร้อมคำเตือนข้อมูลเก่า ช่องว่าง 9 วัน และการปรับค่าพยากรณ์ติดลบเป็นศูนย์ ค่าดังกล่าวเป็นผลตรวจของ AI ณ cutoff 3 ตุลาคม 2026 สำหรับ forecast 4–10 ตุลาคม 2026 ไม่ใช่ค่าที่ผู้ใช้ระบุว่าตรวจเห็น และไม่ใช่การรันทดสอบใหม่ในรอบปิดเอกสาร
+
+Benchmark ใช้ข้อมูลสังเคราะห์เท่านั้น ผล User Acceptance ยืนยันการใช้งาน ไม่ใช่หลักฐานความแม่นยำกับผู้ใช้จริง; windows และ forecast points ไม่ใช่ตัวอย่างอิสระ ดู FORECAST_TOTAL_BACKTEST_REPORT.md แยกจากรายงาน category-v1 เดิม ไม่มีรหัสผ่านหรือ token ในบันทึกนี้
+
+## Historical verification and user acceptance (category-v1 only)
+The following retained record belongs to the superseded category model and is not acceptance of total-v2.
 
 ## Final verification — 26 กันยายน 2026
 - 136 automated tests passed, 0 failed/skipped (calculation, HTTP, isolated PostgreSQL, backtest and existing regression).
@@ -88,3 +109,7 @@ Prisma validate/generate, backend/frontend build ผ่าน; automated calcula
 ฐานทดสอบใหม่ apply migrations เดิม12ตัวครบ ไม่มี migration/schema/dependency ใหม่ และไม่เปลี่ยนฐาน application
 Chrome API-mock suites Forecast, Dashboard (10 controlled month-race rounds), Anomaly, Review และ Settings ผ่านจาก candidate เดียวกัน; ผลนี้แยกจาก user browser acceptance/backendจริงด้านบน
 ตรวจเฉพาะ17 staged paths: ไม่มี .env/seed/acceptance fixtures/dump/log/screenshot/generated artifact; ไม่พบ secret patterns ที่ตรวจ และ git diff --cached --check ผ่าน มีเพียง frontend bundle warning >500kB
+
+
+## Total-v2 final AI verification — 4 October 2026
+Final focused run:26/26 tests passed (calculation, backtest, benchmark assertions, real HTTP/PostgreSQL),0failed/skipped,14058ms. Includes deterministic CRUD commits between readiness/daily and daily/budget queries: HTTP response stays in one RepeatableRead snapshot; subsequent GET observes the committed changes. Budget cases verify total actual today below/equal/above forecast and above/at/below reference. Browser tests and builds listed above remain valid: subsequent edits were tests/docs only.

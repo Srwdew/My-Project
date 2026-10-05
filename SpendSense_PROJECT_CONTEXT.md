@@ -1350,3 +1350,15 @@ No stage/commit/push; preserve the original 12 local paths.
 ผู้ใช้ยืนยันว่า User acceptance ของกราฟรายจ่ายย้อนหลังรายสัปดาห์ผ่านแล้ว วันที่ 27 กันยายน 2026 (Asia/Bangkok) บันทึกนี้เป็นผลตรวจรับของผู้ใช้ แยกจาก automated tests และ browser verification ของ AI ที่รายงานไว้ก่อนหน้า และแทนสถานะที่เคยระบุว่ายังรอตรวจรับ
 AI ตรวจ browser/backend/PostgreSQL acceptance จริงก่อนหน้านี้แล้ว: ช่วงวันที่/หมวด สัปดาห์คร่อมเดือน ยอดสตางค์ ช่วงว่าง keyboard/mobile และการ์ด Dashboard รายเดือนคงเดิม การเปลี่ยนหมวดกรอง aggregate ที่โหลดแล้วใน frontend จึงไม่ส่ง GET ใหม่; การเปลี่ยนช่วงวันที่ที่ถูกต้องส่ง GET /overview/weekly และได้ 200
 รอบบันทึก acceptance นี้ไม่ได้รัน tests ใหม่ จัด stage เฉพาะ allowlist งาน Weekly 8 ไฟล์เพื่อให้ผู้ใช้ตรวจ staged diff ยังไม่ commit หรือ push ข้อมูลบัญชี acceptance, credentials, logs และ screenshots ไม่รวมใน staged files
+
+
+## Forecast total-only — 4 October 2026
+Supersedes earlier category-v1 Forecast descriptions only. PostgreSQL aggregates all auth-user expense per date; one Holt total model, no category output/coverage/partial. Readiness is30expense transactions and30inclusive first-last days through yesterday. Today..today+6; fixed defaults0.2/0.1 for30–41 training days, chronological inner validation from42 days, window180. Budget uses max(total forecast today - total actual today,0). See FORECAST_IMPLEMENTATION.md and FORECAST_TOTAL_BACKTEST_REPORT.md. Old report and26September acceptance remain category-v1 history, not evidence/acceptance for this new model. New results are synthetic only; Mean-7 beats Holt on pooled errors. Total-v2 User Acceptance: PASS, confirmed by the user in this conversation for all three accounts; see the separate record below. No schema/dependency changes; application database untouched.
+
+### Forecast total-v2 — User Acceptance: PASS
+
+ผู้ใช้ยืนยันผ่านครบ forecast_not_ready, forecast_ready และ forecast_stale ในบทสนทนา โดยไม่ได้ระบุวันเวลาตรวจรับหรือค่าตัวเลขที่เห็น จึงไม่แต่งข้อมูลดังกล่าว ขั้นตอนชุดตรวจโดยสรุป: Login แต่ละบัญชี → /forecast → ตรวจสถานะ/ยอดรวม/คำเตือนและตาราง → refresh → logout ก่อนสลับบัญชี ไม่ใช่บันทึกการคลิกจริงของผู้ใช้
+
+ผลคาดหวัง: forecast_not_ready เป็น unavailable และ forecast=null; forecast_ready เป็น available แสดงเฉพาะยอดรวมรายวัน/7 วัน ไม่มีรายหมวดหรือ partial; forecast_stale ยัง available เมื่อผ่าน readiness พร้อมคำเตือนข้อมูลเก่าและช่องว่าง ผล User Acceptance ที่ผู้ใช้ยืนยันคือผ่านทั้งสามกรณี ดูรายละเอียดใน FORECAST_IMPLEMENTATION.md
+
+ผล AI วันที่ 4 ตุลาคม 2026 แยกต่างหาก: not_ready ได้ unavailable/null, ready ได้ 696.56 บาท, stale ได้ 0.00 บาทพร้อมคำเตือน จากเว็บ/backend/PostgreSQL ทดสอบจริงสำหรับ forecast 4–10 ตุลาคม 2026 ไม่อ้างว่าตัวเลขเหล่านี้เป็นค่าที่ผู้ใช้ตรวจเห็น รอบปิดเอกสารไม่ได้รันทดสอบใหม่ Benchmark ยังคงเป็นข้อมูลสังเคราะห์ ไม่ใช่หลักฐานความแม่นยำกับผู้ใช้จริง
