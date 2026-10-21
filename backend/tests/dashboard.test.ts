@@ -14,3 +14,15 @@ test('Dashboard rejects future, malformed and duplicate month', () => { for (con
 test('Dashboard Bangkok midnight uses a single supplied asOf', () => { assert.equal(bangkokToday(new Date('2026-09-30T16:59:59Z')),'2026-09-30'); assert.equal(bangkokToday(new Date('2026-09-30T17:00:00Z')),'2026-10-01'); });
 test('Money strings retain cents beyond JavaScript safe integer', () => { assert.equal(moneyText('9007199254740993.07'),'9,007,199,254,740,993.07'); assert.equal(moneyText('-0.08'),'-0.08'); assert.equal(moneyText('0.00'),'0.00'); });
 test('Daily distinguishes a recorded zero side, missing day and future date', () => { const days=calendarDays('2024-02','2024-02-03',[{date:'2024-02-01',transactionCount:1,incomeAmount:'0.00',expenseAmount:'0.08'}]); assert.equal(days.length,29); assert.equal(days[0]!.state,'recorded'); assert.equal(days[0]!.row!.incomeAmount,'0.00'); assert.equal(days[1]!.state,'unrecorded'); assert.equal(days[3]!.state,'future'); assert.equal(days[1]!.row,undefined); });
+test('Saving Rate uses actual cash flow, nullable denominator and half-up percent', async () => {
+ const { savingRate } = await import('../src/lib/dashboard');
+ const { Prisma } = await import('@prisma/client');
+ const rate=(i:string,e:string,n=2)=>savingRate(new Prisma.Decimal(i),new Prisma.Decimal(e),n);
+ assert.deepEqual(rate('0','0',0),{percent:null,reason:'no_transactions'});
+ assert.deepEqual(rate('0','20'),{percent:null,reason:'no_income'});
+ assert.equal(rate('100','20').percent,'80.00');
+ assert.equal(rate('100','120').percent,'-20.00');
+ assert.equal(rate('100','100').percent,'0.00');
+ assert.equal(rate('3','2').percent,'33.33');
+ assert.equal(rate('200','199.99').percent,'0.01');
+});

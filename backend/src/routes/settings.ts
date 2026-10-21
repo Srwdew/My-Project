@@ -1,3 +1,5 @@
+import {retryClosedAccountExperiment} from '../lib/closedAccountExperiment';
+import {withdrawExperiment} from '../lib/experimentRetention';
 import { displayNameInput, saveProfile } from '../lib/profile';
 import express, { type Response, type NextFunction } from 'express';
 import { z } from 'zod';
@@ -150,7 +152,12 @@ settingsRouter.post('/auth/close-account', authMiddleware, handle(async (req, re
             throw new GoalError(400, 'WRONG_PASSWORD', 'รหัสผ่านปัจจุบันไม่ถูกต้อง');
         await tx.user.update({ where: { id: u.id }, data: { deletedAt: new Date(), authVersion: { increment: 1 } } });
     });
-    res.json({ logout: true });
+    const experimentPurge=await retryClosedAccountExperiment(prisma,req.user!.userId);
+    res.set('Cache-Control','private, no-store').json({ logout: true, experimentPurge });
+}));
+settingsRouter.post('/settings/experiment/withdraw', authMiddleware, handle(async(req,res)=>{
+    z.object({}).strict().parse(req.body ?? {});
+    const result=await write(req,tx=>withdrawExperiment(tx,req.user!.userId));res.set('Cache-Control','private, no-store').json(result);
 }));
 settingsRouter.use((err: {
     type?: string;

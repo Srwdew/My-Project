@@ -102,3 +102,15 @@ No stage/commit/push; preserve the original 12 local paths.
 ผู้ใช้ยืนยันว่า User acceptance ของกราฟรายจ่ายย้อนหลังรายสัปดาห์ผ่านแล้ว วันที่ 27 กันยายน 2026 (Asia/Bangkok) บันทึกนี้เป็นผลตรวจรับของผู้ใช้ แยกจาก automated tests และ browser verification ของ AI ที่รายงานไว้ก่อนหน้า และแทนสถานะที่เคยระบุว่ายังรอตรวจรับ
 AI ตรวจ browser/backend/PostgreSQL acceptance จริงก่อนหน้านี้แล้ว: ช่วงวันที่/หมวด สัปดาห์คร่อมเดือน ยอดสตางค์ ช่วงว่าง keyboard/mobile และการ์ด Dashboard รายเดือนคงเดิม การเปลี่ยนหมวดกรอง aggregate ที่โหลดแล้วใน frontend จึงไม่ส่ง GET ใหม่; การเปลี่ยนช่วงวันที่ที่ถูกต้องส่ง GET /overview/weekly และได้ 200
 รอบบันทึก acceptance นี้ไม่ได้รัน tests ใหม่ จัด stage เฉพาะ allowlist งาน Weekly 8 ไฟล์เพื่อให้ผู้ใช้ตรวจ staged diff ยังไม่ commit หรือ push ข้อมูลบัญชี acceptance, credentials, logs และ screenshots ไม่รวมใน staged files
+
+
+## Overview live summaries — implementation update
+- Existing GET /anomaly/queue?filter=waiting&limit=1 supplies the current account-wide waiting transaction count (not dimension count); pending evaluation is labelled separately. No scoring, baseline or decisions are changed by this summary.
+- Existing GET /behavior retains its default 30 days ending yesterday and equal-length previous period. Overview labels these dates independently from the selected financial month. A finding is displayed only when both periods pass comparison readiness; no finding, unavailable, loading and request failure are distinct states.
+- GET /dashboard adds summary.savingRate: {percent, reason}. Formula from the thesis: (actual income - actual expense) / actual income * 100, Decimal half-up to 2 places. Empty period or zero recorded income returns null, never an invented 0%. This is a ratio of recorded cash flow, not Goal allocations.
+- Abort/session checks, retry and focus/data-change refresh prevent stale account results. The existing NotificationBell reconciliation remains unchanged; the new summaries only issue GET requests.
+- AI verification: dashboard and feasibility unit tests; isolated PostgreSQL HTTP tests; Chrome API-double checks for readiness, retry, stale session responses, keyboard link and 390px layout. These are not User Acceptance. User Acceptance for these additions: PASS, confirmed by the user in this conversation.
+
+
+## Overview — User Acceptance: PASS
+ผู้ใช้ยืนยันในบทสนทนานี้ว่า Overview ผ่าน User Acceptance แล้ว บันทึกนี้แยกจาก automated tests และ browser verification ของ AI ข้างต้น ไม่ระบุวันที่ เวลา หรือตัวเลขผลตรวจ เนื่องจากผู้ใช้ไม่ได้รายงานข้อมูลเหล่านั้น และไม่ถือว่ารายละเอียดผลทดสอบของ AI เป็นค่าที่ผู้ใช้ตรวจเห็น

@@ -1,3 +1,4 @@
+import AnomalyBaselineSummary from '../components/AnomalyBaselineSummary';
 import {useEffect,useState} from 'react';
 import {Link,useParams} from 'react-router-dom';
 import UserHeader from '../components/UserHeader';
@@ -14,7 +15,7 @@ export default function AnomalyDetailPage(){
   const id=notificationId??transactionId;
   const valid=!!id&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
   const path=notificationId?'/notifications/'+notificationId+'/anomaly':'/transactions/'+transactionId+'/anomaly';
-  return <main className="anomaly-page"><header className="anomaly-page-header"><div><Link to="/transactions">ธุรกรรม</Link><h1>รายละเอียดรายการที่ควรตรวจสอบ</h1><p>ผลคัดกรองจากกฎสถิติ ไม่ใช่การยืนยันว่ารายการผิดหรือทุจริต</p></div><UserHeader/></header>
+  return <main className="anomaly-page"><header className="anomaly-page-header compact-page-toolbar"><div><Link to="/transactions">ธุรกรรม</Link><h1 className="page-heading-accessible">รายละเอียดรายการที่ควรตรวจสอบ</h1></div><UserHeader/></header>
     {valid?<DetailBody key={session+path} path={path} session={session} transactionId={transactionId} fromNotice={!!notificationId}/>:<p role="alert">รหัสรายการไม่ถูกต้อง</p>}
   </main>;
 }
@@ -57,9 +58,10 @@ function DetailBody({path,session,transactionId,fromNotice}:{path:string;session
       <h2>{choices.length===1&&data.notificationSnapshot&&data.latestEvaluation?'ผลตอนแจ้งเตือนและผลล่าสุดเป็น evaluation เดียวกัน':viewed.id===data.notificationSnapshot?.id?'ผลตอนแจ้งเตือน':'ผลประเมินล่าสุด'}</h2>
       <p className="anomaly-revision">กำลังดู revision {viewed.revision}{viewed.revision!==data.currentRevision?' · หลักฐาน revision เดิม':''}</p>
       <div className="anomaly-transaction"><strong>{viewed.snapshot.transaction.amount} บาท</strong><span>{viewed.snapshot.transaction.categoryName}</span><span>{viewed.snapshot.transaction.date} · {viewed.snapshot.transaction.time??'ไม่ระบุเวลา'} (เวลาไทย)</span></div>
+      <AnomalyBaselineSummary snapshot={viewed.snapshot}/>
       <div className="anomaly-dimensions"><DimensionCard evaluation={viewed} dimension="amount"/><DimensionCard evaluation={viewed} dimension="time"/></div>
       <details className="anomaly-method"><summary>วิธีตรวจ จำนวนประวัติ และเวอร์ชันกฎ</summary><Method evaluation={viewed}/></details>
-      <AnomalyReviewPanel key={session+':'+viewed.id+':'+reload} evaluationId={viewed.id} revision={viewed.revision} onDone={refresh} explicitRevision/>
+      {viewed.snapshot.gate?.ready===false?<p>ยังไม่ผ่านเกณฑ์เริ่มตรวจ จึงยังไม่ขอคำตัดสิน</p>:<AnomalyReviewPanel key={session+':'+viewed.id+':'+reload} evaluationId={viewed.id} revision={viewed.revision} onDone={refresh} explicitRevision/>}
     </section>:<section className="anomaly-card"><h2>{data.pending?'รอประเมิน':'ยังไม่ตรวจ'}</h2>{source&&<div className="anomaly-transaction"><strong>{source.amount} บาท</strong><span>{source.category?.name??'ไม่ระบุหมวด'}</span><span>{source.transactionDate.slice(0,10)} · {source.transactionTime?.slice(11,16)||'ไม่ระบุเวลา'} (เวลาไทย) · {source.type==='expense'?'รายจ่าย':'รายรับ'}</span>{source.description&&<p>{source.description}</p>}</div>}<p>ยังไม่มี evaluation จึงไม่มีผลรายด้านหรือ revision ให้ยืนยัน</p></section>}
     <section className="anomaly-card"><h2>สิทธิ์เป็นข้อมูลอ้างอิงของรายการปัจจุบัน</h2><p>ส่วนนี้อ้างอิง revision ปัจจุบัน ไม่ใช่ snapshot ที่เลือกด้านบน</p>
       <p>จำนวนเงิน: <strong>{data.amountBaselineEligible?'ใช้ได้':'ใช้ไม่ได้'}</strong> · {data.amountBaselineReasons.map(r=>eligibilityExplanation[r]??r).join(' · ')}</p>
@@ -76,7 +78,7 @@ function DimensionCard({evaluation:e,dimension}:{evaluation:Evaluation;dimension
 }
 function Method({evaluation:e}:{evaluation:Evaluation}){
   const s=e.snapshot,b=s.baseline,r=s.rules,formula=amountFormula(e);
-  return <div><p>ประวัติหมวดเดียวกันของบัญชีนี้ ตั้งแต่ {s.window.startDate} ถึงก่อน {s.window.endExclusive}</p><p>จำนวนเงิน: {b.n} รายการ · {b.days} วันที่มีรายการ · span {b.span} วัน; ขั้นต่ำ {r.amountMin} / {r.amountDays} / {r.amountSpan}</p>
+  return <div><p>ประวัติตามขอบเขต baseline ที่แสดงด้านบน ตั้งแต่ {s.window.startDate} ถึงก่อน {s.window.endExclusive}</p><p>จำนวนเงิน: {b.n} รายการ · {b.days} วันที่มีรายการ · span {b.span} วัน; ขั้นต่ำ {r.amountMin} / {r.amountDays} / {r.amountSpan}</p>
     {formula&&<><p className="anomaly-formula">{formula}</p><p>Median {b.median??'—'} · MAD {b.mad??'—'} · Q1 {b.q1??'—'} · Q3 {b.q3??'—'}</p><p>เท่ากับขอบเกณฑ์ยังไม่ถือว่าพบสัญญาณ</p></>}
     <p>เวลา: {b.timeN} รายการ · {b.timeDays} วันที่มีเวลา · span {b.timeSpan} วัน; ขั้นต่ำ {r.timeMin} / {r.timeDays} / {r.timeSpan}; coverage ขั้นต่ำ {Number(r.timeCoverage)*100}%</p>
     {s.assessment.time.reasonCode==='time_rare_frequency'&&<p>ช่วงเดียวกัน {b.bucketCount}/{b.timeN} รายการ · รอบเวลา {b.nearbyCount}/{b.timeN} รายการ; ความถี่ bucket 4 ชั่วโมง และช่วงรอบเวลา −2 ถึงก่อน +2 ชั่วโมง ต้องต่ำกว่า {Number(r.rareFrequency)*100}% ทั้งคู่</p>}

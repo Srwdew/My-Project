@@ -16,7 +16,7 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));const origin=process.env.SETTIN
  const u=new URL(url,location.href);if(u.origin!==location.origin&&u.origin!=='http://localhost:4000')throw Error('Unexpected API origin');
  const who=new Headers(options.headers).get('Authorization')?.includes('setup-b')?'b':'a',method=options.method||'GET';
  window.__calls.push({path:u.pathname,method,body:options.body?JSON.parse(options.body):null,who});
- if(u.pathname==='/auth/me')return new Response(JSON.stringify({id:who,setupCompletedAt:window.__db[who].setupCompletedAt}));
+ if(u.pathname==='/auth/me')return new Response(JSON.stringify({id:who,role:'USER',showSetup:!window.__db[who].setupCompletedAt,setupCompletedAt:window.__db[who].setupCompletedAt}));
  if(u.pathname==='/profile')return new Response(JSON.stringify({email:'fixture@example.invalid',displayName:window.__db[who].displayName}));
  if(u.pathname!=='/settings')return new Response('{}',{status:503});
  if(method==='GET'){
@@ -53,8 +53,8 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));const origin=process.env.SETTIN
  await evaluate("window.__holdSave=false;window.__releaseSave()");await waitFor("location.pathname==='/overview'");
  assert.equal(await evaluate("window.__db.a.legacyGoal"),'เงินสำรองฉุกเฉิน');assert.equal(await evaluate("window.__db.a.primaryGoalId"),null);
  console.log('PASS first load/name/null payday, validation, failed save retained draft, busy/double submit, successful navigation');
- // Navigate without reloading the fixture by following the shared entry link.
- await evaluate("history.pushState({},'','/setup');window.dispatchEvent(new PopStateEvent('popstate'))");await ready();
+ // Completed accounts cannot reopen onboarding. Then model a separate incomplete profile with prefilled values.
+ await evaluate("window.__db.a.setupCompletedAt=null;history.pushState({},'','/setup');window.dispatchEvent(new PopStateEvent('popstate'))");await ready();
  assert.equal(await evaluate("document.querySelector('#setup-name')===null"),true);assert.equal(await evaluate("document.querySelector('#setup-income').value"),'0.07');
  await switchTo('b');await ready();assert.equal(await evaluate("document.querySelector('#setup-name')===null"),true);
  assert.equal(await evaluate("document.querySelector('#setup-budget').value"),'9000.00');assert.equal(await evaluate("document.querySelector('#setup-payday').value"),'25');
@@ -67,7 +67,7 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));const origin=process.env.SETTIN
  // Hold a real-shaped GET across session change; loading and old response cannot replace new draft.
  await evaluate("window.__holdGet=true;document.querySelector('.setup-error button').click()");await waitFor('window.__held===true');
  assert.equal(await evaluate("document.querySelector('.setup-page [role=status]')!==null"),true);
- await switchTo('a');await ready();await evaluate("window.__release()");await evaluate('new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))');
+ await evaluate('window.__db.a.setupCompletedAt=null');await switchTo('a');await ready();await evaluate("window.__release()");await evaluate('new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))');
  assert.equal(await evaluate("document.querySelector('#setup-income').value"),'0.07');
  // Failed loading is not an empty form.
  await fill('#setup-income','-1');await submit();await evaluate("window.__failGet=true;document.querySelector('.setup-error button').click()");

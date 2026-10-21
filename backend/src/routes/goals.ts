@@ -7,6 +7,8 @@ import { authMiddleware, type AuthRequest } from '../middleware/auth';
 import { D, bangkokToday, dateKey, goalSchema, sourceSchema, moneySchema, openingMoneySchema, dateSchema, reasonSchema } from '../lib/goalCalculations';
 import { runOperation, getGoal, goalSaved, goalView, sourceView, openingMutation, financialMutation, GoalError } from '../lib/goals';
 import { withGoalLock, sourceNet } from '../lib/goalWriteTransaction';
+import { goalFeasibility } from '../lib/goalFeasibility';
+import { assessSavingsPlan } from '../lib/goalSavingsPlan';
 export const goalsRouter = Router();
 goalsRouter.use(['/goals', '/goal-funding'], authMiddleware);
 const user = (r: Request) => (r as AuthRequest).user!.userId;
@@ -29,17 +31,20 @@ function page<T extends {
 }
 goalsRouter.get('/goals', handle(async (req, res) => {
     const q = paging.extend({ status: z.enum(['active', 'completed', 'overdue', 'not_started']).optional(), archived: z.enum(['exclude', 'only', 'include']).default('exclude') }).strict().parse(req.query);
+    res.set('Cache-Control', 'private, no-store');
     const today = bangkokToday();
     res.json(await read(async (tx) => {
         const goals = await tx.goal.findMany({ where: { userId: user(req), ...(q.archived === 'exclude' ? { archivedAt: null } : q.archived === 'only' ? { archivedAt: { not: null } } : {}) }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
+        const assessment = await assessSavingsPlan(tx, user(req), today);
+        const cashFlow = assessment.cashFlow;
         const views = [];
         for (const goal of goals) {
             const view = goalView(goal, await goalSaved(tx, user(req), goal.id), today);
             if (!q.status || view.calculatedStatus === q.status)
-                views.push(view);
+                views.push({ ...view, feasibility: goalFeasibility({ ...view, archivedAt: goal.archivedAt, targetDate: goal.targetDate }, cashFlow) });
         }
         // Computed filtering intentionally precedes cursor slicing.
-        return { ...page(views, q), asOfDate: today };
+        return { ...page(views, q), asOfDate: today, assessment: { scope: 'all_active_goals', ...assessment } };
     }));
 }));
 goalsRouter.post('/goals', handle(async (req, res) => {
@@ -50,7 +55,16 @@ goalsRouter.post('/goals', handle(async (req, res) => {
     });
     res.status(result.status).json(result.body);
 }));
-goalsRouter.get('/goals/:id', handle(async (req, res) => res.json(await read(async (tx) => goalView(await getGoal(tx, user(req), id(req)), await goalSaved(tx, user(req), id(req)))))));
+goalsRouter.get('/goals/:id', handle(async (req, res) => {
+    res.set('Cache-Control', 'private, no-store');
+    const today = bangkokToday();
+    res.json(await read(async tx => {
+        const goal = await getGoal(tx, user(req), id(req));
+        const view = goalView(goal, await goalSaved(tx, user(req), goal.id), today);
+        const assessment = await assessSavingsPlan(tx, user(req), today);
+        return { ...view, feasibility: goalFeasibility({ ...view, archivedAt: goal.archivedAt, targetDate: goal.targetDate }, assessment.cashFlow), assessment: { scope: 'all_active_goals', ...assessment } };
+    }));
+}));
 goalsRouter.patch('/goals/:id', handle(async (req, res) => {
     const input = goalSchema.partial().refine(x => Object.keys(x).length > 0).parse(req.body), uid = user(req), gid = id(req);
     res.json(await withGoalLock(uid, async (tx) => {

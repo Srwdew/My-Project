@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import './Register.css';
 import { apiFetch } from '../api';
 
@@ -181,6 +181,7 @@ export default function Register() {
             </button>
           </form>
 
+          <p><Link to="/guide">แนะนำการใช้งาน SpendSense</Link></p>
           <div className="register-footer">
             <span>มีบัญชีอยู่แล้ว?</span>
 

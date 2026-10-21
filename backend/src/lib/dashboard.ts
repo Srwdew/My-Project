@@ -1,6 +1,11 @@
 import { Prisma } from '@prisma/client';
 import { calculateGoal } from './goalCalculations';
 import { netGoalAllocation } from './goalAllocation';
+export function savingRate(income: Prisma.Decimal, expense: Prisma.Decimal, count: number) {
+  if (count === 0) return { percent: null, reason: 'no_transactions' };
+  if (!income.gt(0)) return { percent: null, reason: 'no_income' };
+  return { percent: income.minus(expense).div(income).mul(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP).toFixed(2), reason: null };
+}
 export class DashboardInputError extends Error {}
 export function dashboardPeriod(input: unknown, asOfDate: string) {
   const month = input === undefined ? asOfDate.slice(0, 7) : input;
@@ -36,7 +41,7 @@ export async function dashboardView(tx: Prisma.TransactionClient, userId: string
   const remaining = budget ? budget.amount.minus(expenseAmount) : null;
   return {
     month: period.month, timezone: 'Asia/Bangkok', asOfDate, period,
-    summary: { transactionCount: count, incomeTransactionCount: income?._count._all ?? 0, expenseTransactionCount: expense?._count._all ?? 0, incomeAmount: incomeAmount.toFixed(2), expenseAmount: expenseAmount.toFixed(2), netCashFlow: incomeAmount.minus(expenseAmount).toFixed(2), budgetAmount: budget?.amount.toFixed(2) ?? null, budgetRemaining: remaining?.toFixed(2) ?? null, budgetExceeded: remaining?.lt(0) ?? false, hasTransactions: count > 0 },
+    summary: { savingRate: savingRate(incomeAmount, expenseAmount, count), transactionCount: count, incomeTransactionCount: income?._count._all ?? 0, expenseTransactionCount: expense?._count._all ?? 0, incomeAmount: incomeAmount.toFixed(2), expenseAmount: expenseAmount.toFixed(2), netCashFlow: incomeAmount.minus(expenseAmount).toFixed(2), budgetAmount: budget?.amount.toFixed(2) ?? null, budgetRemaining: remaining?.toFixed(2) ?? null, budgetExceeded: remaining?.lt(0) ?? false, hasTransactions: count > 0 },
     expenseCategories: categorySums.sort((a,b) => (b._sum.amount ?? new Prisma.Decimal(0)).cmp(a._sum.amount ?? 0) || a.categoryId.localeCompare(b.categoryId)).map(r => ({ categoryId: r.categoryId, categoryName: names.get(r.categoryId) ?? 'ไม่ระบุหมวด', transactionCount: r._count._all, amount: (r._sum.amount ?? new Prisma.Decimal(0)).toFixed(2), percentage: expenseAmount.gt(0) ? (r._sum.amount ?? new Prisma.Decimal(0)).div(expenseAmount).mul(100).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP).toFixed(2) : '0.00' })),
     daily: [...dailyMap.values()],
     recentTransactions: { limit: 5, hasMore: count > 5, items: recent.map(r => ({ id: r.id, date: r.transactionDate.toISOString().slice(0,10), time: r.transactionTime?.toISOString().slice(11,19) ?? null, type: r.type, amount: r.amount.toFixed(2), categoryId: r.categoryId, categoryName: r.category.name, description: r.description })) },

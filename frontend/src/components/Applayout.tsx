@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { ToastProvider } from './LocalToast';
 import Sidebar from './Sidebar';
 import { ProfileProvider } from '../contexts/ProfileContext';
 
@@ -12,14 +13,15 @@ export default function AppLayout({
   children,
 }: AppLayoutProps) {
   return (
-    <ProfileProvider>
+    <ProfileProvider><ToastProvider>
       <div className="app-layout">
         <Sidebar />
 
         <main className="app-content">
+
           {children}
         </main>
       </div>
-    </ProfileProvider>
+    </ToastProvider></ProfileProvider>
   );
 }

@@ -1,0 +1,10 @@
+{
+  "tha": {
+    "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/tha@1.0.0/4.0.0_best_int/tha.traineddata.gz",
+    "sha256": "4550a5505184d1b79cf10416d5b19e643001d95411d5e717954dd26feef3ae74"
+  },
+  "eng": {
+    "url": "https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int/eng.traineddata.gz",
+    "sha256": "45b4cb346724ac1774f1c36f42f182b887bcdb28ebe63e6fff90ac41f3fcff91"
+  }
+}

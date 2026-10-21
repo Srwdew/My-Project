@@ -1,6 +1,6 @@
 # Setup financial profile — 1 October 2026 (Asia/Bangkok)
 
-## Current scope
+## Earlier form scope (layout superseded below)
 /setup now uses docs/mockups/Setup page.png as its layout reference: a light form card on a navy/indigo background, monthly planning income, income day, current-month budget, four financial intentions and Save/start. Red annotation frames are not UI. Existing AppLayout/navigation is retained.
 
 This supersedes the earlier read-only checklist. The old checklist browser checks do not constitute acceptance of this new form. User acceptance is recorded separately below.
@@ -53,7 +53,7 @@ Results are recorded after running the revised tests; they are separate from use
 - Migration was also deployed ONLY to the separate Setup acceptance database (now 13). Application database was not connected or migrated. Deploy this migration before running the new backend against any other database.
 - Acceptance frontend5181/backend4005 now serve completion-aware code. These are AI results; user acceptance of mandatory Setup is pending.
 
-## Current policy — 1 October 2026
+## Earlier invitation policy — 1 October 2026 (superseded below)
 - Setup is invited once on successful login, not a gate for authenticated routes. Overview/menu has no Setup entry. Skip goes to Overview without writing financial data or marking completion. Later editing is in Settings, including financial intention (not a real Goal).
 - User.setupPromptedAt is separate from setupCompletedAt; login atomically claims the invitation only when both are null. Concurrent successful logins yield one showSetup:true response. Failed login does not claim it. An interrupted/closed invitation is not shown again. Previously completed users are not invited; existing incomplete accounts get one invitation after deployment.
 - Migration 20261001020000_add_setup_prompted_at is new; already-applied completion migration bytes remain unchanged. Application database was not accessed.
@@ -81,3 +81,15 @@ Unsaved Settings draft: the button displays a warning when the form is dirty and
 AI verification of the follow-up (separate from user acceptance above): Settings browser API-mock assertions passed for Settings -> Setup, completed-account access, matching prefill, unchanged stored values and zero mutation requests when opening. Draft assertions verified that the confirmation appears, Cancel retains the draft and explicit confirmation permits navigation. Settings browser regression and frontend build passed (existing bundle-size warning). These follow-up assertions are AI results, not a new user acceptance claim.
 
 Staged scope: Setup form, login invitation/authenticated route guard, Settings financial-intention/completion contract, two Setup migrations and related tests. Category defaults, transactions limit, other acceptance documents and original local changes are excluded.
+
+## Current mandatory Setup policy
+
+- Ordinary USER accounts with no setupCompletedAt must complete /setup after login and before entering protected pages, including direct URLs and refresh. setupPromptedAt records an earlier invitation only; it is not completion. Login and GET /auth/me use the same requiresSetup helper.
+- /setup is a standalone Login/Register-style form without AppLayout/sidebar or a skip action. Logout remains available. Completed members opening /setup go to /overview; ADMIN accounts go to /admin without financial onboarding. The older Settings -> Setup entry consequently redirects completed members to Overview; financial editing remains available in Settings.
+- Existing form fields, optional financial values, validation and explicit completeSetup save are preserved. The route guard reads account status only; it adds no financial mutation or new backend financial API permission rule. The destination layout loads the profile after successful completion.
+- No schema/migration/backfill or database mutation was performed for this policy change. Existing historical verification and User Acceptance above describe earlier policies, not acceptance of this revision. User Acceptance for this revision has not been recorded.
+
+### Automated verification for this revision
+- Backend and frontend builds PASS. Setup requirement/checklist unit tests: 7 PASS.
+- Browser with mocked APIs: mandatory-completion suite 4 groups PASS; existing Setup form suite 4 groups PASS; public-home routing suite 3 groups PASS; Guide suite 5 groups PASS. Coverage includes incomplete direct URLs/refresh/repeated login, failed/successful save, completed/Admin routing, logout by keyboard, mobile, draft preservation, duplicate submission and stale session responses.
+- Browser checks use synthetic responses, not logins or writes to the application database. The login-invitation PostgreSQL test expectations were updated for mandatory completion but that database suite was not run in this revision.

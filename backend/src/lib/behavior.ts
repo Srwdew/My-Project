@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { BEHAVIOR_RULE as R, BEHAVIOR_VERSION, D, money, total, shiftDay, dayCount, recurrenceKind, type BehaviorRow, type Period, type Recurrence } from './behaviorRules';
+import { BEHAVIOR_RULE as R, BEHAVIOR_VERSION, D, money, total, shiftDay, dayCount, recurrenceWindows, type BehaviorRow, type Period, type Recurrence } from './behaviorRules';
 
 export type BehaviorInput = { asOfDate:string; period:Period; rows:BehaviorRow[]; categoryOptions:{categoryId:string|null;categoryName:string}[]; recurrences:Recurrence[] };
 const key = (id:string|null) => id ?? 'uncategorized';
@@ -75,7 +75,10 @@ export function buildBehavior(input:BehaviorInput) {
   const timeDistribution={current:timeFor(currentRows,current,currentReady.ready),previous:timeFor(previousRows,previous,previousReady.ready)};
   const recurrenceCandidates=currentReady.ready?input.recurrences
     .filter(r=>(period.categoryId===null||key(r.categoryId)===period.categoryId)&&r.dates.every(d=>d>=period.current.startDate&&d<=period.current.endDate))
-    .map(r=>({...r,kind:recurrenceKind(r.dates,r.counts)})).filter(r=>r.kind!==null):[];
+    .flatMap(r=>recurrenceWindows(r.dates,r.counts).filter(w=>!r.kind||w.kind===r.kind).map(w=>({...r,...w,
+      transactions:(r.transactions??[]).filter(t=>w.dates.includes(t.date)),occurrenceCount:w.counts.reduce((a,b)=>a+b,0),
+      distinctDays:w.dates.length,startDate:w.dates[0]!,endDate:w.dates[w.dates.length-1]!
+    }))):[];
   type Finding={ruleId:string;categoryId:string|null;categoryName:string|null;title:string;recommendation:string;evidence:unknown;scope:'comparison'|'current'};
   const categoryFindings:Finding[]=categories.filter(c=>c.findingEligible&&new D(c.current.amount).gt(c.previous.amount)).map(c=>{
     const nUp=c.current.transactionCount>c.previous.transactionCount;
@@ -91,22 +94,28 @@ export function buildBehavior(input:BehaviorInput) {
     const ca=categories.find(c=>key(c.categoryId)===key(a.categoryId))!,cb=categories.find(c=>key(c.categoryId)===key(b.categoryId))!;
     return new D(cb.current.amount).minus(cb.previous.amount).cmp(new D(ca.current.amount).minus(ca.previous.amount))||key(a.categoryId).localeCompare(key(b.categoryId));
   });
+  const references=(selected:BehaviorRow[])=>({transactionCount:selected.reduce((n,r)=>n+r.count,0),
+    startDate:selected.map(r=>r.date).sort()[0]??null,endDate:selected.map(r=>r.date).sort().reverse()[0]??null,
+    transactions:selected.flatMap(r=>r.transactions??[])});
+  for(const f of categoryFindings)f.evidence={...(f.evidence as object),...references(rows.filter(r=>r.categoryId===f.categoryId))};
   const findings:Finding[]=[...categoryFindings];
   if(timeDistribution.current.ready)for(const b of timeDistribution.current.buckets){
     if(new D(b.transactionCount).gte(new D(timeDistribution.current.confirmedCount).mul(R.bucketShare))&&b.distinctDays>=R.bucketDays){
       findings.push({ruleId:'confirmed_time_concentration',categoryId:null,categoryName:null,scope:'current',title:'พบรายการที่ยืนยันเวลากระจุกในช่วง '+String(b.startHour).padStart(2,'0')+':00–'+String(b.endHourExclusive).padStart(2,'0')+':00',
-        recommendation:'ตรวจรายการในช่วงเวลาดังกล่าวเพื่อประเมินว่าเหมาะกับแผนหรือไม่',evidence:{bucket:b,confirmedCount:timeDistribution.current.confirmedCount,coveragePercent:timeDistribution.current.coveragePercent}});
+        recommendation:'ตรวจรายการในช่วงเวลาดังกล่าวเพื่อประเมินว่าเหมาะกับแผนหรือไม่',evidence:{...references(currentRows.filter(r=>r.bucket===b.bucket)),bucket:b,confirmedCount:timeDistribution.current.confirmedCount,coveragePercent:timeDistribution.current.coveragePercent}});
     }
   }
-  if(recurrenceCandidates.length)findings.push({ruleId:'possible_recurrence',categoryId:null,categoryName:null,scope:'current',title:'พบรายการที่อาจเกิดซ้ำ',
-    recommendation:'ตรวจว่าเป็นค่าใช้จ่ายที่เกิดซ้ำและยังจำเป็นหรือไม่ ไม่ยืนยันว่าเป็นบิลหรือ subscription',evidence:{candidatesShown:Math.min(recurrenceCandidates.length,R.recurrenceLimit),details:'facts.recurrenceCandidates'}});
+  for(const r of recurrenceCandidates.slice(0,R.recurrenceLimit))findings.push({ruleId:'possible_recurrence_'+r.kind,categoryId:r.categoryId,categoryName:r.categoryName,scope:'current',
+    title:'พบรายการหมวดและยอดเดียวกันซ้ำ'+(r.kind==='weekly'?'ตามช่วง 7 วัน':r.kind==='monthly'?'ในเดือนติดกัน':'ภายใน 30 วัน'),
+    recommendation:'ตรวจรายการประกอบ ไม่ยืนยันว่าเป็นบิลเดียวกันหรืออธิบายสาเหตุการใช้จ่าย',
+    evidence:{...r,transactionCount:r.occurrenceCount}});
   return {asOfDate,timezone:'Asia/Bangkok',ruleVersion:BEHAVIOR_VERSION,scope:{categoryId:period.categoryId},
     periods:{current:period.current,previous:period.previous,days:period.days},categoryOptions:input.categoryOptions,
     status:!current.transactionCount&&!previous.transactionCount?'no_data':!currentReady.ready?'insufficient_current':!previousReady.ready?'current_only':'comparable',
     readiness:{current:currentReady,previous:previousReady,comparisonReady:ready,comparisonReasonCodes:comparisonReasons},
     facts:{summary:{current,previous,comparison:comparison(current,previous,ready)},categories,daily,weekdayDistribution:weekdays,timeDistribution,
       recurrenceCandidates:recurrenceCandidates.slice(0,R.recurrenceLimit),recurrence:{limit:R.recurrenceLimit,hasMore:recurrenceCandidates.length>R.recurrenceLimit,reasonCodes:currentReady.ready?[]:['current_period_not_ready']}},
-    findings,previewFindingCount:R.findingPreview,
+    findings:findings.map(f=>({...f,findingType:f.scope==='comparison'?'period_change':f.ruleId.startsWith('possible_recurrence_')?'recurrence':'time_observation'})),previewFindingCount:R.findingPreview,
     warningCodes:['recording_completeness_unverified','today_excluded','not_statistical_significance','no_records_not_confirmed_zero','recurrence_not_subscription']};
 }
 export async function behaviorInput(tx:Prisma.TransactionClient,userId:string,period:Period,asOfDate:string):Promise<BehaviorInput> {
@@ -116,7 +125,9 @@ export async function behaviorInput(tx:Prisma.TransactionClient,userId:string,pe
     SELECT c."id" AS "categoryId", COALESCE(c."name",'ไม่ระบุหมวด') AS "categoryName",
       to_char(t."transactionDate",'YYYY-MM-DD') AS date,
       CASE WHEN t."transactionTimeConfirmed" AND t."transactionTime" IS NOT NULL THEN floor(extract(hour FROM t."transactionTime")/4)::int ELSE -1 END AS bucket,
-      count(*)::int AS count, sum(t.amount)::text AS amount
+      count(*)::int AS count, sum(t.amount)::text AS amount,
+      jsonb_agg(jsonb_build_object('id',t.id,'date',to_char(t."transactionDate",'YYYY-MM-DD'),'amount',t.amount::text,
+        'time',CASE WHEN t."transactionTimeConfirmed" THEN to_char(t."transactionTime",'HH24:MI') ELSE NULL END) ORDER BY t.id) AS transactions
     FROM "Transaction" t LEFT JOIN "Category" c ON c.id=t."categoryId"
     WHERE t."userId"=${userId} AND t.type='expense' AND t."transactionDate">=${start} AND t."transactionDate"<${end} ${scope}
     GROUP BY c.id,c.name,t."transactionDate",bucket ORDER BY t."transactionDate",c.id,bucket`);
@@ -125,24 +136,40 @@ export async function behaviorInput(tx:Prisma.TransactionClient,userId:string,pe
     FROM "Transaction" t LEFT JOIN "Category" c ON c.id=t."categoryId"
     WHERE t."userId"=${userId} AND t.type='expense' AND t."transactionDate">=${start} AND t."transactionDate"<${end}
     GROUP BY c.id,c.name ORDER BY "categoryName",c.id`);
-  // Only strict qualifying groups leave PostgreSQL; no full-row transaction history in memory.
+  if(!readiness(metric(rows.filter(r=>r.date>=period.current.startDate))).ready)
+    return {asOfDate,period,rows,categoryOptions,recurrences:[]};
+  // Scan every window; retain earliest qualifying witness per category/amount/kind.
   const recurrences=await tx.$queryRaw<Recurrence[]>(Prisma.sql`
     WITH daily AS (
       SELECT c.id AS "categoryId",COALESCE(c.name,'ไม่ระบุหมวด') AS "categoryName",t.amount,t."transactionDate" AS d,count(*)::int AS n
       FROM "Transaction" t LEFT JOIN "Category" c ON c.id=t."categoryId"
       WHERE t."userId"=${userId} AND t.type='expense' AND t."transactionDate">=${new Date(period.current.startDate+'T00:00:00Z')} AND t."transactionDate"<${end} ${scope}
       GROUP BY c.id,c.name,t.amount,t."transactionDate"
-    ), gaps AS (
-      SELECT *,lag(d) OVER (PARTITION BY "categoryId",amount ORDER BY d) AS prior FROM daily
+    ), windows AS (
+      SELECT *, 'general'::text AS kind,array_agg(d) OVER w AS ds,array_agg(n) OVER w AS ns
+      FROM daily WINDOW w AS (PARTITION BY "categoryId",amount ORDER BY d ROWS BETWEEN CURRENT ROW AND 4 FOLLOWING)
+      UNION ALL
+      SELECT *, 'weekly',array_agg(d) OVER w,array_agg(n) OVER w
+      FROM daily WINDOW w AS (PARTITION BY "categoryId",amount ORDER BY d ROWS BETWEEN CURRENT ROW AND 3 FOLLOWING)
+      UNION ALL
+      SELECT *, 'monthly',array_agg(d) OVER w,array_agg(n) OVER w
+      FROM daily WINDOW w AS (PARTITION BY "categoryId",amount ORDER BY d ROWS BETWEEN CURRENT ROW AND 2 FOLLOWING)
+    ), qualified AS (
+      SELECT * FROM windows WHERE
+        (kind='general' AND cardinality(ds)=5 AND ds[5]-ds[1]+1<=30)
+        OR (kind='weekly' AND cardinality(ds)=4 AND ns=ARRAY[1,1,1,1] AND ds[2]-ds[1]=7 AND ds[3]-ds[2]=7 AND ds[4]-ds[3]=7 AND ds[4]-ds[1]+1<=28)
+        OR (kind='monthly' AND cardinality(ds)=3 AND ns=ARRAY[1,1,1] AND ds[3]-ds[1]+1<=90
+          AND NOT EXISTS (SELECT 1 FROM generate_series(2,3) i WHERE
+            (extract(year FROM ds[i])*12+extract(month FROM ds[i]))-(extract(year FROM ds[i-1])*12+extract(month FROM ds[i-1]))<>1)
+          AND ((extract(day FROM ds[1])=extract(day FROM ds[2]) AND extract(day FROM ds[2])=extract(day FROM ds[3]))
+            OR NOT EXISTS (SELECT 1 FROM unnest(ds) v WHERE extract(day FROM v+1)<>1)))
+    ), witnesses AS (
+      SELECT DISTINCT ON ("categoryId",amount,kind) * FROM qualified ORDER BY "categoryId",amount,kind,d
     )
-    SELECT "categoryId","categoryName",amount::text AS amount,
-      array_agg(to_char(d,'YYYY-MM-DD') ORDER BY d) AS dates,array_agg(n ORDER BY d) AS counts
-    FROM gaps GROUP BY "categoryId","categoryName",amount
-    HAVING count(*)>=${R.recurrenceDays} AND bool_and(n=1) AND (
-      bool_and(prior IS NULL OR d-prior=7) OR (
-        bool_and(prior IS NULL OR (extract(year FROM d)*12+extract(month FROM d))-(extract(year FROM prior)*12+extract(month FROM prior))=1)
-        AND (min(extract(day FROM d))=max(extract(day FROM d)) OR bool_and(extract(day FROM d+1)=1))
-      )
-    ) ORDER BY count(*) DESC,"categoryId" NULLS LAST,amount LIMIT ${R.recurrenceLimit+1}`);
+    SELECT "categoryId","categoryName",amount::text AS amount,kind,
+      ARRAY(SELECT to_char(v,'YYYY-MM-DD') FROM unnest(ds) v) AS dates,ns AS counts
+    FROM witnesses ORDER BY cardinality(ds) DESC,"categoryId" NULLS LAST,amount,kind,d LIMIT ${R.recurrenceLimit+1}`);
+  for(const r of recurrences)r.transactions=rows.filter(row=>row.categoryId===r.categoryId&&r.dates.includes(row.date))
+    .flatMap(row=>row.transactions??[]).filter(t=>new D(t.amount).eq(r.amount));
   return {asOfDate,period,rows,categoryOptions,recurrences};
 }

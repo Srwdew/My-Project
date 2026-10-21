@@ -1351,6 +1351,26 @@ No stage/commit/push; preserve the original 12 local paths.
 AI ตรวจ browser/backend/PostgreSQL acceptance จริงก่อนหน้านี้แล้ว: ช่วงวันที่/หมวด สัปดาห์คร่อมเดือน ยอดสตางค์ ช่วงว่าง keyboard/mobile และการ์ด Dashboard รายเดือนคงเดิม การเปลี่ยนหมวดกรอง aggregate ที่โหลดแล้วใน frontend จึงไม่ส่ง GET ใหม่; การเปลี่ยนช่วงวันที่ที่ถูกต้องส่ง GET /overview/weekly และได้ 200
 รอบบันทึก acceptance นี้ไม่ได้รัน tests ใหม่ จัด stage เฉพาะ allowlist งาน Weekly 8 ไฟล์เพื่อให้ผู้ใช้ตรวจ staged diff ยังไม่ commit หรือ push ข้อมูลบัญชี acceptance, credentials, logs และ screenshots ไม่รวมใน staged files
 
+## Anomaly detail — user acceptance วันที่ 29 กันยายน 2026 (Asia/Bangkok)
+
+ผู้ใช้ยืนยันว่า User acceptance ของหน้า Anomaly detail ผ่านแล้ว วันที่ 29 กันยายน 2026 (Asia/Bangkok) บันทึกนี้เป็นผลตรวจรับโดยผู้ใช้ แยกจากผลทดสอบ AI ด้านล่าง และไม่ใช่การรัน tests ใหม่ในรอบบันทึกเอกสาร
+
+### สิ่งที่พัฒนา
+เพิ่ม route /notifications/:notificationId/anomaly และ /transactions/:transactionId/anomaly ใช้ API เดิม แสดงผลรายด้าน เลือก snapshot/latest โดยไม่แสดงซ้ำเมื่อ evaluation เดียวกัน และมี review เฉพาะ revision ที่กำลังดู สูตรและจำนวนประวัติอยู่ในส่วนขยาย โดยไม่แสดงสูตรที่ไม่ได้ใช้ เปิดหลักฐานได้หลังต้นทางถูกลบ ไม่เปลี่ยน threshold, eligibility, backend API, schema, migration หรือ dependencies
+
+### ผลที่ AI ทดสอบก่อนผู้ใช้ตรวจรับ
+- Backend/frontend build ผ่าน; มี frontend bundle-size warning เดิม
+- Unit/regression Anomaly, Behavior และ presentation 22 tests ผ่าน; Notification HTTP mocks 7 tests ผ่าน
+- หน้าใหม่ browser API mocks 6 กลุ่ม, Review เดิม 6 กลุ่ม และ Behavior 9 กลุ่มผ่าน รวม direct URL, pending, revision, deduplication, deleted source, retry/409, keyboard/mobile และ session race
+- ทดสอบ frontend 5179 → backend 4003 → PostgreSQL acceptance แยกจริง ผ่านสถานะทั้งหมด, snapshot/review แยก revision, ownership 404, secondary baseline isolation, offline retry, lost-response replay หลัง commit จริง และ HTTP409 โดยเปลี่ยน review เฉพาะ fixture automation ที่สร้างใหม่
+- ไม่เชื่อมฐาน application; fingerprint ธุรกรรม acceptance เดิมไม่เปลี่ยน บัญชี ข้อมูลจำลอง credentials ภาพและ logs ไม่รวมใน Git
+- Anomaly browser suite เดิมหยุดที่ checkbox ยืนยันเวลาในหน้าเพิ่มธุรกรรมซึ่งถูกเอาออกใน local change ก่อนงานนี้ ไม่อ้างว่าชุดดังกล่าวผ่านทั้งหมด ไม่แก้หรือย้อน local change นั้น
+- หน้าแก้ไขธุรกรรมยังมี checkbox ยืนยันเวลา; หน้าเพิ่มส่ง transactionTimeConfirmed=false ตาม local change เดิม
+- Browser harness แก้การส่ง Enter ให้ครบและรอ review button enabled ก่อนกด ไม่แก้ production เพื่อกลบ test race
+
+### ขอบเขต staging รอบนี้
+Stage เฉพาะ 8 ไฟล์ source/tests ของ Anomaly detail ตาม allowlist ที่ผู้ใช้อนุมัติ เอกสาร ANOMALY_IMPLEMENTATION.md และ SpendSense_PROJECT_CONTEXT.md ที่อัปเดตในรอบนี้ยังอยู่นอก index เพื่อรักษาขอบเขต 8 ไฟล์ รักษา local เดิม 26 paths ไม่ stage/commit/push เอกสารหรือ fixtures
+
 
 ## Forecast total-only — 4 October 2026
 Supersedes earlier category-v1 Forecast descriptions only. PostgreSQL aggregates all auth-user expense per date; one Holt total model, no category output/coverage/partial. Readiness is30expense transactions and30inclusive first-last days through yesterday. Today..today+6; fixed defaults0.2/0.1 for30–41 training days, chronological inner validation from42 days, window180. Budget uses max(total forecast today - total actual today,0). See FORECAST_IMPLEMENTATION.md and FORECAST_TOTAL_BACKTEST_REPORT.md. Old report and26September acceptance remain category-v1 history, not evidence/acceptance for this new model. New results are synthetic only; Mean-7 beats Holt on pooled errors. Total-v2 User Acceptance: PASS, confirmed by the user in this conversation for all three accounts; see the separate record below. No schema/dependency changes; application database untouched.

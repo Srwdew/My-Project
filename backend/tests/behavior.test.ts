@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { behaviorPeriod, shiftDay, dayCount, recurrenceKind, BEHAVIOR_VERSION, type BehaviorRow } from '../src/lib/behaviorRules';
+import { behaviorPeriod, shiftDay, dayCount, recurrenceKind, recurrenceWindows, BEHAVIOR_RULE, BEHAVIOR_VERSION, type BehaviorRow } from '../src/lib/behaviorRules';
 import { buildBehavior, type BehaviorInput } from '../src/lib/behavior';
 const today='2026-09-26',period=behaviorPeriod({},today);
 const history=(start:string,n=30,categoryId:string|null='a',amount='100.00',bucket=-1):BehaviorRow[]=>Array.from({length:n},(_,i)=>({categoryId,categoryName:categoryId??'ไม่ระบุหมวด',date:shiftDay(start,i),bucket,count:1,amount}));
@@ -71,7 +71,7 @@ test('time coverage, confirmed sample minimum, >=50% bucket over >=5 distinct da
  assert.equal(buildBehavior(input(history(period.current.startDate))).facts.summary.current.amount,'3000.00');
 });
 test('strict recurrence exact 7 days, consecutive months, leap month end, duplicates and irregularity',()=>{
- assert.equal(recurrenceKind(['2026-09-04','2026-09-11','2026-09-18'],[1,1,1]),'weekly');
+ assert.equal(recurrenceKind(['2026-09-01','2026-09-08','2026-09-15','2026-09-22'],[1,1,1,1]),'weekly');
  assert.equal(recurrenceKind(['2024-01-31','2024-02-29','2024-03-31'],[1,1,1]),'monthly');
  assert.equal(recurrenceKind(['2026-01-15','2026-02-15','2026-03-15'],[1,1,1]),'monthly');
  for(const [dates,counts] of [
@@ -82,10 +82,10 @@ test('strict recurrence exact 7 days, consecutive months, leap month end, duplic
  ] as [string[],number[]][])assert.equal(recurrenceKind(dates,counts),null);
 });
 test('recurrence results gated by current readiness, bounded and deterministic',()=>{
- const rec={categoryId:'a',categoryName:'a',amount:'100',dates:['2026-09-04','2026-09-11','2026-09-18'],counts:[1,1,1]};
+ const rec={categoryId:'a',categoryName:'a',amount:'100',dates:['2026-09-01','2026-09-08','2026-09-15','2026-09-22'],counts:[1,1,1,1]};
  assert.equal(buildBehavior({...input([]),recurrences:[rec]}).facts.recurrenceCandidates.length,0);
  const v=buildBehavior({...input(full()),recurrences:Array(51).fill(rec)});assert.equal(v.facts.recurrenceCandidates.length,50);assert.equal(v.facts.recurrence.hasMore,true);
- assert.match(BEHAVIOR_VERSION,/behavior-v1-/);
+ assert.match(BEHAVIOR_VERSION,/behavior-v2-/);
 });
 
 test('Bangkok midnight changes last complete day only at local midnight',async()=>{
@@ -108,4 +108,82 @@ test('time dimension 50 percent and 5 day boundaries; not enough confirmed times
  v=buildBehavior(input(n));assert(v.facts.timeDistribution.current.reasonCodes.includes('insufficient_confirmed_time_count'));
  const concentrated=history(period.current.startDate,30,'a','100',-1);concentrated.forEach((r,i)=>{if(i<4){r.bucket=0;r.count=30;}});
  v=buildBehavior(input(concentrated));assert(!v.findings.some(f=>f.ruleId==='confirmed_time_concentration'));
+});
+
+test('category guard matrix: 4/5 rows and 2/3 days independently in both periods',async t=>{
+ const own=(start:string,count:number,days:number,unit:number):BehaviorRow[]=>Array.from({length:days},(_,i)=>{
+  const n=i===0?count-days+1:1;
+  return {categoryId:'guard',categoryName:'guard',date:shiftDay(start,i),bucket:-1,count:n,amount:String(n*unit)};
+ });
+ for(const currentCount of [4,5])for(const currentDays of [2,3])
+ for(const previousCount of [4,5])for(const previousDays of [2,3]){
+  await t.test(`current ${currentCount}/${currentDays}; previous ${previousCount}/${previousDays}`,()=>{
+   const v=buildBehavior(input([...full(),...own(period.current.startDate,currentCount,currentDays,20),...own(period.previous.startDate,previousCount,previousDays,10)]));
+   assert.equal(v.readiness.comparisonReady,true,'background history keeps period readiness independent');
+   const c=v.facts.categories.find(c=>c.categoryId==='guard')!;
+   assert.deepEqual([c.current.transactionCount,c.current.distinctDays,c.previous.transactionCount,c.previous.distinctDays],[currentCount,currentDays,previousCount,previousDays]);
+   const eligible=currentCount===5&&currentDays===3&&previousCount===5&&previousDays===3;
+   assert.equal(c.findingEligible,eligible);
+   assert.deepEqual(c.findingReasonCodes,eligible?[]:['insufficient_category_count_or_days']);
+   assert.notEqual(c.comparison,null,'facts remain comparable even when category finding is gated');
+   assert.equal(v.findings.some(f=>f.categoryId==='guard'),eligible);
+  });
+ }
+});
+
+test('all rolling windows, general 5 distinct days in 30 inclusive; duplicate dates never manufacture days',()=>{
+ const window=(offsets:number[])=>recurrenceWindows(offsets.map(d=>shiftDay('2026-01-01',d)),offsets.map(()=>1));
+ assert.equal(window([0,2,4,29]).length,0);
+ assert.equal(window([0,2,4,6,29])[0]?.kind,'general');
+ assert.equal(window([0,2,4,6,30]).length,0);
+ assert.equal(window([0,0,2,4,6]).length,0);
+ assert.equal(window([0,40,42,44,46,69])[0]?.dates[0],'2026-02-10','later qualifying window found');
+ assert.equal(window([0,2,4,6,29,80])[0]?.dates[0],'2026-01-01','early window retained despite later records');
+ assert.equal(recurrenceWindows(['2026-01-01','2026-01-02','2026-01-03','2026-01-04','2026-01-30'],[2,1,1,1,1])[0]?.kind,'general');
+});
+test('weekly minimum four exact seven-day occurrences and monthly three consecutive months',()=>{
+ const w=(d:string[])=>recurrenceWindows(d,d.map(()=>1));
+ assert.equal(w(['2026-01-01','2026-01-08','2026-01-15']).length,0);
+ assert.equal(w(['2026-01-01','2026-01-08','2026-01-15','2026-01-22'])[0]?.kind,'weekly');
+ assert.equal(w(['2026-01-01','2026-01-08','2026-01-15','2026-01-29']).length,0);
+ assert.equal(w(['2026-01-31','2026-02-28']).length,0);
+ assert.equal(w(['2026-01-31','2026-02-28','2026-03-31'])[0]?.kind,'monthly');
+ assert.equal(w(['2026-01-31','2026-03-31','2026-04-30']).length,0);
+ assert.equal(w(['2026-01-01','2026-02-02','2026-03-01']).length,0);
+ assert.equal(BEHAVIOR_RULE.weeklyWindow,28);assert.equal(BEHAVIOR_RULE.monthlyWindow,90);
+ // Under exact cadence four weekly dates span 22 inclusive days, three monthly dates <=63;
+ // 28/29 and 90/91-day spans cannot be valid exact-cadence minimal witnesses.
+});
+test('recurrence evidence, Global Readiness, confirmed-only time and comparison remain distinct',()=>{
+ const dates=['2026-09-01','2026-09-08','2026-09-15','2026-09-22'];
+ const transactions=dates.map((date,i)=>({id:'synthetic-'+i,date,amount:'100.00',time:null}));
+ const rec={categoryId:'a',categoryName:'a',amount:'100.00',dates,counts:[1,1,1,1],transactions};
+ for(const n of [0,29])assert.equal(buildBehavior({...input(history(period.current.startDate,n)),recurrences:[rec]}).facts.recurrenceCandidates.length,0);
+ const v=buildBehavior({...input(full()),recurrences:[rec]});
+ const candidate=v.facts.recurrenceCandidates[0]!;
+ assert.deepEqual(candidate.transactions,transactions);assert.equal(candidate.occurrenceCount,4);
+ assert.equal(candidate.startDate,dates[0]);assert.equal(candidate.endDate,dates[3]);
+ assert(v.findings.filter(f=>f.ruleId.startsWith('possible_recurrence_')).every(f=>f.scope==='current'));
+ assert(!v.findings.some(f=>f.ruleId==='confirmed_time_concentration'));
+ const changed=buildBehavior(input(comparisonFixture(3,'480')));
+ assert(changed.findings.some(f=>f.scope==='comparison'));
+ assert.equal(changed.facts.recurrenceCandidates.length,0,'change alone never creates recurrence');
+ assert(changed.findings.filter(f=>f.scope==='comparison').every(f=>f.findingType==='period_change'));
+ assert(v.findings.filter(f=>f.ruleId.startsWith('possible_recurrence_')).every(f=>f.findingType==='recurrence'));
+});
+test('four-hour boundaries match existing Anomaly bucket width, without importing scoring into Behavior',async()=>{
+ const {ANOMALY_RULE}=await import('../src/lib/anomalyRules');
+ assert.equal(BEHAVIOR_RULE.bucketHours*60,ANOMALY_RULE.bucketMinutes);
+});
+
+test('recurrence Global Readiness matrix 29/30 transactions by 29/30 inclusive days',()=>{
+ const dates=['2026-09-01','2026-09-08','2026-09-15','2026-09-22'];
+ const rec={categoryId:'a',categoryName:'a',amount:'100',dates,counts:[1,1,1,1]};
+ for(const count of [29,30])for(const span of [29,30]){
+  const rows=[{...history(period.current.startDate,1)[0]!,count:count-1},
+    {...history(shiftDay(period.current.startDate,span-1),1)[0]!,count:1}];
+  const v=buildBehavior({...input(rows),recurrences:[rec]});
+  assert.equal(v.readiness.current.ready,count===30&&span===30);
+  assert.equal(v.facts.recurrenceCandidates.length,count===30&&span===30?1:0);
+ }
 });

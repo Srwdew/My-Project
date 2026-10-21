@@ -31,7 +31,6 @@ export default function WeeklyExpenses({month,today,session}:{month:string;today
   const width=Math.max(680,(view?.weeks.length??0)*70);
   return <section className="dashboard-panel weekly-expenses" aria-label="รายจ่ายย้อนหลังรายสัปดาห์" aria-busy={loading}>
     <h2>รายจ่ายย้อนหลังรายสัปดาห์</h2>
-    <p>รวมเฉพาะรายจ่ายที่บันทึก จันทร์–อาทิตย์ ตัดขอบสัปดาห์ตามช่วงที่เลือก ตัวกรองส่วนนี้ไม่เปลี่ยน Dashboard รายเดือน</p>
     <div className="weekly-controls">
       <label>วันเริ่มต้น<input aria-label="วันเริ่มต้นรายสัปดาห์" type="date" min="1900-01-01" max={today} value={start} onChange={e=>setStart(e.target.value)}/></label>
       <label>วันสิ้นสุด<input aria-label="วันสิ้นสุดรายสัปดาห์" type="date" min={start} max={today} value={end} onChange={e=>setEnd(e.target.value)}/></label>
@@ -45,7 +44,6 @@ export default function WeeklyExpenses({month,today,session}:{month:string;today
         <line x1="20" y1="190" x2={width-15} y2="190" stroke="#8495a6"/>
         {view.weeks.map((w,i)=>{const x=25+i*(width-40)/view.weeks.length,bar=(width-40)/view.weeks.length*.6,h=Number(w.cents)/max*145;return <g key={w.startDate}><title>{w.startDate+' ถึง '+w.endDate+': '+weeklyMoney(w.cents)+' บาท'}</title>{w.count?<><rect x={x} y={190-h} width={bar} height={h} fill="#b54438"/><text x={x+bar/2} y={180-h} textAnchor="middle">{moneyText(weeklyMoney(w.cents))}</text></>:<text x={x+bar/2} y="180" textAnchor="middle">—</text>}<text x={x+bar/2} y="211" textAnchor="middle">{w.startDate.slice(5)}</text><text x={x+bar/2} y="229" textAnchor="middle">{w.endDate.slice(5)}</text></g>;})}
       </svg></div>}
-      <p>สัปดาห์ที่ไม่มีรายการใช้เครื่องหมาย — ไม่ได้ยืนยันว่าไม่มีการใช้จ่ายจริง · ช่วงไม่เกิน 366 วัน</p>
       <details><summary>ตารางรายจ่ายรายสัปดาห์</summary><div className="dashboard-table-wrap" tabIndex={0} role="region" aria-label="ตารางรายสัปดาห์"><table><caption>ยอดรายจ่ายตามช่วงและหมวดที่เลือก หน่วยบาท</caption><thead><tr><th scope="col">ช่วงวันที่</th><th scope="col">จำนวนรายการ</th><th scope="col">รายจ่าย</th></tr></thead><tbody>{view.weeks.map(w=><tr key={w.startDate}><th scope="row">{w.startDate} – {w.endDate}</th><td>{w.count||'ไม่มีรายการที่บันทึก'}</td><td>{w.count?moneyText(weeklyMoney(w.cents)):'—'}</td></tr>)}</tbody><tfoot><tr><th scope="row">รวม</th><td>{view.count}</td><td>{moneyText(weeklyMoney(view.total))}</td></tr></tfoot></table></div></details>
     </>}
   </section>;

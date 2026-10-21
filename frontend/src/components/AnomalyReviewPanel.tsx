@@ -1,11 +1,12 @@
+import AnomalyDecisionPanel from './AnomalyDecisionPanel';
 import {useEffect,useRef,useState} from 'react';
 import {apiFetch} from '../api';
 import {getToken,useSessionKey} from '../auth';
 type Action='confirmed_normal'|'confirmed_problem';
 type Review={id:string;action:Action;sequence:number;revision:number;reviewedAt:string};
-type View={reviewState:Action|'unreviewed';reviewSequence:number;reviewHistory:{items:Review[];hasMore:boolean;nextCursor:number|null}};
+type View={decisionProtocol?:string;reviewState:Action|'unreviewed';reviewSequence:number;reviewHistory:{items:Review[];hasMore:boolean;nextCursor:number|null}};
 const labels={unreviewed:'ยังไม่ได้ตรวจสอบ',confirmed_normal:'ยืนยันว่าปกติ',confirmed_problem:'ยืนยันว่ามีปัญหา'};
-export default function AnomalyReviewPanel({evaluationId,revision,onDone,explicitRevision=false}:{evaluationId:string;revision:number;onDone:()=>void;explicitRevision?:boolean}){
+export default function AnomalyReviewPanel({evaluationId,revision,onDone,explicitRevision=false,dimensions}:{evaluationId:string;revision:number;onDone:()=>void;explicitRevision?:boolean;dimensions?:('amount'|'time')[]}){
  const session=useSessionKey();const [data,setData]=useState<View|null>(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[reload,setReload]=useState(0);
  const active=useRef(true),locked=useRef(false),request=useRef<{key:string;body:string}|null>(null);
  useEffect(()=>{active.current=true;return()=>{active.current=false;};},[]);
@@ -29,6 +30,7 @@ export default function AnomalyReviewPanel({evaluationId,revision,onDone,explici
   const r=await apiFetch(`/anomaly/evaluations/${evaluationId}/reviews?cursor=${data.reviewHistory.nextCursor}`);if(!r.ok)throw Error();const v:View=await r.json();
   if(valid())setData({...v,reviewHistory:{...v.reviewHistory,items:[...data.reviewHistory.items,...v.reviewHistory.items].filter((x,i,all)=>all.findIndex(y=>y.id===x.id)===i)}});
  }catch{if(valid())setError('โหลดประวัติเพิ่มไม่สำเร็จ กรุณาลองใหม่');}finally{locked.current=false;if(valid())setBusy(false);}}
+ if(data?.decisionProtocol==='dimension-v2')return <AnomalyDecisionPanel dimensions={dimensions} evaluationId={evaluationId} revision={revision} onDone={()=>{window.dispatchEvent(new Event('spendsense-anomaly-decision'));onDone();}}/>;
  return <section className="anomaly-review" aria-label={`ผลยืนยัน revision ${revision}`} style={{paddingBlock:12}}>
   <h5>ผลยืนยัน revision {revision}: {data?labels[data.reviewState]:'กำลังโหลด...'}</h5>
   <p>“ยืนยันว่าปกติ” หมายถึงอนุญาตให้ revision นี้เป็นข้อมูลอ้างอิงในอนาคตตามข้อมูลที่ใช้ได้ ไม่อนุญาตเวลาโดยอัตโนมัติ</p>

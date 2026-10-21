@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: SpendSense
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - SpendSense_pgdata:/var/lib/postgresql/data
 

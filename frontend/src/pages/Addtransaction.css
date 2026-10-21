@@ -895,3 +895,59 @@
     height: 270px;
   }
 }
+/* Transaction form: scoped to avoid changing History or other pages. */
+.add-page .add-layout { grid-template-columns: minmax(0, 1.35fr) minmax(340px, 1fr); margin-top: 24px; }
+.add-page .left-column { min-width: 0; display: grid; gap: 18px; }
+.add-page .card { margin: 0; padding: 22px; border-radius: 14px; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px #0f172a05; }
+.add-page .card h2 { margin: 0 0 20px; font-size: 17px; color: #172e4c; }
+.add-page .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: start; }
+.add-page .field { min-width: 0; align-content: start; gap: 8px; }
+.add-page .field label { font-size: 13px; }
+.add-page .input, .add-page .date-picker-wrapper input { height: 46px; font-size: 14px; border-radius: 9px; }
+.add-page .date-time-grid { grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); }
+.add-page .upload-box { border-radius: 10px; }
+.add-page .camera-upload { display: none; }
+.add-page .preview-card { border-radius: 14px; border-color: #e2e8f0; }
+.add-page .footer-actions button { min-height: 44px; }
+@media (max-width: 1100px) { .add-page .add-layout { grid-template-columns: 1fr; } }
+@media (max-width: 767px), (pointer: coarse) and (max-width: 1366px) {
+  .add-page .camera-upload { display: flex; }
+}
+@media (max-width: 600px) {
+  .add-page .card { padding: 18px; }
+  .add-page .form-grid { grid-template-columns: 1fr; gap: 18px; }
+  .add-page .add-header { gap: 12px; }
+}
+
+.add-page .preview-card { max-width: none; min-width: 0; padding: 24px; }
+.add-page .receipt-preview { width: 100%; height: auto; min-height: 360px; aspect-ratio: 3 / 4; box-sizing: border-box; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 12px; }
+.add-page .preview-image { max-height: 680px; }
+.add-page .category-field { grid-column: 1 / -1; min-width: 0; padding: 0; margin: 0; border: 0; }
+.add-page .category-field legend { font-size: 13px; font-weight: 500; margin-bottom: 10px; }
+.add-page .category-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.add-page .category-option { position: relative; cursor: pointer; min-width: 0; }
+.add-page .category-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.add-page .category-option-content { min-height: 86px; height: 100%; box-sizing: border-box; padding: 12px 6px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; color: #475569; text-align: center; font-size: 12px; overflow-wrap: anywhere; }
+.add-page .category-option:hover .category-option-content { border-color: #93b4f5; background: #f8faff; }
+.add-page .category-option input:checked + .category-option-content { border-color: #2563eb; background: #eff6ff; color: #1d4ed8; box-shadow: inset 0 0 0 1px #2563eb; font-weight: 600; }
+.add-page .category-option input:focus-visible + .category-option-content { outline: 3px solid #93c5fd; outline-offset: 3px; }
+@media (max-width: 600px) {
+  .add-page .category-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .add-page .preview-card { padding: 18px; }
+  .add-page .receipt-preview { min-height: 280px; }
+}
+
+.add-page .transaction-draft { border:0; margin:0; padding:0; min-width:0; display:grid; gap:18px; }
+.add-page .receipt-ocr { flex-basis:100%; min-width:0; overflow-wrap:anywhere; }
+.add-page .receipt-ocr button { min-height:44px; margin:4px; }
+
+.add-page .pending-transaction { grid-column:1/-1; border:1px solid #fbbf24; background:#fffbeb; padding:16px; border-radius:12px; overflow-wrap:anywhere; }
+.add-page .pending-transaction h2 { font-size:18px; margin-top:0; }
+.add-page .pending-transaction button,.add-page .pending-transaction a { display:inline-block; margin:4px 12px 4px 0; min-height:44px; }
+
+.add-page .preview-header { flex-wrap:wrap; }
+.add-page .receipt-ocr p { margin:6px 0; }
+.add-page .receipt-ocr progress { display:block; width:100%; height:10px; accent-color:#4f5ff5; margin:12px 0; }
+
+.add-page .receipt-ocr-complete { flex-basis:auto; margin-left:auto; }
+.add-page .receipt-ocr-complete .success-badge { margin:0; padding:7px 12px; font-size:13px; white-space:nowrap; }

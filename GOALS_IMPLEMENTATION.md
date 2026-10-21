@@ -99,3 +99,68 @@ Service ports checked before startup; backend4000 and frontend5173 started once 
 - No .env, credential material, node_modules, dist, logs, database dumps or test database files are included. Test source code/runner are intentionally included.
 
 Migration byte preservation: Git autocrlf initially normalized the staged SQL and changed its checksum. A migration-local .gitattributes sets migration.sql -text; the committed blob is checked byte-for-byte against the applied file. The already-applied trailing blank line is intentionally preserved rather than edited.
+
+
+## Cash-flow feasibility — last-completed-calendar-month-v1
+User decision in this conversation: use the most recent fully completed calendar month, in Asia/Bangkok. The thesis requires comparing required monthly savings with actual net cash flow but does not specify this reference period; the period is an approved design policy, not a quoted thesis rule.
+
+Existing GET /goals and GET /goals/:id include feasibility. Required monthly amount retains the existing remaining amount / inclusive remaining calendar months calculation, rounded upward to cents. Actual cash flow is the authenticated user's recorded income minus expense for the complete reference month, aggregated in PostgreSQL. Both Goal ledger totals and cash flow are read inside the existing RepeatableRead snapshot. No new endpoint/schema/migration is required.
+
+States distinguish archived/completed/overdue/no target date/no transactions/no income/non-positive cash flow and required savings above/within observed cash flow. The UI shows the exact reference month, income, expense, net amount and limitations. Each Goal is assessed separately; the same cash flow is not a shared allocation promise. Data completeness or future income is not assumed, and no Goal, Budget, Transaction or ledger write results from assessment. Browser refreshes on date change, focus and data-change events.
+
+AI tests cover month/year/leap boundaries, Decimal rounding, missing data, negative net cash flow, authenticated ownership, unchanged Transaction/Goal/ledger snapshots, UI states/retry and mobile layout. Synthetic isolated PostgreSQL and API doubles only; User Acceptance for this addition: PASS, confirmed by the user in this conversation.
+
+
+## Goal Feasibility — User Acceptance: PASS
+ผู้ใช้ยืนยันในบทสนทนานี้ว่า Goal Feasibility ผ่าน User Acceptance แล้ว โดยช่วงอ้างอิงที่ผู้ใช้เลือกคือเดือนปฏิทินเต็มล่าสุดที่จบแล้ว บันทึกการตรวจรับนี้แยกจากผล automated/AI tests ข้างต้น ไม่เติมวันที่ เวลา ตัวเลขผลตรวจ หรือรายละเอียดกรณีทดสอบที่ผู้ใช้ไม่ได้รายงาน
+
+## Goals / Budget / Forecast — backend-only scope (13 October 2026)
+
+The user superseded the latest UI integration: evaluation belongs in the backend only. No new planning section, simulation form, warning banner or component remains on the frontend. Earlier Goal Feasibility UI, its last-completed-calendar-month policy, and its previously confirmed User Acceptance are unchanged. No User Acceptance is claimed for this backend addition.
+
+### Retained backend calculation
+- `goalSavingsPlan.ts` retains Decimal-based total monthly planning: configured Profile.income minus current-month Budget.amount, without adding category budgets; sum existing calculateGoal requirements across non-archived, not-yet-funded goals. Remaining calendar months are inclusive; each requirement rounds upward to cents.
+- No configured income/budget is null rather than zero. Zero/negative available savings is preserved. No active goals, undated or overdue unfunded goals cannot silently produce a passing overall assessment.
+- A negative difference produces the amount missing per month and separate budget-reduction/income-increase alternatives. A reduction exceeding the entire budget is explicitly insufficient. Constant income/budget assumptions are not guaranteed savings or success probabilities.
+- `goalForecastSignal.ts` moved from frontend to backend. It consumes the existing Holt result without changing the model. Null/unavailable/stale or mismatched periods/budget suppress conclusions; only dates within the current budget month contribute to the short-term signal. Forecast is never counted as actual expense or used to change goals, budgets or allocations.
+- `assessSavingsPlan(tx, trustedUserId, today, assumptions)` is an internal service, combining plan, actual previous-month cash flow, and the separate forecast signal. Callers must supply trusted account scope and a RepeatableRead transaction (as exercised by integration tests). Assumptions are validated and foreign/inactive goal overrides rejected. It performs reads/calculations only; it creates no ledger/operation records.
+- The subsequent backend-only integration below invokes this service from the existing read endpoints. It remains absent from frontend rendering, scheduled jobs and write flows. Existing fields and financial behavior are preserved.
+
+### Removed latest UI-only integration
+- Removed only the new GoalsPlanning import/render hunks in Goals.tsx, retaining all prior local edits.
+- Removed GoalsPlanning.tsx/.css, the frontend goalForecastSignal.ts (backend replacement retained), and goalSavingsPlan.browser.cjs that existed solely for the removed UI.
+- Removed GET /goals/plan and POST /goals/plan/preview: their only production caller was the withdrawn UI. Preserved the backend calculation, validated assumptions and backend tests instead of keeping unused UI endpoints.
+- Existing cash-flow feasibility, authentication/ownership, write idempotency, ledger rules, session protection, styles and motion remain unchanged. No schema, migration or dependency change; no application/production or UAT data access in this revision.
+- The prior UI-integration test results belong to that superseded implementation and are not presented as current UI acceptance.
+
+### Verification for the preceding UI-removal step
+- Isolated PostgreSQL tests: 20 passed, 0 failed, about 6.73 seconds (includes parent test). Verified database `spendsense_goals_plan_test_1791905940458` in a new test-only container, localhost port 56546. Applied the 21 existing migrations only to that fresh database; status up to date. Existing databases and data were untouched.
+- Tests exercise formulas, Decimal/month/leap boundaries, scoped reads, missing values, repeated assumptions, invalid foreign IDs, unchanged financial records, and absence of the UI-specific routes/new fields in the original HTTP response.
+- Existing goalIntention browser regression passed with synthetic API fixtures, plus in-memory assertions that Goals has no planning component and makes no planning/Forecast requests. Includes create-confirmation, mobile, retry and late-session checks. No existing browser-test file was changed.
+- Frontend build passed; Goals JS 26.63 kB (gzip 7.62 kB), CSS 6.13 kB (gzip 1.80 kB).
+- Backend build initially caught nullable type differences when moving the helper; its contract and null guard were corrected without modifying Holt.
+- No live UAT/backend service restart was performed in this revision. Source/build and isolated tests reflect the removed routes; an already-running non-watch process requires its normal restart before its in-memory routes change.
+
+- Final backend build passed after the nullable-contract correction; the 7 focused calculation/signal unit tests passed again. Git diff --check passed. SHA-256 comparison confirms every frontend file matches the pre-integration baseline, and goals.ts routes match their pre-integration bytes. All earlier local changes, HEAD and index are preserved; no staging/commit/push.
+
+## Backend-only integration into existing read endpoints — 13 October 2026
+
+Current flow: GET /goals and GET /goals/:id call assessSavingsPlan inside their existing RepeatableRead transaction. It calls the retained goalSavingsPlan calculation and backend goalForecastSignal. No new routes, no reintroduction of /goals/plan or /goals/plan/preview, and no frontend edits.
+
+Both responses add one nested field, assessment:
+- scope: all_active_goals — account-wide active/unfunded goal totals, even on the detail endpoint or a filtered/paginated list.
+- plan: configured income/current total budget, per-goal requirements, sum, difference, reason codes and alternatives under the approved constant-monthly assumptions.
+- cashFlow: actual last completed calendar month, also reused by the unchanged per-goal feasibility field.
+- forecastSignal: reason, nullable amount and endDate. A positive amount only describes excess over the short-term reference allowance; unavailable/stale/no-budget/period mismatch retain null, never zero. The helper now verifies the seven-day end date and comparedDays (limited by month end), as well as asOfDate/start/month/budget. Holt and its formulas remain untouched.
+
+Existing data, nextCursor, asOfDate, goal detail fields and feasibility are preserved. The existing frontend ignores the additional field. Detail lookup enforces ownership before assessment; every underlying query is scoped to the authenticated user. No query/body parameter can select another account or inject simulation assumptions into these read endpoints. Cash flow, Goal/ledger state, profile, budget and forecast inputs share the same database snapshot. No writes, GoalOperations or notifications are produced.
+
+Automated results for this integration (synthetic only; no new User Acceptance claimed):
+- 25 backend/unit/PostgreSQL tests passed, 0 failed, approximately 13.09 seconds including parent tests.
+- HTTP coverage: endpoint output, multiple-goal totals independent of pagination/filter, preserved actual cash flow, missing income/budget, negative available savings, undated/overdue Goals, cross-account detail rejection and account-isolated totals, Forecast unavailable/available/stale, unchanged financial/ledger/notification rows.
+- Real PostgreSQL concurrency test pauses an actual snapshot read, commits synthetic profile/budget/goal changes on another connection, and verifies the in-flight response still contains the old consistent values; the following request sees the new values.
+- Pure signal tests cover period/horizon/compared-day mismatches and leap-month crossing; the endpoint itself supplies matching date/budget inputs from one snapshot.
+- New goalAssessment.browser.cjs runs the original goalIntention regression with synthetic API responses and verifies that adding assessment leaves the entire Goals DOM identical. Original create-confirmation, retry, mobile and session-switch checks pass; no new plan or Forecast requests are made by the UI.
+- Backend and frontend builds passed. Frontend Goals remains 26.63 kB JS (gzip 7.62 kB) and 6.13 kB CSS (gzip 1.80 kB).
+- Isolated database spendsense_goals_plan_test_1791907640402, localhost port 64451, new test-only container. Name verified before applying the 21 existing migrations; migration status up to date. No application/production/UAT connection or UAT backend restart.
+- Existing UI-removal verification above describes the preceding step, not this new additive API response. Historical User Acceptance remains limited to the previously accepted feature.

@@ -1,3 +1,9 @@
+import { categoryAppearance } from '../utils/categoryAppearance';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import SummaryCard from '../components/SummaryCard';
+import { ChartPie, ArrowUpRight, Wallet, CircleAlert } from 'lucide-react';
+import { useToast } from '../components/LocalToast';
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -69,27 +75,6 @@ function money(value: number) {
   });
 }
 
-function categoryAppearance(name: string) {
-  if (/อาหาร|เครื่องดื่ม/.test(name)) {
-    return { icon: 'food', color: '#ffad08', background: '#fff6e2' };
-  }
-  if (/เดินทาง|รถ/.test(name)) {
-    return { icon: 'car', color: '#2e7cf6', background: '#e7f0ff' };
-  }
-  if (/ช้อป|ช็อป/.test(name)) {
-    return { icon: 'shopping', color: '#ff485b', background: '#ffe7eb' };
-  }
-  if (/บันเทิง/.test(name)) {
-    return { icon: 'game', color: '#890bd0', background: '#f3e7ff' };
-  }
-  if (/สุขภาพ|รักษา/.test(name)) {
-    return { icon: 'heart', color: '#20be83', background: '#ddf8ed' };
-  }
-  if (/ศึกษา|เรียน/.test(name)) {
-    return { icon: 'study', color: '#7946ef', background: '#eee7ff' };
-  }
-  return { icon: 'more', color: '#979797', background: '#eeeeee' };
-}
 
 function BudgetIcon({ name }: { name: string }) {
   const paths: Record<string, string> = {
@@ -142,6 +127,7 @@ async function responseError(response: Response, fallback: string) {
 }
 
 export default function Budget() {
+  const toast = useToast();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedMonth = searchParams.get('month') ?? '';
@@ -165,6 +151,7 @@ export default function Budget() {
   const [menuId, setMenuId] = useState<string | null>(null);
 
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const monthPickerRef = useRef<DatePicker>(null);
   const mounted = useRef(false);
   const actionLock = useRef(false);
 
@@ -291,6 +278,7 @@ export default function Budget() {
       return;
     }
 
+    toast('');
     actionLock.current = true;
     setSaving(true);
     setSaveError('');
@@ -314,7 +302,7 @@ export default function Budget() {
 
       if (mounted.current) {
         setModalOpen(false);
-        setNotice('บันทึกงบประมาณเรียบร้อยแล้ว');
+        toast('บันทึกงบประมาณเรียบร้อยแล้ว', 'success');
         setLoading(true);
         setRevision((value) => value + 1);
       }
@@ -331,6 +319,7 @@ export default function Budget() {
   }
 
   async function removeBudget(item: CategoryItem) {
+    toast('');
     if (actionLock.current) return;
 
     actionLock.current = true;
@@ -352,7 +341,7 @@ export default function Budget() {
       }
 
       if (mounted.current) {
-        setNotice(`ยกเลิกงบ ${item.categoryName} แล้ว ธุรกรรมยังอยู่ครบ`);
+        toast(`ยกเลิกงบ ${item.categoryName} แล้ว ธุรกรรมยังอยู่ครบ`, 'success');
         setLoading(true);
         setRevision((value) => value + 1);
       }
@@ -395,49 +384,39 @@ export default function Budget() {
     onClose={() => setNotificationSettingsOpen(false)}
   />
 )}
-      <header className="budget-header">
-        <div>
-          <h1>การจัดการงบประมาณ</h1>
-          <p>จัดการและติดตามงบประมาณของคุณ</p>
-        </div>
+      <header className="budget-header compact-page-toolbar">
+        <h1 className="page-heading-accessible">การจัดการงบประมาณ</h1>
         <UserHeader />
       </header>
 
       <div className="budget-toolbar">
-        <label className="budget-month-picker">
-  <BudgetIcon name="calendar" />
-  <span>{periodLabel}</span>
-  <BudgetIcon name="chevron" />
-
-  <input
-    type="month"
-    aria-label="เลือกเดือนงบประมาณ"
-    min="1900-01"
-    max="9999-12"
-    value={selectedMonth}
-    disabled={saving || modalOpen}
-    onClick={(event) => {
-      try {
-        event.currentTarget.showPicker();
-      } catch {
-        // เบราว์เซอร์ที่ไม่รองรับยังใช้ช่องเดือนตามปกติได้
-      }
-    }}
-    onChange={(event) => {
-      const value = event.target.value;
-
-      if (
-        /^\d{4}-(0[1-9]|1[0-2])$/.test(value) &&
-        value >= '1900-01' &&
-        value <= '9999-12'
-      ) {
-        setSelectedMonth(value);
-        setNotice('');
-        setMenuId(null);
-      }
-    }}
-  />
-</label>
+        <DatePicker
+          ref={monthPickerRef}
+          selected={new Date(Number(selectedMonth.slice(0, 4)), Number(selectedMonth.slice(5, 7)) - 1, 1)}
+          onChange={(date: Date | null) => {
+            if (!date) return;
+            const value = String(date.getFullYear()).padStart(4, '0') + '-' + String(date.getMonth() + 1).padStart(2, '0');
+            if (value < '1900-01' || value > '9999-12') return;
+            setSelectedMonth(value);
+            // The picker defers blur by one frame; restore after its close finishes.
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+              if (mounted.current) monthPickerRef.current?.setFocus();
+            }));
+            setNotice('');
+            setMenuId(null);
+          }}
+          preventOpenOnFocus
+          showMonthYearPicker
+          dateFormat="MM/yyyy"
+          minDate={new Date(1900, 0, 1)}
+          maxDate={new Date(9999, 11, 31)}
+          disabled={saving || modalOpen}
+          popperPlacement="bottom-start"
+          popperClassName="budget-datepicker-popper"
+          customInput={<button type="button" className="budget-month-picker" aria-label="เลือกเดือนงบประมาณ">
+            <BudgetIcon name="calendar"/><span>{periodLabel}</span><BudgetIcon name="chevron"/>
+          </button>}
+        />
 
         <div className="budget-toolbar-actions">
           <button
@@ -484,67 +463,23 @@ export default function Budget() {
       ) : budget ? (
         <>
           <section className="budget-kpis" aria-label="สรุปงบประมาณ">
-            <article>
-              <div className="budget-kpi-title">
-                <span>งบประมาณรวม</span>
-                <button
-                  type="button"
-                  className="budget-icon-btn"
-                  aria-label="แก้งบประมาณรวม"
-                  disabled={saving}
-                  onClick={() => openEditor('total')}
-                >
-                  <BudgetIcon name="edit" />
-                </button>
-              </div>
-              <strong className="budget-purple">
-                {budget.budgetAmount === null
-                  ? 'ยังไม่ได้ตั้งงบ'
-                  : money(budget.budgetAmount)}
-              </strong>
-              {budget.budgetAmount !== null && <span> บาท</span>}
-            </article>
-
-            <article>
-              <div className="budget-kpi-title">ใช้ไป</div>
-              <strong className="budget-red">
-                {money(budget.totalExpense)}
-              </strong>
-              <span> บาท</span>
-              <small>
-                {budget.usedPercentage === null
-                  ? 'รายจ่ายจริงในเดือนที่เลือก'
-                  : `${budget.usedPercentage.toFixed(2)}% ของงบรวม`}
-              </small>
-            </article>
-
-            <article>
-              <div className="budget-kpi-title">
-                {(budget.remaining ?? 0) < 0 ? 'เกินงบรวม' : 'คงเหลือ'}
-              </div>
-              <strong
-                className={
-                  (budget.remaining ?? 0) < 0 ? 'budget-red' : 'budget-green'
-                }
-              >
-                {budget.remaining === null
-                  ? '—'
-                  : money(Math.abs(budget.remaining))}
-              </strong>
-              {budget.remaining !== null && <span> บาท</span>}
-              <small>
-                {remainingPercent !== null && remainingPercent >= 0
-                  ? `${remainingPercent.toFixed(2)}% ของงบรวม`
-                  : '\u00a0'}
-              </small>
-            </article>
-
-            <article>
-              <div className="budget-kpi-title">เกินงบรายหมวด</div>
-              <strong className="budget-red">{money(categoryOverrun)}</strong>
-              <span> บาท</span>
-              <small>รวมเฉพาะส่วนที่เกินงบของแต่ละหมวด</small>
-            </article>
+            <SummaryCard label="งบประมาณรวม" icon={<ChartPie size={18} aria-hidden="true"/>}
+              value={budget.budgetAmount === null ? 'ยังไม่ได้ตั้งงบ' : money(budget.budgetAmount)}
+              unit={budget.budgetAmount !== null ? ' บาท' : undefined}
+              action={<button type="button" className="budget-icon-btn" aria-label="แก้งบประมาณรวม" disabled={saving} onClick={() => openEditor('total')}><BudgetIcon name="edit"/></button>}/>
+            <SummaryCard label="ใช้ไป" icon={<ArrowUpRight size={18} aria-hidden="true"/>} className="dashboard-kpi-expense"
+              value={money(budget.totalExpense)} unit=" บาท">
+              <p>{budget.usedPercentage === null ? 'รายจ่ายจริงในเดือนที่เลือก' : `${budget.usedPercentage.toFixed(2)}% ของงบรวม`}</p>
+            </SummaryCard>
+            <SummaryCard label={(budget.remaining ?? 0) < 0 ? 'เกินงบรวม' : 'คงเหลือ'} icon={<Wallet size={18} aria-hidden="true"/>}
+              className={(budget.remaining ?? 0) < 0 ? 'dashboard-exceeded' : 'dashboard-kpi-income'}
+              value={budget.remaining === null ? '—' : money(Math.abs(budget.remaining))} unit={budget.remaining !== null ? ' บาท' : undefined}>
+              <p>{remainingPercent !== null && remainingPercent >= 0 ? `${remainingPercent.toFixed(2)}% ของงบรวม` : '\u00a0'}</p>
+            </SummaryCard>
+            <SummaryCard label="เกินงบรายหมวด" icon={<CircleAlert size={18} aria-hidden="true"/>}
+              className="dashboard-exceeded" value={money(categoryOverrun)} unit=" บาท">
+              <p>รวมเฉพาะส่วนที่เกินงบของแต่ละหมวด</p>
+            </SummaryCard>
           </section>
 
           <section className="budget-table-card">
@@ -690,59 +625,7 @@ export default function Budget() {
             </p>
           </section>
 
-          {budget.timeline && (
-            <section className="budget-time-card">
-              <h2>การใช้จ่ายเทียบแผนตามเวลา</h2>
-              <p>แผนเฉลี่ยจากงบรวมประจำเดือน {periodLabel}</p>
 
-              {budget.timeline.paceStatus === 'not_set' ? (
-                <p>ตั้งงบรวมเพื่อดูการใช้จ่ายเทียบแผน</p>
-              ) : budget.timeline.paceStatus === 'not_started' ? (
-                <p>เดือนนี้ยังไม่เริ่ม จะแสดงผลเทียบแผนเมื่อถึงเดือนที่เลือก</p>
-              ) : (
-                <>
-                  <div className="budget-time-grid">
-                    <article>
-                      <span>
-                        {budget.timeline.monthState === 'past'
-                          ? 'งบตามแผนทั้งเดือน'
-                          : 'งบตามแผนถึงวันนี้'}
-                      </span>
-                      <strong>
-                        {money(budget.timeline.plannedExpenseToDate ?? 0)} บาท
-                      </strong>
-                      <small>
-                        งบรวม × {budget.timeline.elapsedDays} ÷{' '}
-                        {budget.timeline.daysInMonth} วัน
-                      </small>
-                    </article>
-                    <article>
-                      <span>รายจ่ายจริงในช่วงเดียวกัน</span>
-                      <strong>
-                        {money(budget.timeline.actualExpenseToDate)} บาท
-                      </strong>
-                    </article>
-                    <article>
-                      <span>
-                        {(budget.timeline.deviation ?? 0) > 0
-                          ? 'ใช้เกินแผน'
-                          : (budget.timeline.deviation ?? 0) < 0
-                            ? 'ใช้ต่ำกว่าแผน'
-                            : 'ใช้เท่ากับแผน'}
-                      </span>
-                      <strong>
-                        {money(Math.abs(budget.timeline.deviation ?? 0))} บาท
-                      </strong>
-                    </article>
-                  </div>
-                  <p className="budget-table-note">
-                    แผนเฉลี่ยงบเท่ากันทุกวัน รายจ่ายก้อนใหญ่ช่วงต้นเดือน
-                    อาจสูงกว่าแผนได้ แม้ยังไม่เกินงบทั้งเดือน
-                  </p>
-                </>
-              )}
-            </section>
-          )}
         </>
       ) : null}
 
@@ -814,7 +697,7 @@ export default function Budget() {
             <button
               type="submit"
               className="budget-btn budget-btn-primary"
-              disabled={saving || !amount.trim()}
+              disabled={saving || !amount.trim()} aria-busy={saving}
             >
               {saving ? 'กำลังบันทึก...' : 'บันทึกงบ'}
             </button>

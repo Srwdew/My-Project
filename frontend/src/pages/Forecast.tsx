@@ -47,7 +47,7 @@ function ForecastSession({session,today}:{session:string|null;today:string}){
   const max=Math.max(1,...chart.map(d=>Number(d.value??0)));
   const line=(forecast:boolean)=>chart.map((d,i)=>d.forecast===forecast&&d.value!==null?(20+i*40)+','+(155-Number(d.value)/max*130):null).filter(Boolean).join(' ');
   const b=data?.budgetComparison;
-  return <div className="forecast-page"><header className="forecast-header"><div><h1>พยากรณ์ค่าใช้จ่าย</h1><p>ประมาณการยอดรายจ่ายรวมรายวันด้วย Holt ไม่ใช่รายจ่ายจริง</p></div><UserHeader/></header>
+  return <div className="forecast-page"><header className="forecast-header compact-page-toolbar"><h1 className="page-heading-accessible">พยากรณ์ค่าใช้จ่าย</h1><UserHeader/></header>
     <Link to="/overview">กลับภาพรวมรายเดือน</Link>
     {loading&&<p role="status">กำลังคำนวณประมาณการ...</p>}
     {error&&<div role="alert"><p>{error}</p><button onClick={()=>setRevision(v=>v+1)}>ลองใหม่</button></div>}

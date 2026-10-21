@@ -11,7 +11,21 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserRole {
+  USER
+  ADMIN
+}
+
 model User {
+  passwordResetTokens PasswordResetToken[]
+  role UserRole @default(USER)
+  lastLoginAt DateTime?
+  @@index([role, deletedAt, createdAt, id])
+  anomalyPatterns AnomalyPattern[]
+  anomalyIdentities AnomalyIdentity[]
+  anomalyDecisions AnomalyDecision[]
+  anomalyDecisionRequests AnomalyDecisionRequest[]
+  transactionCreateRequests TransactionCreateRequest[]
   setupCompletedAt          DateTime?
   setupPromptedAt           DateTime?
   anomalyReviews            AnomalyReview[]
@@ -323,6 +337,7 @@ model AnomalyNotificationSetting {
 }
 
 model AnomalyEvaluation {
+  decisions AnomalyDecision[]
   reviews               AnomalyReview[]
   id                    String          @id @default(uuid())
   userId                String
@@ -368,4 +383,123 @@ model AnomalyReviewRequest {
 
   @@id([userId, idempotencyKey])
   @@index([userId, reviewId])
+}
+
+model TransactionCreateRequest {
+  userId String
+  idempotencyKey String
+  requestFingerprint String
+  responseStatus Int
+  responseBody Json
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  @@id([userId, idempotencyKey])
+}
+
+model AnomalyIdentity {
+ userId String
+ transactionId String
+ recordedAt DateTime @default(now()) @db.Timestamptz(3)
+ user User @relation(fields:[userId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ revisions AnomalyRevision[]
+ @@id([userId,transactionId])
+}
+model AnomalyRevision {
+ userId String
+ transactionId String
+ revision Int
+ snapshot Json
+ provenance String
+ recordedAt DateTime @default(now()) @db.Timestamptz(3)
+ identity AnomalyIdentity @relation(fields:[userId,transactionId],references:[userId,transactionId],onDelete:Restrict,onUpdate:Restrict)
+ @@id([userId,transactionId,revision])
+}
+model AnomalyDecision {
+ patternId String?
+ pattern AnomalyPattern? @relation(fields:[userId,patternId],references:[userId,id],onDelete:Restrict,onUpdate:Restrict)
+ id String @id @default(uuid())
+ userId String
+ evaluationId String
+ originalTransactionId String
+ revision Int
+ dimension String
+ action String
+ sequence Int
+ supersedesId String?
+ decidedAt DateTime @default(now()) @db.Timestamptz(3)
+ user User @relation(fields:[userId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ evaluation AnomalyEvaluation @relation(fields:[userId,evaluationId,revision],references:[userId,id,revision],onDelete:Restrict,onUpdate:Restrict)
+ supersedes AnomalyDecision? @relation("DecisionSupersession",fields:[userId,supersedesId],references:[userId,id],onDelete:Restrict,onUpdate:Restrict)
+ successors AnomalyDecision[] @relation("DecisionSupersession")
+ requests AnomalyDecisionRequest[]
+ @@unique([userId,id])
+ @@unique([userId,originalTransactionId,revision,dimension,sequence])
+}
+model AnomalyDecisionRequest {
+ userId String
+ idempotencyKey String @db.Uuid
+ fingerprint String @db.VarChar(64)
+ decisionId String
+ status Int
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ user User @relation(fields:[userId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ decision AnomalyDecision @relation(fields:[userId,decisionId],references:[userId,id],onDelete:Restrict,onUpdate:Restrict)
+ @@id([userId,idempotencyKey])
+}
+
+model AnomalyPattern {
+ id String @id @default(uuid())
+ userId String
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ user User @relation(fields:[userId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ events AnomalyPatternEvent[]
+ decisions AnomalyDecision[]
+ @@unique([userId,id])
+}
+model AnomalyPatternEvent {
+ id String @id @default(uuid())
+ userId String
+ patternId String
+ sequence Int
+ supersedesId String? @unique
+ kind String
+ snapshot Json
+ createdAt DateTime @default(now()) @db.Timestamptz(3)
+ pattern AnomalyPattern @relation(fields:[userId,patternId],references:[userId,id],onDelete:Restrict,onUpdate:Restrict)
+ supersedes AnomalyPatternEvent? @relation("PatternSupersession",fields:[userId,supersedesId],references:[userId,id],onDelete:Restrict,onUpdate:Restrict)
+ successors AnomalyPatternEvent[] @relation("PatternSupersession")
+ requests AnomalyPatternRequest[]
+ @@unique([userId,id])
+ @@unique([userId,patternId,sequence])
+}
+model AnomalyPatternRequest {
+ userId String
+ idempotencyKey String @db.Uuid
+ fingerprint String @db.VarChar(64)
+ eventId String
+ event AnomalyPatternEvent @relation(fields:[userId,eventId],references:[userId,id],onDelete:Restrict,onUpdate:Restrict)
+ @@id([userId,idempotencyKey])
+}
+
+model PasswordResetToken {
+  id String @id @default(uuid())
+  userId String
+  user User @relation(fields:[userId], references:[id], onDelete:Cascade, onUpdate:Cascade)
+  tokenHash String @unique
+  authVersionAtIssue Int
+  createdAt DateTime @default(now()) @db.Timestamp(3)
+  expiresAt DateTime @db.Timestamp(3)
+  usedAt DateTime? @db.Timestamp(3)
+  revokedAt DateTime? @db.Timestamp(3)
+  @@index([userId, expiresAt])
+}
+
+model PasswordResetRateLimit {
+  scope String
+  subjectHash String
+  windowStart DateTime @db.Timestamp(3)
+  hits Int
+  expiresAt DateTime @db.Timestamp(3)
+  @@id([scope, subjectHash, windowStart])
+  @@index([expiresAt])
 }

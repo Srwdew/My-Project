@@ -2,9 +2,9 @@ const fs=require('fs'),path=require('path'),os=require('os'),cp=require('child_p
 const delay=ms=>new Promise(r=>setTimeout(r,ms));const origin=process.env.SETTINGS_BROWSER_ORIGIN||'http://127.0.0.1:5177';
 const {buildBehavior}=require('../dist/lib/behavior'),{behaviorPeriod,shiftDay}=require('../dist/lib/behaviorRules'),{bangkokToday}=require('../dist/lib/goalCalculations');
 const today=bangkokToday(),period=behaviorPeriod({},today),testCategoryId='11111111-1111-4111-8111-111111111111';
-const history=(start,count=30)=>Array.from({length:count},(_,i)=>({categoryId:testCategoryId,categoryName:'ชื่อหมวดยาว '.repeat(30),date:shiftDay(start,i),bucket:3,count:1,amount:'100.00'}));
+const history=(start,count=30)=>Array.from({length:count},(_,i)=>({categoryId:testCategoryId,categoryName:'ชื่อหมวดยาว '.repeat(30),date:shiftDay(start,i),bucket:3,count:1,amount:'100.00',transactions:[{id:'synthetic-'+start+'-'+i,date:shiftDay(start,i),amount:'100.00',time:'12:00'}]}));
 const options=[{categoryId:testCategoryId,categoryName:'ชื่อหมวดยาว '.repeat(30)},{categoryId:null,categoryName:'ไม่ระบุหมวด'}];
-const base={asOfDate:today,period,rows:[...history(period.previous.startDate),...history(period.current.startDate)],categoryOptions:options,recurrences:[]};
+const base={asOfDate:today,period,rows:[...history(period.previous.startDate),...history(period.current.startDate)],categoryOptions:options,recurrences:[{categoryId:testCategoryId,categoryName:'หมวดทดสอบซ้ำ',amount:'100.00',dates:[0,7,14,21].map(n=>shiftDay(period.current.startDate,n)),counts:[1,1,1,1],kind:'weekly',transactions:[0,7,14,21].map(n=>({id:'repeat-'+n,date:shiftDay(period.current.startDate,n),amount:'100.00',time:null}))}]};
 const payloads={full:buildBehavior(base),limited:buildBehavior({...base,rows:history(period.current.startDate,5)}),empty:buildBehavior({...base,rows:[]})};
 const mock=(payloads)=>{
  localStorage.setItem('spendsense_token','session-a');window.__mode='full';window.__requests=[];window.__gates=[];window.__release=()=>window.__gates.splice(0).forEach(r=>r());
@@ -44,12 +44,30 @@ const mock=(payloads)=>{
  await waitFor("Boolean(document.querySelector('input[name=endDate]'))");
  assert.equal(await evaluate("document.querySelector('input[name=endDate]').max"),shiftDay(today,-1));
  console.log('PASS ready facts, constraints, warnings and comparison visible');
- await evaluate("document.querySelector('.behavior-panel summary').focus()");
+ assert.ok(await evaluate("document.querySelector('[aria-label=\"รูปแบบที่เกิดซ้ำ\"]').textContent.includes('4 ครั้ง')"));
+ assert.ok(await evaluate("document.querySelector('.behavior-findings').textContent.includes('การเปลี่ยนแปลงเพียงอย่างเดียว')"));
+ await evaluate("document.querySelector('[aria-label=\"รูปแบบที่เกิดซ้ำ\"] .behavior-evidence-details summary').click()");
+ assert.ok(await evaluate("document.querySelector('[aria-label=\"รูปแบบที่เกิดซ้ำ\"] table').textContent.includes('repeat-0')"));
+ assert.ok(await evaluate("document.querySelector('[aria-label=\"รูปแบบที่เกิดซ้ำ\"] table').textContent.includes('ไม่ยืนยัน/ไม่มีเวลา')"));
+ console.log('PASS recurrence evidence is inspectable and separate from comparison, unconfirmed time hidden');
+ assert.ok(await evaluate("Boolean(document.querySelector('.behavior-findings .behavior-recurrences'))"));
+ assert.ok(await evaluate("document.querySelector('.behavior-recurrences').textContent.includes('พบล่าสุดในหลักฐานนี้')"));
+ assert.ok(await evaluate("document.querySelector('.behavior-recurrences').textContent.includes('ไม่ใช่การยืนยันว่ารายการยังเกิดอยู่ในปัจจุบัน')"));
+ assert.ok(await evaluate("Boolean(document.querySelector('.behavior-readiness'))"));
+ await evaluate("Array.from(document.querySelectorAll('a')).find(a=>a.hash==='#behavior-recurrence-0').focus()");
+ await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+ assert.equal(await evaluate("document.activeElement.id"),'behavior-recurrence-0');
+ await evaluate("document.querySelector('.behavior-full-name summary').click()");
+ assert.ok(await evaluate("document.querySelector('.behavior-full-name').open"));
+ await evaluate("document.querySelector('.behavior-full-name summary').click()");
+ console.log('PASS recurrence placement, historical wording, readiness, keyboard evidence and expandable category');
+
+ await evaluate("document.querySelector('.behavior-daily-details summary').focus()");
  await send('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});
- await waitFor("document.querySelector('details').open");
- assert.equal(await evaluate("document.querySelector('details tbody').rows.length"),30);
- assert.ok(await evaluate("document.querySelector('details tbody tr').textContent.includes('"+period.current.startDate+"')"));
- assert.ok(await evaluate("document.querySelector('details tbody tr').textContent.includes('"+period.previous.startDate+"')"));
+ await waitFor("document.querySelector('.behavior-daily-details').open");
+ assert.equal(await evaluate("document.querySelector('.behavior-daily-details tbody').rows.length"),30);
+ assert.ok(await evaluate("document.querySelector('.behavior-daily-details tbody tr').textContent.includes('"+period.current.startDate+"')"));
+ assert.ok(await evaluate("document.querySelector('.behavior-daily-details tbody tr').textContent.includes('"+period.previous.startDate+"')"));
  console.log('PASS keyboard table aligns ordinal index but displays distinct calendar dates');
  await evaluate("window.__mode='limited';window.dispatchEvent(new Event('spendsense-data-changed'))");
  await waitFor("document.querySelector('.behavior-page').textContent.includes('ยังเปรียบเทียบแบบแผนไม่ได้')");
@@ -103,7 +121,10 @@ const mock=(payloads)=>{
  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
  assert.equal(await evaluate("document.documentElement.scrollWidth<=window.innerWidth"),true);
  assert.ok(await evaluate("[...document.querySelectorAll('.behavior-table')].every(t=>t.scrollWidth>=t.clientWidth)"));
- console.log('PASS mobile long text/table containment');
+
+ await send('Emulation.setDeviceMetricsOverride',{width:320,height:740,deviceScaleFactor:1,mobile:true});
+ assert.equal(await evaluate("document.documentElement.scrollWidth<=window.innerWidth"),true);
+ console.log('PASS mobile 390/320 long text/table containment');
  await send('Browser.close').catch(()=>{});
  }finally{socket?.close();browser.kill();console.log('Behavior browser: API mocks only; Chrome profile outside repository.');}
 })().catch(e=>{console.error(e.message);process.exitCode=1;});

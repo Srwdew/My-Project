@@ -1,5 +1,5 @@
-import AnomalyDetails, { AnomalyReconcileButton } from './AnomalyDetails';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { AnomalyReconcileButton } from './AnomalyDetails';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../api';
@@ -24,7 +24,10 @@ export default function NotificationBell() {
 
 function SessionBell({ session }: { session: string }) {
   const navigate = useNavigate();
-  const dialog = useRef<HTMLDialogElement>(null);
+  const root = useRef<HTMLDivElement>(null);
+  const dialog = useRef<HTMLDivElement>(null);
+  const popoverId = useId();
+  const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const request = useRef<AbortController | null>(null);
   const mutation = useRef<AbortController | null>(null);
@@ -35,7 +38,7 @@ function SessionBell({ session }: { session: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [retryCheck, setRetryCheck] = useState(false);
-  const [anomalyId,setAnomalyId] = useState<string|null>(null);
+
   const valid = useCallback(() => alive.current && getToken() === session, [session]);
 
   const load = useCallback(async (reconcile = false) => {
@@ -88,9 +91,31 @@ function SessionBell({ session }: { session: string }) {
   }, [load]);
 
   function close() {
-    dialog.current?.close();
+    setOpen(false);
     trigger.current?.focus();
   }
+
+  useEffect(() => {
+    if (!open) return;
+    dialog.current?.querySelector<HTMLButtonElement>('button')?.focus();
+    const outside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !root.current?.contains(event.target)) setOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); setOpen(false); trigger.current?.focus(); }
+    };
+    const focusOutside = (event: FocusEvent) => {
+      if (event.target instanceof Node && !root.current?.contains(event.target)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', outside);
+    document.addEventListener('keydown', escape);
+    document.addEventListener('focusin', focusOutside);
+    return () => {
+      document.removeEventListener('pointerdown', outside);
+      document.removeEventListener('keydown', escape);
+      document.removeEventListener('focusin', focusOutside);
+    };
+  }, [open]);
 
   async function read(item?: Notice) {
     if (!valid() || locked.current) return;
@@ -111,10 +136,11 @@ function SessionBell({ session }: { session: string }) {
       locked.current = false;
       await load();
       if (valid() && !controller.signal.aborted && item) {
-        if(item.type==='transaction_anomaly'){setAnomalyId(item.id);return;}
+
         close();
         // Only internal paths; reject protocol-relative and backslash URLs.
-        if (item.link?.startsWith('/') && !item.link.startsWith('//') && !item.link.includes(String.fromCharCode(92))) navigate(item.link);
+        if (item.type === 'transaction_anomaly') navigate('/anomaly');
+        else if (item.link?.startsWith('/') && !item.link.startsWith('//') && !item.link.includes(String.fromCharCode(92))) navigate(item.link);
       }
     } catch {
       if (valid() && !controller.signal.aborted) setError('ทำเครื่องหมายว่าอ่านแล้วไม่สำเร็จ กรุณาลองอีกครั้ง');
@@ -124,14 +150,14 @@ function SessionBell({ session }: { session: string }) {
     }
   }
 
-  return <>
-    <button ref={trigger} type="button" className="user-header-notification" aria-haspopup="dialog"
+  return <div ref={root} className="notification-root">
+    <button ref={trigger} type="button" className="user-header-notification" aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? popoverId : undefined}
       aria-label={`การแจ้งเตือน ยังไม่อ่าน ${data.unreadCount} รายการ`}
-      onClick={() => { dialog.current?.showModal(); void load(true); }}>
+      onClick={() => { if (open) close(); else { setOpen(true); void load(true); } }}>
       <Bell size={18} strokeWidth={1.8} />
       {data.unreadCount > 0 && <span className="notification-badge">{data.unreadCount > 99 ? '99+' : data.unreadCount}</span>}
     </button>
-    <dialog ref={dialog} className="notification-dialog" aria-label="การแจ้งเตือนล่าสุด 30 รายการ" onCancel={() => trigger.current?.focus()}>
+    {open && <div ref={dialog} id={popoverId} role="dialog" className="notification-dialog" aria-label="การแจ้งเตือนล่าสุด 30 รายการ">
       <div className="notification-heading"><h2>การแจ้งเตือนล่าสุด 30 รายการ</h2><button type="button" onClick={close} aria-label="ปิดการแจ้งเตือน">×</button></div>
       <p aria-live="polite">ยังไม่อ่านทั้งหมด {data.unreadCount} รายการ</p>
       <div className="notification-actions"><AnomalyReconcileButton onDone={()=>void load()} />
@@ -142,14 +168,14 @@ function SessionBell({ session }: { session: string }) {
       {error && <p role="alert">{error}</p>}
       {retryCheck && <p role="alert">ตรวจงบซ้ำไม่สำเร็จ รายการด้านล่างเป็นประวัติที่โหลดได้ กรุณากดตรวจงบและโหลดใหม่</p>}
       {!loading && !error && data.items.length === 0 && <p>ยังไม่มีการแจ้งเตือน</p>}
-      {anomalyId && <AnomalyDetails path={'/notifications/' + anomalyId + '/anomaly'} />}
+
       <ul className="notification-list">{data.items.map(item => <li key={item.id}>
-        <button type="button" disabled={busy} className={item.readAt ? 'notification-item' : 'notification-item unread'} onClick={() => void read(item)}>
+        <button type="button" disabled={busy} aria-busy={busy} className={item.readAt ? 'notification-item' : 'notification-item unread'} onClick={() => void read(item)}>
           <strong>{!item.readAt && <span className="notification-unread">ยังไม่อ่าน · </span>}{item.title}</strong>
           <span>{item.message}</span>
           <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}</time>
         </button>
       </li>)}</ul>
-    </dialog>
-  </>;
+    </div>}
+  </div>;
 }

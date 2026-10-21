@@ -118,17 +118,20 @@ test('Anomaly review HTTP, PostgreSQL eligibility and committed concurrency',asy
  await t.test('authVersion checked after waiting for user lock, no review after revocation',async()=>{
   const c=await user();const category=await prisma.category.create({data:{name:randomUUID(),type:'expense'}});const row=await prisma.transaction.create({data:{userId:c.id,categoryId:category.id,type:'expense',amount:'1',transactionDate:new Date('2026-09-01')}});
   const e=await prisma.anomalyEvaluation.create({data:{userId:c.id,originalTransactionId:row.id,revision:0,ruleVersion:'synthetic',outcome:'not_flagged',snapshot:{}}});
-  const lock=new Client({connectionString:process.env.DATABASE_URL});await lock.connect();try{await lock.query('BEGIN');await lock.query('SELECT id FROM "User" WHERE id=$1 FOR UPDATE',[c.id]);
-   const attempt=withAnomalyLock(c,tx=>submitReview(tx,c.id,e.id,randomUUID(),{action:'confirmed_problem',revision:0,expectedReviewSequence:0}));const rejected=assert.rejects(attempt);
+  const lock=new Client({connectionString:process.env.DATABASE_URL}),observer=new Client({connectionString:process.env.DATABASE_URL});
+  await lock.connect();await observer.connect();try{await lock.query('BEGIN');await lock.query('SELECT id FROM "User" WHERE id=$1 FOR UPDATE',[c.id]);
+   const lockerPid=(await lock.query('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+   const attempt=withAnomalyLock(c,tx=>submitReview(tx,c.id,e.id,randomUUID(),{action:'confirmed_problem',revision:0,expectedReviewSequence:0}));const rejected=assert.rejects(attempt,(error:any)=>error.status===401);
    let waited=false;
    for(let i=0;i<200;i++){
-    const waiting=await lock.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND pid<>pg_backend_pid() AND wait_event_type='Lock' AND query LIKE '%FOR UPDATE%'");
+    // Autocommit observer avoids pg_stat_activity snapshots cached inside the lock transaction.
+    const waiting=await observer.query("SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname=current_database() AND $1=ANY(pg_blocking_pids(pid))",[lockerPid]);
     if(waiting.rows[0].n>0){waited=true;break;}
     await new Promise(r=>setTimeout(r,10));
    }
    assert.equal(waited,true,'another connection must actually wait on the user lock');
    await lock.query('UPDATE "User" SET "authVersion"=1 WHERE id=$1',[c.id]);await lock.query('COMMIT');await rejected;
-  }finally{await lock.end();}
+  }finally{await lock.end();await observer.end();}
   assert.equal(await prisma.anomalyReview.count({where:{userId:c.id}}),0);
  });
 });

@@ -12,6 +12,7 @@ type LoginResponse = {
   user?: {
     id: string;
     email: string;
+    role?: 'USER' | 'ADMIN';
   };
   error?: string;
 };
@@ -61,7 +62,7 @@ export default function Login() {
 
       saveToken(data.token);
 
-      navigate(data.showSetup === true ? '/setup' : '/overview', {
+      navigate(data.user?.role === 'ADMIN' ? '/admin' : data.showSetup === true ? '/setup' : '/overview', {
         replace: true,
       });
     } catch (error) {
@@ -150,6 +151,7 @@ export default function Login() {
             </button>
           </form>
 
+          <p><button type="button" onClick={() => navigate('/password-recovery')}>ลืมรหัสผ่าน?</button></p>
           <div className="login-footer">
             <span>ยังไม่มีบัญชี?</span>
 

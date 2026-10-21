@@ -1,7 +1,7 @@
 export type Dimension = {status: string; reasonCode: string};
 export type Evaluation = {
   id: string; revision: number; ruleVersion: string; evaluatedAt: string; outcome: string;
-  snapshot: {
+  snapshot: {gate?:{ready:boolean;count:number;inclusiveDays:number};scope?:{amount:string;time:string};
     transaction: {id?: string; type?: string; amount: string; categoryName: string; date: string; time: string|null; timeConfirmed: boolean};
     window: {startDate: string; endExclusive: string};
     baseline: {n: number; days: number; span: number; median: string|null; mad: string|null; q1: string|null; q3: string|null; timeN: number; timeDays: number; timeSpan: number; bucketCount: number; nearbyCount: number};
@@ -18,12 +18,13 @@ export type AnomalyDetail = {
 export function assessmentLabel(d: Dimension): string {
   if(d.status==='flagged')return 'พบสัญญาณ';
   if(d.status==='not_flagged')return 'ไม่พบสัญญาณ';
-  if(d.reasonCode==='amount_insufficient_history'||d.reasonCode==='time_insufficient_history')return 'ข้อมูลไม่พอ';
+  if(d.reasonCode==='global_gate_not_ready'||d.reasonCode==='amount_insufficient_history'||d.reasonCode==='time_insufficient_history')return 'ข้อมูลไม่พอ';
   return 'ยังประเมินไม่ได้';
 }
 export const explanation: Record<string,string> = {
-  amount_insufficient_history:'ประวัติหมวดเดียวกันยังไม่ถึงจำนวนรายการ จำนวนวัน หรือระยะเวลาที่กฎกำหนด',
-  amount_modified_z:'เปรียบเทียบยอดกับค่ากลางและการกระจายของประวัติหมวดเดียวกัน',
+  global_gate_not_ready:"บัญชีนี้ยังไม่ผ่านเกณฑ์เริ่มตรวจ: 30 รายการและช่วงวันรวมต้น–ปลาย 30 วัน ก่อนวันรายการนี้",
+  amount_insufficient_history:'ประวัติที่ใช้ยังไม่ถึงจำนวนรายการ จำนวนวัน หรือระยะเวลาที่กฎกำหนด',
+  amount_modified_z:'เปรียบเทียบยอดกับค่ากลางและการกระจายของ baseline ที่ระบุ',
   amount_iqr:'ใช้การกระจายระหว่างควอไทล์ เพราะ MAD ของประวัติเป็นศูนย์',
   amount_zero_dispersion:'ยอดในประวัติเท่ากันทุกครั้ง จึงตรวจส่วนต่างจากยอดนั้น',
   amount_zero_iqr_nonconstant:'ประวัติมีหลายยอด แต่ MAD และ IQR เป็นศูนย์ ระบบจึงงดประเมินด้านจำนวนเงิน',
@@ -32,6 +33,8 @@ export const explanation: Record<string,string> = {
   time_rare_frequency:'ตรวจความถี่ของช่วง 4 ชั่วโมงและช่วงรอบเวลาเกิดรายการ ต้องพบน้อยทั้งสองส่วนจึงเป็นสัญญาณ',
 };
 export const eligibilityExplanation: Record<string,string> = {
+  confirmed_recurring:'รูปแบบข้อยกเว้นแยกจาก baseline หลัก',
+  confirmed_occasional:"ข้อยกเว้นที่ถูกต้องเป็นครั้งคราว ไม่ใช้เป็น baseline หลัก",
   confirmed_normal:'ผู้ใช้ยืนยัน revision นี้ว่าปกติ', no_evaluation_history:'ยังไม่มีผลตรวจและไม่ได้รอประเมิน',
   insufficient_history_allowed:'อนุญาตให้สะสมประวัติเมื่อข้อมูลยังไม่พอ', current_not_flagged:'revision ปัจจุบันไม่พบสัญญาณ',
   confirmed_time_available:'มีเวลาที่ยืนยันแล้ว', transaction_deleted:'ต้นทางถูกลบ', not_expense:'ไม่ใช่รายจ่าย',

@@ -22,58 +22,21 @@ const handleLogout = () => {
       </div>
 
       <nav className="sidebar-menu">
-        <NavLink to="/behavior" className={({ isActive }) => "sidebar-item" + (isActive ? " active" : "")}>พฤติกรรมการใช้จ่าย</NavLink>
-        <NavLink to="/forecast" className={({ isActive }) => "sidebar-item" + (isActive ? " active" : "")}>พยากรณ์ค่าใช้จ่าย</NavLink>
-        <NavLink
-          to="/overview"
-          className={({ isActive }) =>
-            `sidebar-item ${isActive ? 'active' : ''}`
-          }
-        >
-          <span>⌂</span>
-          <span>ภาพรวม</span>
+        <NavLink to="/overview" className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}>
+          <span aria-hidden="true">⌂</span><span>ภาพรวม</span>
         </NavLink>
-
-        <NavLink
-          to="/transactions/add"
-          className={({ isActive }) =>
-            `sidebar-item ${isActive ? 'active' : ''}`
-          }
-        >
-          <span>＋</span>
-          <span>เพิ่มธุรกรรม</span>
+        <NavLink to="/transactions" className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}>
+          <span aria-hidden="true">☷</span><span>ธุรกรรม</span>
         </NavLink>
-
-        <NavLink
-          to="/transactions"
-          end
-          className={({ isActive }) =>
-            `sidebar-item ${isActive ? 'active' : ''}`
-          }
-        >
-          <span>☷</span>
-          <span>ประวัติธุรกรรม</span>
+        <NavLink to="/budget" className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}>
+          <span aria-hidden="true">◫</span><span>งบประมาณ</span>
         </NavLink>
-
-        <NavLink
-          to="/budget"
-          className={({ isActive }) =>
-            `sidebar-item ${isActive ? 'active' : ''}`
-          }
-        >
-          <span>◫</span>
-          <span>งบประมาณ</span>
+        <NavLink to="/goals" className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}>
+          <span aria-hidden="true">◎</span><span>เป้าหมาย</span>
         </NavLink>
-
-        <NavLink
-          to="/goals"
-          className={({ isActive }) =>
-            `sidebar-item ${isActive ? 'active' : ''}`
-          }
-        >
-          <span>◎</span>
-          <span>เป้าหมายการเงิน</span>
-        </NavLink>
+        <NavLink to="/behavior" className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}>พฤติกรรม</NavLink>
+        <NavLink to="/forecast" className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}>การพยากรณ์</NavLink>
+        <NavLink to="/anomaly" className={({ isActive }) => `sidebar-item ${isActive ? 'active' : ''}`}>รายการที่ควรตรวจสอบ</NavLink>
       </nav>
 
       <div className="sidebar-bottom">

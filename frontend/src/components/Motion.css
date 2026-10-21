@@ -1,0 +1,39 @@
+/* Opacity never moves financial figures or creates a transform containing block. */
+@keyframes spendsense-fade { from { opacity: .6; } to { opacity: 1; } }
+.app-content :where(.summary-card, .goal-card, .dashboard-panel, .budget-table-card) { animation: spendsense-fade 180ms ease-out; }
+.app-content :where(button, a, input, select, textarea) { transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease; }
+.app-content :where(button, a, summary):focus-visible { outline: 3px solid #336fe2; outline-offset: 3px; }
+.app-content :where(.dashboard-bar > span, .budget-bar > span) { transition: width 220ms ease-out; }
+.app-content progress::-webkit-progress-value { transition: width 220ms ease-out; }
+.app-content button[aria-busy="true"] { cursor: wait; opacity: .75; }
+.app-content details[open] > :not(summary) { animation: spendsense-fade 160ms ease-out; }
+/* Supporting browsers animate the intrinsic details height, with native fallback. */
+@supports (interpolate-size: allow-keywords) {
+  .app-content details { interpolate-size: allow-keywords; }
+  .app-content details::details-content { block-size: 0; overflow: clip; transition: block-size 160ms ease-out, content-visibility 160ms allow-discrete; }
+  .app-content details[open]::details-content { block-size: auto; }
+}
+.local-toast-region { position: fixed; z-index: 80; inset-inline-end: 20px; bottom: 20px; width: min(420px, calc(100vw - 32px)); pointer-events: none; }
+.local-toast { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1px solid #b6dccb; border-radius: 14px; background: #f1fcf6; color: #165d40; box-shadow: 0 8px 32px #142d4e20; animation: spendsense-fade 160ms ease-out; pointer-events: none; overflow-wrap: anywhere; }
+.local-toast > svg { flex-shrink: 0; }
+.local-toast > span { flex: 1; min-width: 0; }
+.local-toast-error { border-color: #f1c3c8; color: #902733; background: #fff5f5; }
+.local-toast button { pointer-events: auto; display: grid; place-items: center; flex-shrink: 0; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 10px; background: transparent; color: inherit; cursor: pointer; }
+.local-toast button:focus-visible { outline: 3px solid #336fe2; outline-offset: 2px; }
+.toast-announcement { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) {
+  .app-content *, .app-content *::before, .app-content *::after, .local-toast, .notification-dialog { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  .app-content details::details-content { transition: none !important; }
+}
+
+@keyframes spendsense-page-enter { from { opacity: .25; } to { opacity: 1; } }
+@keyframes spendsense-popup-enter { from { opacity: 0; transform: translateY(8px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes spendsense-backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
+/* Native dialogs retain focus trapping, Escape and the existing save locks. */
+.budget-dialog[open], .goals-dialog[open] { position: fixed; inset: 0; margin: auto; box-sizing: border-box; max-width: calc(100vw - 32px); max-height: calc(100dvh - 32px); overflow-y: auto; animation: spendsense-popup-enter 200ms cubic-bezier(.2,.7,.2,1); }
+:where(.budget-dialog, .goals-dialog)[open]::backdrop { animation: spendsense-backdrop-enter 180ms ease-out; }
+.app-content > *, .login-page, .register-page, .guide-page, .admin-page { animation: spendsense-page-enter 220ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  :where(.budget-dialog, .goals-dialog)[open], :where(.budget-dialog, .goals-dialog)[open]::backdrop,
+  .app-content > *, .login-page, .register-page, .guide-page, .admin-page { animation: none !important; }
+}

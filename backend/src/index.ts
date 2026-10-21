@@ -1,3 +1,9 @@
+import { passwordResetRouter } from './routes/passwordReset';
+import { adminRouter } from './routes/admin';
+import { finishLogin } from './lib/adminLogin';
+import { requiresSetup } from './lib/setupRequirement';
+import { transactionRequestKey, transactionFingerprint, replayTransaction, recordTransaction } from './lib/transactionCreateRequest';
+import { ensureDefaultCategories } from './lib/defaultCategories';
 import { behaviorRouter } from './routes/behavior';
 import { forecastRouter } from './routes/forecast';
 import { anomalyRouter } from './routes/anomaly';
@@ -27,7 +33,9 @@ dotenv.config();
 const app = express();
 
 app.use(cors());
+app.use(passwordResetRouter);
 app.use(express.json());
+app.use(adminRouter);
 app.use(goalsRouter);
 app.use(settingsRouter);
 app.use(dashboardRouter);
@@ -164,109 +172,42 @@ app.get('/categories', async (req, res) => {
   }
 });
 
-app.post(
-  '/transactions',
-  authMiddleware,
-  async (req: AuthRequest, res) => {
-    try {
-      const userId = req.user!.userId;
-
-      const {
-        categoryId,
-        type,
-        amount,
-        transactionDate,
-        transactionTime,
-        paymentMethod,
-        description,
-        note,
-      } = req.body;
-
-      if (
-        !categoryId ||
-        !type ||
-        !amount ||
-        !transactionDate
-      ) {
-        return res.status(400).json({
-          error: 'Missing required fields',
-        });
-      }
-
-      if (!['income', 'expense'].includes(type)) {
-        return res.status(400).json({
-          error: 'Invalid transaction type',
-        });
-      }
-
-      const validated = validateTransactionValues(
-  amount,
-  transactionDate,
-  transactionTime
-);
-
-if (!validated.ok) {
-  return res.status(400).json({
-    error: validated.error,
+app.post('/transactions', authMiddleware, async (req: AuthRequest,res) => {
+ try {
+  const userId=req.user!.userId;
+  const key=transactionRequestKey(req.headers['idempotency-key']);
+  const payload=req.body;
+  if(!payload||typeof payload!=='object'||Array.isArray(payload))throw new GoalError(400,'INVALID_BODY','Invalid request body');
+  const fingerprint=transactionFingerprint(payload);
+  const result=await withGoalLock(userId,async tx=>{
+   await assertAnomalyActor(tx,req.user!);
+   const replay=await replayTransaction(tx,userId,key,fingerprint);
+   if(replay)return {body:replay.responseBody,id:null,period:null};
+   const {categoryId,type,amount,transactionDate,transactionTime,paymentMethod,description,note}=payload;
+   if(!categoryId||!type||!amount||!transactionDate)throw new GoalError(400,'MISSING_FIELDS','Missing required fields');
+   if(!['income','expense'].includes(type))throw new GoalError(400,'INVALID_TYPE','Invalid transaction type');
+   const validated=validateTransactionValues(amount,transactionDate,transactionTime);
+   if(!validated.ok)throw new GoalError(400,'INVALID_TRANSACTION',validated.error);
+   const category=await tx.category.findUnique({where:{id:categoryId}});
+   if(!category)throw new GoalError(404,'CATEGORY_NOT_FOUND','Category not found');
+   if(category.type!==type)throw new GoalError(400,'CATEGORY_TYPE','Category type does not match transaction type');
+   const confirmation=confirmedTime(payload.transactionTimeConfirmed,validated.transactionTime,validated.transactionDate);
+   const anomalyFields=await anomalyWriteFields(tx,userId,{type,categoryId,amount:validated.amount,transactionDate:validated.transactionDate,transactionTime:validated.transactionTime,transactionTimeConfirmed:confirmation,paymentMethod:paymentMethod||null,description:description||null,note:note||null});
+   const transaction=await tx.transaction.create({data:{userId,...anomalyFields,transactionTimeConfirmed:confirmation,categoryId,type,amount:validated.amount,transactionDate:validated.transactionDate,transactionTime:validated.transactionTime,paymentMethod:paymentMethod||null,description:description||null,note:note||null},include:{category:true}});
+   const body=await recordTransaction(tx,userId,key,fingerprint,transaction);
+   return {body,id:transaction.id,period:transactionPeriod(transaction.transactionDate)};
   });
-}
-
-
-
-      const category = await prisma.category.findUnique({
-        where: {
-          id: categoryId,
-        },
-      });
-
-      if (!category) {
-        return res.status(404).json({
-          error: 'Category not found',
-        });
-      }
-
-      if (category.type !== type) {
-        return res.status(400).json({
-          error: 'Category type does not match transaction type',
-        });
-      }
-
-      const transaction = await withGoalLock(userId, async tx => {
-        await assertAnomalyActor(tx, req.user!);
-        const confirmation = confirmedTime(req.body.transactionTimeConfirmed, validated.transactionTime, validated.transactionDate);
-        const anomalyFields = await anomalyWriteFields(tx,userId,{type,categoryId,amount:validated.amount,transactionDate:validated.transactionDate,transactionTime:validated.transactionTime,transactionTimeConfirmed:confirmation,paymentMethod:paymentMethod||null,description:description||null,note:note||null});
-        return tx.transaction.create({
-        data: {
-          userId,
-          ...anomalyFields, transactionTimeConfirmed: confirmation,
-          categoryId,
-          type,
-          amount: validated.amount,
-          transactionDate: validated.transactionDate,
-          transactionTime: validated.transactionTime,
-          paymentMethod: paymentMethod || null,
-          description: description || null,
-          note: note || null,
-        },
-        include: {
-          category: true,
-        },
-      });
-      });
-
-      await checkBudgetNotifications(userId, [transactionPeriod(transaction.transactionDate)]);
-      await checkTransactionAnomaly(req.user!,transaction.id);
-      return res.status(201).json(transaction);
-    } catch (error) {
-      if(error instanceof GoalError) return res.status(error.status).json({error:error.message,code:error.code});
-      console.error(error);
-
-      return res.status(500).json({
-        error: 'Failed to create transaction',
-      });
-    }
+  if(result.id&&result.period){
+   try{await checkBudgetNotifications(userId,[result.period]);await checkTransactionAnomaly(req.user!,result.id);}
+   catch{console.error('TRANSACTION_POST_COMMIT_CHECK_FAILED');}
   }
-);
+  return res.status(201).json(result.body);
+ }catch(error){
+  if(error instanceof GoalError)return res.status(error.status).json({error:error.message,code:error.code});
+  console.error('TRANSACTION_CREATE_FAILED', error instanceof Prisma.PrismaClientKnownRequestError && /^P[0-9]{4}$/.test(error.code) ? error.code : 'UNKNOWN_ERROR');
+  return res.status(500).json({error:'Failed to create transaction'});
+ }
+});
 
 app.get(
   '/transactions',
@@ -274,9 +215,15 @@ app.get(
   async (req: AuthRequest, res) => {
     try {
       const userId = req.user!.userId;
+      const rawLimit = req.query.limit;
+      if (rawLimit !== undefined && (typeof rawLimit !== 'string' || !/^[1-9]\d*$/.test(rawLimit) || Number(rawLimit) > 100)) {
+        return res.status(400).json({ error: 'limit must be an integer from 1 to 100' });
+      }
+      const limit = rawLimit === undefined ? undefined : Number(rawLimit);
       const monthPeriod = req.query.month === undefined ? null : dashboardPeriod(req.query.month, bangkokToday());
 
       const transactions = await prisma.transaction.findMany({
+        ...(limit === undefined ? {} : { take: limit }),
         where: {
           userId,
           ...(monthPeriod ? { transactionDate: { gte: new Date(monthPeriod.startDate + 'T00:00:00Z'), lte: new Date(monthPeriod.effectiveEndDate + 'T00:00:00Z') } } : {}),
@@ -738,6 +685,7 @@ if (typeof id !== 'string' || id.trim() === '') {
 
 app.post('/auth/register', async (req, res) => {
   try {
+    if (Object.prototype.hasOwnProperty.call(req.body ?? {}, 'role')) return res.status(400).json({error:'Role cannot be supplied'});
     const { email, password } = req.body;
 
     if (!email || !password) {
@@ -774,16 +722,13 @@ app.post('/auth/register', async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 12);
 
-    const user = await prisma.user.create({
-      data: {
-        email: normalizedEmail,
-        passwordHash,
-      },
-      select: {
-        id: true,
-        email: true,
-        createdAt: true,
-      },
+    const user = await prisma.$transaction(async tx => {
+      const created = await tx.user.create({
+        data: { email: normalizedEmail, passwordHash },
+        select: { id: true, email: true, createdAt: true },
+      });
+      await ensureDefaultCategories(tx);
+      return created;
     });
 
     return res.status(201).json({
@@ -791,7 +736,10 @@ app.post('/auth/register', async (req, res) => {
       user,
     });
   } catch (error) {
-    console.error('REGISTER ERROR:', error);
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return res.status(409).json({ error: 'Email already exists' });
+    }
+    console.error('REGISTER ERROR:', error instanceof Prisma.PrismaClientKnownRequestError ? error.code : 'unexpected');
 
     return res.status(500).json({
       error: 'Failed to register',
@@ -854,33 +802,10 @@ app.post('/auth/login', async (req, res) => {
       });
     }
 
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        email: user.email,
-        authVersion: user.authVersion,
-      },
-      secret,
-      {
-        expiresIn: '7d',
-      }
-    );
-
-    const invitation = await prisma.user.updateMany({
-      where: { id: user.id, deletedAt: null, authVersion: user.authVersion, setupCompletedAt: null, setupPromptedAt: null },
-      data: { setupPromptedAt: new Date() },
-    });
-    return res.json({
-      showSetup: invitation.count === 1,
-      message: 'Login successful',
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-      },
-    });
+    return res.json(await finishLogin(user, secret));
   } catch (error) {
-    console.error('LOGIN ERROR:', error);
+    if (error instanceof GoalError) return res.status(error.status).json({error:error.message});
+    console.error('LOGIN ERROR');
 
     return res.status(500).json({
       error: 'Failed to login',
@@ -904,6 +829,8 @@ app.get(
           email: true,
           createdAt: true,
           setupCompletedAt: true,
+          setupPromptedAt: true,
+          role: true,
         },
       });
 
@@ -914,7 +841,8 @@ app.get(
       }
 
       res.set('Cache-Control', 'no-store');
-      return res.json(user);
+      const { setupPromptedAt, ...account } = user;
+      return res.json({ ...account, showSetup: requiresSetup(user) });
     } catch (error) {
       console.error(error);
 

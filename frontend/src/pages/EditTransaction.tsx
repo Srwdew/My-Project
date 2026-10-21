@@ -1,3 +1,4 @@
+import { useToast } from '../components/LocalToast';
 import AnomalyDetails from '../components/AnomalyDetails';
 import { useSessionKey } from '../auth';
 import { useEffect, useState } from 'react';
@@ -33,6 +34,7 @@ type Transaction = {
 
 export default function EditTransaction() { const session=useSessionKey();const {id}=useParams();return <EditTransactionSession key={session + ':' + id} />; }
 function EditTransactionSession() {
+  const toast = useToast();
   const navigate = useNavigate();
   const { id } = useParams();
   const [type, setType] = useState<TransactionType>('expense');
@@ -107,7 +109,7 @@ function EditTransactionSession() {
       setNote(transaction.note ?? '');
     } catch (error) {
       console.error(error);
-      alert('ไม่สามารถโหลดข้อมูลรายการได้');
+      toast('ไม่สามารถโหลดข้อมูลรายการได้');
       navigate('/transactions');
     } finally {
       setLoading(false);
@@ -132,10 +134,11 @@ function EditTransactionSession() {
   };
 
   const handleSubmit = async () => {
+    toast('');
     if (!id) return;
 
     if (!categoryId) {
-      alert('กรุณาเลือกหมวดหมู่');
+      toast('กรุณาเลือกหมวดหมู่');
       return;
     }
 
@@ -147,7 +150,7 @@ if (
   Number(amountText) <= 0 ||
   Number(amountText) > 9999999999.99
 ) {
-  alert(
+  toast(
     'กรุณากรอกจำนวนเงินมากกว่า 0 ไม่เกิน 9,999,999,999.99 บาท และทศนิยมไม่เกิน 2 ตำแหน่ง'
   );
   return;
@@ -157,7 +160,7 @@ if (
   !transactionDate ||
   Number.isNaN(transactionDate.getTime())
 ) {
-  alert('กรุณาเลือกวันที่ให้ถูกต้อง');
+  toast('กรุณาเลือกวันที่ให้ถูกต้อง');
   return;
 }
 
@@ -165,12 +168,12 @@ if (
   transactionTime !== '' &&
   !/^([01]\d|2[0-3]):[0-5]\d$/.test(transactionTime)
 ) {
-  alert('กรุณากรอกเวลาให้ถูกต้อง');
+  toast('กรุณากรอกเวลาให้ถูกต้อง');
   return;
 }
 
 if (isFutureTransactionDate(transactionDate)) {
-  alert('ไม่สามารถบันทึกวันที่อนาคตได้');
+  toast('ไม่สามารถบันทึกวันที่อนาคตได้');
   return;
 }
 
@@ -200,15 +203,15 @@ if (isFutureTransactionDate(transactionDate)) {
       const data = await response.json();
 
       if (!response.ok) {
-        alert(data.error || 'แก้ไขรายการไม่สำเร็จ');
+        toast(data.error || 'แก้ไขรายการไม่สำเร็จ');
         return;
       }
 
-      alert('แก้ไขรายการสำเร็จ');
+      toast('แก้ไขรายการสำเร็จ', 'success');
       navigate('/transactions');
     } catch (error) {
       console.error(error);
-      alert('ไม่สามารถเชื่อมต่อกับ Backend ได้');
+      toast('ไม่สามารถเชื่อมต่อกับ Backend ได้');
     } finally {
       setIsSaving(false);
     }
@@ -224,7 +227,7 @@ if (isFutureTransactionDate(transactionDate)) {
 
   return (
     <div className="edit-page">
-      <header className="edit-header">
+      <header className="edit-header compact-page-toolbar">
         <div>
           <button
             type="button"
@@ -234,8 +237,7 @@ if (isFutureTransactionDate(transactionDate)) {
             ← ย้อนกลับ
           </button>
 
-          <h1>แก้ไขธุรกรรม</h1>
-          <p>แก้ไขข้อมูลรายรับ-รายจ่ายของคุณ</p>
+          <h1 className="page-heading-accessible">แก้ไขธุรกรรม</h1>
         </div>
 
         <UserHeader />
@@ -330,7 +332,7 @@ if (isFutureTransactionDate(transactionDate)) {
                 type="time"
                 value={transactionTime}
                 onChange={(e) => (setTransactionTime(e.target.value), setTransactionTimeConfirmed(false))}
-              /><label style={{display:'block',marginTop:8}}><input type="checkbox" checked={transactionTimeConfirmed} disabled={!transactionTime} onChange={e=>setTransactionTimeConfirmed(e.target.checked)} /> ยืนยันว่าเป็นเวลาที่เกิดรายการจริงตามเวลาไทย (Asia/Bangkok)</label><small>ไม่ทราบเวลาจริงให้เว้นว่างหรือไม่ยืนยัน ระบบจะไม่ประเมินด้านเวลา</small>
+              />
             </div>
           </div>
 
@@ -397,7 +399,7 @@ if (isFutureTransactionDate(transactionDate)) {
             type="button"
             className="edit-save-button"
             onClick={handleSubmit}
-            disabled={isSaving}
+            disabled={isSaving} aria-busy={isSaving}
           >
             {isSaving ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
           </button>

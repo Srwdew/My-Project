@@ -1,0 +1,30 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { lastCompletedMonth, goalFeasibility } from '../src/lib/goalFeasibility';
+import { calculateGoal } from '../src/lib/goalCalculations';
+const period=lastCompletedMonth('2026-10-08');
+test('reference month is complete, handles January and leap year',()=>{
+ assert.deepEqual(lastCompletedMonth('2026-01-01'),{month:'2025-12',startDate:'2025-12-01',endDate:'2025-12-31'});
+ assert.equal(lastCompletedMonth('2024-03-31').endDate,'2024-02-29');
+ assert.equal(lastCompletedMonth('2025-03-01').endDate,'2025-02-28');
+ assert.deepEqual(lastCompletedMonth('2026-10-31'),period);
+});
+test('feasibility comparison is informational and does not replace required monthly formula',()=>{
+ const goal={targetAmount:'100',targetDate:new Date('2026-12-31'),plannedMonthlyAmount:null,archivedAt:null};
+ const view={...goal,...calculateGoal(goal,'0','2026-10-08')};
+ assert.equal(view.requiredMonthlyAmount,'33.34');
+ const assess=(income:string,expense:string,count=2)=>goalFeasibility(view,{period,incomeAmount:income,expenseAmount:expense,netCashFlow:(Number(income)-Number(expense)).toFixed(2),transactionCount:count}).status;
+ assert.equal(assess('100','50'),'within_observed_cash_flow');
+ assert.equal(assess('33.34','0'),'within_observed_cash_flow');
+ assert.equal(assess('33.33','0'),'exceeds_observed_cash_flow');
+ assert.equal(assess('10','20'),'non_positive_cash_flow');
+ assert.equal(assess('10','10'),'non_positive_cash_flow');
+ assert.equal(assess('0','20'),'no_income');
+ assert.equal(assess('0','0',0),'no_transactions');
+ const cash={period,incomeAmount:'100',expenseAmount:'0',netCashFlow:'100',transactionCount:1};
+ assert.equal(goalFeasibility({...view,targetDate:null},cash).status,'no_target_date');
+ assert.equal(goalFeasibility({...view,archivedAt:new Date()},cash).status,'archived');
+ assert.equal(goalFeasibility({...view,calculatedStatus:'completed'},cash).status,'completed');
+ assert.equal(goalFeasibility({...view,calculatedStatus:'overdue'},cash).status,'overdue');
+ assert.equal(view.savedAmount,'0.00');
+});

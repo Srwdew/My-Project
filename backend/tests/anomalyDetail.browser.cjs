@@ -4,7 +4,7 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));const origin=process.env.SETTIN
 const mock=()=>{
  const native=window.fetch.bind(window);window.__calls=[];window.__reviews={};window.__receipts={};
  window.fetch=async(url,options={})=>{
-  if(!String(url).startsWith('http://localhost:4000'))return native(url,options);
+  if(!['http://localhost:4000','http://127.0.0.1:4088'].includes(new URL(url,location.href).origin))return native(url,options);
   const route=new URL(url).pathname,session=new Headers(options.headers).get('Authorization')?.replace('Bearer ','');window.__calls.push({route,body:options.body});let value={};
   if(route==='/profile')value={userId:session,email:session+'@example.invalid',displayName:session,hasAvatar:false};
   else if(route==='/categories')value=[{id:'cat',name:'ทดสอบ',type:'expense'}];
@@ -37,7 +37,7 @@ const extend=()=>{
  const base=window.fetch;window.__mode='distinct';window.__held=false;window.__denied=false;window.__extra=[];
  window.fetch=async(url,options={})=>{
   const u=new URL(url,location.href),route=u.pathname;
-  if(u.origin!==location.origin&&u.origin!=='http://localhost:4000')throw Error('External request blocked in test');
+  if(u.origin!==location.origin&&!['http://localhost:4000','http://127.0.0.1:4088'].includes(u.origin))throw Error('External request blocked in test');
   if(route.endsWith('/anomaly')&&!route.includes('/reconcile')){
    const session=new Headers(options.headers).get('Authorization')?.replace('Bearer ','');
    if(window.__denied)return new Response('{}',{status:404});

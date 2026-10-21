@@ -21,10 +21,10 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));const origin=process.env.SETTIN
    const who=new Headers(options.headers).get('Authorization')?.replace('Bearer ','')||'incomplete';
    const db=JSON.parse(sessionStorage.getItem('setup-fixture'));
    const path=u.pathname;window.__calls.push({path,method:options.method||'GET',who});
-   if(path==='/auth/login'){const b=JSON.parse(options.body);const token=b.email.startsWith('complete')?'complete':'incomplete';const key='prompt-'+token;const showSetup=!db[token]&&!sessionStorage.getItem(key);sessionStorage.setItem(key,'1');return json({token,showSetup});}
+   if(path==='/auth/login'){const b=JSON.parse(options.body);const token=b.email.startsWith('complete')?'complete':'incomplete';const key='prompt-'+token;const showSetup=!db[token];sessionStorage.setItem(key,'1');return json({token,showSetup});}
    if(path==='/auth/me'){
     if(window.__failAuth)return json({},503);
-    const result={id:who,setupCompletedAt:db[who]};
+    const result={id:who,role:who==='admin'?'ADMIN':'USER',showSetup:who!=='admin'&&!db[who],setupCompletedAt:db[who]};
     if(window.__holdAuth){window.__holdAuth=false;window.__authHeld=true;await new Promise(r=>window.__releaseAuth=r);}
     return json(result);
    }
@@ -47,26 +47,35 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));const origin=process.env.SETTIN
  const fill=async(selector,value)=>evaluate("(()=>{const e=document.querySelector("+JSON.stringify(selector)+");Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,"+JSON.stringify(value)+");e.dispatchEvent(new Event('input',{bubbles:true}));})()");
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
 
+
  for(const route of ['/overview','/budget','/transactions','/settings']){
-  await go(route);await waitFor("document.querySelector('.app-layout')!==null");
-  assert.equal(await evaluate('location.pathname'),route);
-  assert.equal(await evaluate("document.querySelector('.setup-entry')"),null);
+  await go(route);await ready();assert.equal(await evaluate('location.pathname'),'/setup');
+  assert.equal(await evaluate("!!document.querySelector('.app-layout')"),false);
+  assert.equal(await evaluate("!!document.querySelector('.setup-actions a')"),false);
  }
- const login=async(email)=>{await go('/login');await waitFor("document.querySelector('#email')!==null");await fill('#email',email);await fill('#password','fixture-only');await evaluate("document.querySelector('.login-submit').click()");};
- await login('incomplete@example.invalid');await waitFor("location.pathname==='/setup'");await ready();
- await evaluate("document.querySelector('.setup-actions a').click()");await waitFor("location.pathname==='/overview'");
- assert.equal(await evaluate("JSON.parse(sessionStorage.getItem('setup-fixture')).incomplete"),null);
- await login('incomplete@example.invalid');await waitFor("location.pathname==='/overview'");
- console.log('PASS direct routes, no Setup entry, first login, skip, repeat login');
- await go('/setup');await ready();await evaluate("window.__failSave=true;document.querySelector('.setup-submit').click()");await waitFor("document.querySelector('.setup-error')!==null");
+ await send('Page.reload');await ready();
+ console.log('PASS incomplete direct URLs/refresh require standalone setup with no skip');
+ const login=async(email)=>{await go('/login');await waitFor("!!document.querySelector('#email')");await fill('#email',email);await fill('#password','fixture-only');await evaluate("document.querySelector('.login-submit').click()");};
+ await login('incomplete@example.invalid');await ready();
+ await login('incomplete@example.invalid');await ready();
+ console.log('PASS every login requires completion, including previously prompted member');
+ await evaluate("window.__failSave=true;document.querySelector('.setup-submit').click()");await waitFor("!!document.querySelector('.setup-error')");
  assert.equal(await evaluate('location.pathname'),'/setup');
  await evaluate("window.__failSave=false;document.querySelector('.setup-submit').click()");await waitFor("location.pathname==='/overview'");
+ await go('/setup');await waitFor("location.pathname==='/overview'");
  await login('complete@example.invalid');await waitFor("location.pathname==='/overview'");
- await go('/setup');await ready();await switchTo('incomplete');await ready();
+ await switchTo('admin');await go('/setup');await waitFor("location.pathname==='/admin'");
+ console.log('PASS rejected save stays, confirmed completion leaves, completed/admin bypass onboarding');
+ await evaluate("sessionStorage.setItem('setup-fixture',JSON.stringify({incomplete:null,complete:'2026-10-01'}))");
+ await switchTo('incomplete');await go('/setup');await ready();
  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
  assert.equal(await evaluate("document.documentElement.scrollWidth<=innerWidth"),true);
- await evaluate("document.querySelector('.setup-actions a').focus()");assert.equal(await evaluate("document.activeElement.getAttribute('href')"),'/overview');
- console.log('PASS save failure/success, completed login, session switch, mobile and keyboard link');
+ await evaluate("document.querySelector('.setup-actions button[type=button]').focus()");
+ await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Enter',code:'Enter',windowsVirtualKeyCode:13,text:'\r',unmodifiedText:'\r'});
+ await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Enter',code:'Enter',windowsVirtualKeyCode:13});
+ await waitFor("location.pathname==='/login'");
+ await go('/setup');await waitFor("location.pathname==='/login'");
+ console.log('PASS mobile, keyboard logout and guest guard');
  await send('Browser.close').catch(()=>{});
  }finally{socket?.close();browser.kill();}
 })().catch(e=>{console.error(e.stack);process.exitCode=1;});

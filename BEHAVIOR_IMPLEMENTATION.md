@@ -105,3 +105,53 @@ Additional browser regression: Dashboard PASS (including 10 controlled month rac
 ผู้ใช้ยืนยันว่าตรวจรับหน้า Behavior แบบใหม่ผ่านแล้ว เมื่อวันที่ 27 กันยายน 2026 (Asia/Bangkok) ผลนี้เป็นการตรวจรับโดยผู้ใช้ แยกจาก automated tests, API mocks และ real-backend browser tests ที่ AI รันและบันทึกไว้ก่อนหน้า ไม่ใช่การรัน tests ใหม่ในรอบบันทึกนี้
 สถานะนี้แทนข้อความก่อนหน้าที่ระบุว่ายังรอผู้ใช้ตรวจรับหน้าแบบใหม่ โดยไม่เปลี่ยนผลหรือขอบเขตการทดสอบของ AI ไม่มีการอ้างว่าผู้ใช้ได้ตรวจกรณีเพิ่มเติมนอกเหนือจากที่ยืนยัน
 รอบนี้ตรวจ repository/diff เพื่อเสนอรายการไฟล์สำหรับ commit เท่านั้น ยังไม่ stage, commit หรือ push และคงไฟล์ local เดิมทั้ง 12 ไฟล์ไว้
+
+## Approved optional event-time policy — audit 10 October 2026
+
+The user approved keeping event time optional without adding a confirmation checkbox. Do not substitute transaction creation/save timestamps for event time, infer confirmation from OCR, or backfill confirmation on existing records. Missing/unconfirmed event time does not exclude an otherwise eligible expense from amount, category or transaction-date analysis.
+
+Current creation flow intentionally sends `transactionTimeConfirmed=false`, including manually entered time, applied OCR suggestions and pending-request retries. Applying OCR suggestions or submitting the transaction does not confirm its event time. The existing Edit Transaction confirmation control remains unchanged; this decision does not add a new control. Changing the date/time in that edit flow clears confirmation.
+
+Time analysis uses only `transactionTimeConfirmed=true` with non-null `transactionTime`. Behavior and Anomaly retain their separate existing readiness/scoring policies. Insufficient confirmed-time data retains the existing reason/status instead of producing a time finding or flag. Behavior may still display factual bucket counts and coverage with those reasons; this is not a readiness-qualified finding.
+
+Source checked: `frontend/src/pages/Addtransaction.tsx`, `EditTransaction.tsx`, `frontend/src/lib/pendingTransaction.ts`, `backend/src/lib/behavior.ts`, `anomaly.ts`, `anomalyRules.ts` and the existing `transaction_time_confirmed_check` constraint. No source, UI, scoring, readiness, schema, migration or historical-record change was required.
+
+Automated verification (separate from user acceptance): 68 tests passed as reported by Node across behavior.database (10), anomaly.database (12), behavior unit (30), anomaly unit (6), anomalyDimensions unit (5), and pendingTransaction unit (5). Counts include parent tests. The Behavior 732-day performance, HTTP snapshot and 50/51 recurrence cases were excluded from this focused run; no claim is made that they ran here. Database checks cover confirmed-null rejection, exact time-bucket boundaries, omission of unconfirmed time while preserving expense totals, default-false/no-backfill behavior and confirmed wall-clock use rather than createdAt.
+
+Only fresh isolated PostgreSQL resources were used: container `spendsense-reset-test-1791626416406-7fef43`, localhost port 49232, databases `spendsense_goals_test_1791626416406_7fef43_0` through `_5`. Each had 21 completed migrations and no pending migration. Tests ran from a temporary directory with a nonexistent dotenv path; application credentials/.env were not read and the application database was not accessed. Test resources were retained. No new browser acceptance or build was performed for this documentation-only audit.
+
+## Behavior v2 — approved recurrence criteria (supersedes v1 recurrence above)
+
+User-approved rules:
+- Keep the existing per-selected-scope Global Readiness: expense count >=30 and inclusive first-to-last transaction-date span >=30 days in the current selected period. Category filters still recalculate readiness as before. No today/future data.
+- Scan every rolling window contained in the selected period, not just the latest window. No reads outside that period to make recurrence qualify.
+- General: at least 5 distinct dates within 30 inclusive calendar days; multiple transactions on one date count as one date.
+- Weekly: at least 4 occurrences within 28 inclusive days; preserve exact 7-day cadence and one occurrence per date in the matched category/amount group.
+- Monthly: at least 3 occurrences within 90 inclusive days; preserve consecutive months on the same day-of-month or all month ends, including leap years, with one occurrence per date.
+- Preserve exact category + Decimal amount equality. The meaning/tolerance of “similar amounts” remains PENDING USER DECISION. No +/-15% or any other Anomaly tolerance is used.
+- Only user-confirmed, non-null event times enter the existing four-hour buckets. Anomaly uses the same 240-minute partition; a unit contract test verifies equality. Behavior does not import Anomaly scoring, decisions, or baseline membership.
+
+Implementation/display choices:
+- SQL scans windows before limiting results. For each category/amount/type, return the earliest qualifying minimal witness (5/4/3 dates), not an exhaustive catalogue of all overlapping windows. General and weekly/monthly may coexist for the same group. Counts describe the displayed witness, not every occurrence in all history.
+- Preserve the 50-result limit with a 51st sentinel and hasMore; missing categories in a truncated response are not declared unready.
+- All findings include transaction references (id, date, amount, confirmed time or null), occurrence count and observed date span. Category-change evidence covers both compared periods; time evidence covers the matching current bucket; recurrence evidence covers exactly its witness dates and amount. UI opens these read-only snapshot rows in an expandable keyboard-accessible table, 20 rows at a time.
+- findings.findingType distinguishes period_change, time_observation and recurrence. Changes alone never produce a recurrence. The Behavior hero uses recurrence only; comparison/time observations and recurrence have separate labeled sections.
+- Insufficient category evidence is labeled “หลักฐานยังไม่เพียงพอ”; statements describe observations rather than causes, personality or habits.
+- The existing RepeatableRead snapshot, authenticated ownership, private/no-store response and frontend session/query/abort guards are retained. No financial writes, schema changes, migrations or other-module UI changes.
+
+Memory/compatibility caveat:
+- Unlike the earlier aggregate-only implementation, aggregate rows now contain minimal transaction evidence references. Memory therefore also scales with the number of scoped transactions; the old claim that memory depends only on day/category/bucket counts no longer applies. Full descriptions/notes and Anomaly history are not read. Evidence render pagination limits DOM size, not server evidence memory.
+- Existing fields are retained, recurrence metadata and findingType are additive, and ruleVersion is behavior-v2 with the current rule hash. Consumers must not interpret a period_change as recurrence.
+- The old standalone runBehaviorDatabase.cjs assumes 12 migrations and loads dotenv. The new runBehaviorV2.cjs creates a fresh isolated PostgreSQL instance, disables dotenv, verifies current_database before deploying the existing migrations, and runs only Behavior unit/database tests. No application/UAT database is used.
+- Historical test/UAT entries above remain historical; they do not constitute user acceptance of v2.
+
+### v2 automated verification (not User Acceptance)
+- Final Behavior unit + PostgreSQL/HTTP run: 49 tests passed, zero failures/skips, 49.86 seconds as reported by Node (parent tests included).
+- Fresh isolated PostgreSQL database: spendsense_goals_test_behavior_v2_1791918123451, localhost:54371, container spendsense-behavior-v2-test-1791918123451. Verified current_database before migration; all 21 existing migrations applied and status up to date. No schema/migration files changed. Test resources retained.
+- An earlier run failed only the snapshot fixture's old three-weekly-occurrence expectation. Updated that fixture to four occurrences and its exact expected totals (190.00, 37 transactions), retaining atomic CRUD interleaving, RepeatableRead, three-query count and full before/during equality assertions. Final run passed both cut points.
+- Chrome browser regression: 10 groups passed with synthetic API mocks on separate preview localhost:5298. Covers inspectable transaction evidence, recurrence vs comparison labels, unconfirmed time hidden, loading/error/keyboard retry, old filter/session responses and 390px mobile containment. This is not real-user acceptance.
+- Backend and frontend builds passed. No UAT backend restart or application/production database connection.
+- Synthetic 732-day volume test, 8 categories and 7 bucket values (including unconfirmed), measured 40,992 and 81,984 transactions. HTTP samples: 2662.54 ms and 1855.21 ms respectively. Serialized responses: 152,242 and 205,640 bytes. Highest sampled process RSS across measured build rounds: 429,871,104 bytes. These are local, GC/cache-dependent observations, not production latency guarantees or maximum-memory bounds.
+- Count/span readiness matrix 29/30 x 29/30, general 4/5 distinct dates and 30/31 inclusive days, early/later rolling windows, duplicates, weekly 3/4, monthly 2/3 and leap ends, exact amount, owned evidence and cutoff, confirmed time, 50/51 limit, read-only invariance and snapshot concurrency are covered.
+- Under retained cadence, four weekly occurrences span 22 inclusive days; three consecutive-month occurrences span at most 63. A 28/29-day or 90/91-day minimal witness cannot also satisfy exact cadence, so tests separately enforce window constants and reject broken cadence rather than fabricate valid boundary examples.
+- v2 User Acceptance remains unrecorded; prior Behavior acceptance is not extended to these changes.

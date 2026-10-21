@@ -828,3 +828,21 @@
     padding: 10px;
   }
 }
+/* Reuse the transaction datepicker, selecting a budget month rather than a day. */
+button.budget-month-picker { font-family: inherit; }
+button.budget-month-picker:disabled { opacity: .55; cursor: not-allowed; }
+.budget-datepicker-popper { z-index: 30; }
+.budget-datepicker-popper .react-datepicker { font-family: inherit; border: 1px solid #d8dee8; border-radius: 12px; box-shadow: 0 8px 24px #142d4e1a; }
+.budget-datepicker-popper .react-datepicker__header { border-radius: 12px 12px 0 0; background: #f3f6ff; border-bottom-color: #e3e9f3; }
+.budget-datepicker-popper .react-datepicker__month-text { padding: 8px 0; border-radius: 7px; }
+.budget-datepicker-popper .react-datepicker__month-text:focus-visible { outline: 3px solid #336fe2; outline-offset: 1px; }
+
+/* Keep the two budget actions together on the same row. */
+.budget-toolbar { flex-wrap: wrap; }
+.budget-toolbar-actions { flex: 0 0 auto; flex-wrap: nowrap; align-items: stretch; }
+.budget-toolbar-actions .budget-btn { white-space: nowrap; }
+@media (max-width: 640px) {
+  .budget-toolbar-actions { display: grid; grid-template-columns: 1.25fr 1fr; width: 100%; }
+  .budget-toolbar-actions .budget-btn { min-width: 0; min-height: 46px; padding: 10px 8px; gap: 6px; white-space: normal; }
+  .budget-toolbar-actions .budget-btn > svg { flex-shrink: 0; }
+}

@@ -1,0 +1,24 @@
+.summary-card {
+  min-width: 0; padding: 12px 18px; overflow-wrap: anywhere; color: #142d4e;
+  background: transparent; border: 0; box-shadow: none;
+}
+.summary-card .summary-card-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 7px; }
+.summary-card .summary-card-heading h2 { font-size: 14px; font-weight: 650; color: #384f68; margin: 0; }
+.summary-card-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.summary-card .summary-card-icon { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 11px; color: #155acb; background: #e8f0ff; }
+.summary-card .summary-card-value { display: block; font-size: clamp(24px,1.95vw,31px); line-height: 1.4; font-weight: 750; font-variant-numeric: tabular-nums; letter-spacing: -.025em; }
+.summary-card .summary-card-value small { display: inline; margin: 0; font-size: 12px; font-weight: 450; color: #64748b; }
+.summary-card > p { font-size: 12px; margin: 9px 0 0; color: #64748b; }
+.summary-card.dashboard-kpi-income .summary-card-icon { background: #e8f6ef; color: #147251; }
+.summary-card.dashboard-kpi-expense .summary-card-icon { background: #fff0e5; color: #a65319; }
+.summary-card.dashboard-kpi-income .summary-card-value { color: #14724f; }
+.summary-card.dashboard-kpi-expense .summary-card-value { color: #ac5020; }
+.summary-card.dashboard-exceeded .summary-card-value { color: #b32b32; }
+.budget-kpis > .summary-card + .summary-card { border-left: 1px solid #dde5ee; }
+@media (max-width: 900px) {
+  .budget-kpis > .summary-card:nth-child(odd) { border-left: 0; }
+}
+@media (max-width: 480px) {
+  .budget-page .budget-kpis { grid-template-columns: 1fr; gap: 0; }
+  .budget-kpis > .summary-card + .summary-card { border-left: 0; border-top: 1px solid #dde5ee; }
+}
