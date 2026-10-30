@@ -155,3 +155,56 @@ Memory/compatibility caveat:
 - Count/span readiness matrix 29/30 x 29/30, general 4/5 distinct dates and 30/31 inclusive days, early/later rolling windows, duplicates, weekly 3/4, monthly 2/3 and leap ends, exact amount, owned evidence and cutoff, confirmed time, 50/51 limit, read-only invariance and snapshot concurrency are covered.
 - Under retained cadence, four weekly occurrences span 22 inclusive days; three consecutive-month occurrences span at most 63. A 28/29-day or 90/91-day minimal witness cannot also satisfy exact cadence, so tests separately enforce window constants and reject broken cadence rather than fabricate valid boundary examples.
 - v2 User Acceptance remains unrecorded; prior Behavior acceptance is not extended to these changes.
+
+
+## Evidence overlap and explicit pending rules — 21 October 2026
+
+This section supersedes the earlier unrestricted coexistence of overlapping general/weekly/monthly cards. All seven finding IDs and all approved numeric thresholds remain unchanged. No schema/migration, Anomaly recurrence reuse, collection activation or automatic amount-pattern matching is introduced.
+
+Duplicate evidence policy:
+- Compare qualified, earliest witnesses already selected by the existing scanner, within the same category ID and exact Decimal amount only.
+- Specificity is monthly > weekly > general. Suppress a lower-specificity witness only when ALL dates of a higher-specificity witness occur in it and the count on each shared date is at least the higher witness count. Each source witness contains all transactions in that category/amount/date group, so this means the higher transaction evidence is wholly contained.
+- Sharing a category/amount, overlapping date ranges, or sharing only some evidence dates is insufficient. Independent and partial-overlap witnesses remain, including different types in the same category/amount. No percentage overlap or date/amount tolerance is invented.
+- Example: general dates Jan 1/8/15/22/29 and weekly Jan 1/8/15/22 retain the weekly card. General March 1/3/5/7/9 remains independent. Do not merge or inflate the surviving card's four transactions; all spending remains in facts.
+- Same-type earliest-witness policy remains unchanged; this is not a new exhaustive discovery of every disjoint episode of the same type. Equal-priority witnesses are not removed by this filter.
+- SQL applies the containment predicate after earliest-witness selection and BEFORE LIMIT 51. The pure Behavior helper applies the same predicate before the display cap, supporting synthetic inputs. hasMore counts surviving witnesses; independent cards fill freed slots. Existing deterministic result ordering is retained; specificity is suppression priority, not a new global ranking.
+- Under current exact cadence, a monthly three-date witness cannot fit wholly inside a qualifying 30-day general or 28-day weekly witness. The precedence helper nevertheless defines monthly priority explicitly; its direct predicate test is not presented as a valid monthly cadence example. Valid independent monthly witnesses are separately tested end to end.
+
+Shared explanations and pending decisions:
+- Match the same category and exactly equal amount today. amount tolerance, date tolerance and minimum increase threshold remain PENDING; no new values are inferred. Exact seven-day cadence and same-day/month-end rules remain.
+- A tiny positive increase still qualifies if existing guards pass; it is not a claim of statistical significance. Comparison findings cover increases; decreases remain factual deltas.
+- Confirmed-time coverage = confirmed non-null expense times / all scoped expenses * 100%. Time findings describe concentration, not abnormality. No Anomaly scoring or thresholds are imported.
+- Recurrence no-match wording now distinguishes failed current readiness (not enough data), completed inspection with no qualifying match, and a truncated result (unknown for omitted categories). There is no new category recurrence-readiness threshold.
+- Comparison status is explicit per category: insufficient period/category evidence versus evaluated with no increase finding. Existing detailed insufficient-category messages remain. Time status independently distinguishes insufficient confirmed-time data from inspected/no concentration. These checks use all findings, not just the three-card preview.
+- UI explains these rules, including pending decisions, without requiring a new setting or consent action.
+
+Validation additions: synthetic unit cases for containment, partial/disjoint evidence, precedence, exact category/amount, cap/hasMore, tiny increases/decreases and all seven finding IDs; isolated SQL cases for filtering before LIMIT and three independent types in the same group; browser API-mock cases for card counts, independent evidence, pending wording and insufficient versus no-match statuses. Results for this revision are recorded after execution below.
+
+
+### Verification of 21 October revision
+- Backend TypeScript build and frontend app/node TypeScript no-emit checks passed.
+- Behavior unit + isolated PostgreSQL/HTTP suite: 54 tests passed, 0 failures/skips (parent tests included), 24.20 seconds. Includes unchanged readiness/cadence/time/category boundaries, snapshot/read-only invariance and 732-day synthetic volume cases, plus new deduplication-before-cap and independent evidence cases.
+- Used only new container spendsense-behavior-v2-test-1792577224335, database spendsense_goals_test_behavior_v2_1792577224335 on loopback port 53896. Runner disabled dotenv and collection, verified current_database, and deployed the 21 EXISTING migrations to this new database. No application database access, schema file edit, new migration or Anomaly rule change. Synthetic resources retained.
+- Chrome API-mock regression: 13 PASS groups, including the new evidence/card/status/pending wording checks, original session/filter races and 390/320px containment. Harness now intercepts the current /api path and mocks /auth/me; API calls never pass through to the application backend. It uses a new temporary Chrome profile. Initial run hit a harness null dereference during SetupGate's session remount; waiting for the report to exist fixed the harness without weakening the old-session assertion. Final full run passed.
+- git diff --check passed for selected changes. Existing local .env.example, seed, mockups and generated OCR files were left untouched. No stage/commit/push. This is automated synthetic verification, not user acceptance.
+
+## behavior-v3: user-confirmed tolerances — 24 October 2026
+
+The user confirmed the three previously pending values in conversation on 24 October 2026. They supersede the "PENDING USER DECISION" and exact-amount/exact-cadence statements above:
+- Amount tolerance: every amount in a recurrence group is within 10% of the group median (inclusive). Applies to general, weekly and monthly. Not the Anomaly 15% helper.
+- Date tolerance: weekly gaps 7±1 days; monthly occurrences within ±3 days of the due date (anchor day clamped to month end, or month end if the anchor is a month end).
+- Minimum increase: a category change finding requires an increase of >=5% of the previous period AND >=100 baht. Smaller increases remain facts only.
+- Counts, windows, readiness, guards, the 7 finding IDs and monthly > weekly > general precedence are unchanged.
+
+Implementation (`backend/src/lib/behaviorRules.ts`, `behavior.ts`):
+- Recurrence is no longer an exact-amount SQL partition. `findRecurrences` searches in Node over the per-transaction evidence already loaded by the bounded aggregate query, using a date index and integer-satang comparisons; `amountBand` is the Decimal reference. One witness per category, kind and amount band (earliest qualifying chain). Days with two in-band transactions stay ambiguous for weekly/monthly.
+- Containment dedup now compares transaction ids. `behaviorInput` applies it before returning, as the SQL did before. Transaction reads per request: 2 (was 3).
+- ruleVersion is now `behavior-v3-<hash>`. UI rule text on /behavior updated; no API field removed.
+
+AI verification on 24 October 2026 (synthetic only, not user acceptance):
+- Backend `tsc` and build, frontend `tsc -b` and build: PASS (existing bundle-size warning).
+- `tests/runBehaviorV2.cjs` on a new disposable container/database (`spendsense_goals_test_behavior_v2_1792823253606`, 21 existing migrations, dotenv disabled): 59/59 PASS, 0 fail/skip. The unit file has 44 tests, including new boundary tests for 10%, ±1/±3 days and 5% AND 100 baht.
+- Earlier run in this revision: a first implementation pushed 732-day volume query time to ~130 s, and one dedup test failed. Both were fixed (date index + integer band; dedup in `behaviorInput`) before the final run. Final volume measurements: query 2.1–5.5 s, build 0.6–1.3 s, while an obsolete run was still sharing the CPU for part of the time. Not a production benchmark.
+- Chrome API-mock regression `tests/behavior.browser.cjs` against vite preview 5177: 13/13 PASS; text assertions updated from pending wording to the confirmed rules.
+- No application database access, schema or migration change. Test containers retained. No stage/commit/push.
+- User acceptance of behavior-v3 is still required; earlier acceptance does not carry over.

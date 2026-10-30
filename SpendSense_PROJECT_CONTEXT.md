@@ -931,7 +931,9 @@ SQL ใหม่ที่ผู้ใช้ส่งไม่มี DROP TYPE
 
 ## 14. แผนงานหลัง Notifications
 
-ลำดับหลัก:
+> 24 ตุลาคม 2026: ผู้ใช้ยืนยันให้ใช้แผน 8 ขั้นแทนลำดับ 11 ข้อด้านล่าง ดูหัวข้อ "อัปเดต 24 ตุลาคม 2026" ท้ายไฟล์ ลำดับเดิมคงไว้เป็นประวัติ
+
+ลำดับหลัก (เดิม):
 1. ปิดงานแจ้งเตือนงบ + กระดิ่งกลาง
 2. ตรวจยอด Transaction/Overview/Weekly/Budget ช่วงเดียวกัน
 3. Goals พร้อมบัญชีการจัดสรรเงินและยอดตั้งต้น
@@ -1382,3 +1384,20 @@ Supersedes earlier category-v1 Forecast descriptions only. PostgreSQL aggregates
 ผลคาดหวัง: forecast_not_ready เป็น unavailable และ forecast=null; forecast_ready เป็น available แสดงเฉพาะยอดรวมรายวัน/7 วัน ไม่มีรายหมวดหรือ partial; forecast_stale ยัง available เมื่อผ่าน readiness พร้อมคำเตือนข้อมูลเก่าและช่องว่าง ผล User Acceptance ที่ผู้ใช้ยืนยันคือผ่านทั้งสามกรณี ดูรายละเอียดใน FORECAST_IMPLEMENTATION.md
 
 ผล AI วันที่ 4 ตุลาคม 2026 แยกต่างหาก: not_ready ได้ unavailable/null, ready ได้ 696.56 บาท, stale ได้ 0.00 บาทพร้อมคำเตือน จากเว็บ/backend/PostgreSQL ทดสอบจริงสำหรับ forecast 4–10 ตุลาคม 2026 ไม่อ้างว่าตัวเลขเหล่านี้เป็นค่าที่ผู้ใช้ตรวจเห็น รอบปิดเอกสารไม่ได้รันทดสอบใหม่ Benchmark ยังคงเป็นข้อมูลสังเคราะห์ ไม่ใช่หลักฐานความแม่นยำกับผู้ใช้จริง
+
+## อัปเดต 24 ตุลาคม 2026 — ข้อกำหนดที่ผู้ใช้ยืนยัน และ Behavior v3
+
+ผู้ใช้ยืนยันในบทสนทนา 24 ตุลาคม 2026:
+- **แผนงานหลัก 8 ขั้น** (แทน §14 เดิม): Database Schema → Authentication & Financial Profile → Transaction Core (Manual Entry) → OCR Upload Flow → Data Readiness Check → Core Financial Metrics → Analytics Pipeline → Recommendation Engine & Dashboard
+- **Anomaly:** ตัวเลขใน `ANOMALY_RULE` (backend/src/lib/anomalyRules.ts) และค่าผ่อนผัน `CADENCES` (anomalyPatternPolicy.ts) ล็อกตามค่าปัจจุบัน ใช้แทนกฎเดิม
+- **Behavior recurrence:** ใช้กฎ behavior-v2 (ทั่วไป 5 วันใน 30 วัน, รายสัปดาห์ 4 ครั้งใน 28 วัน, รายเดือน 3 ครั้งใน 90 วัน) พร้อมค่าใหม่: ยอดต่างจาก median ของกลุ่มไม่เกิน 10%, รายสัปดาห์คลาด ±1 วัน, รายเดือนคลาด ±3 วัน
+- **ขั้นต่ำของยอดเพิ่ม:** ต้องเพิ่ม >=5% และ >=100 บาท ทั้งสองเงื่อนไข
+- **Recommendation Engine:** ครอบคลุม Behavior, Forecast และ Goals; กฎคำแนะนำยังไม่ได้กำหนด
+
+สถานะที่ยังไม่ได้บันทึกในไฟล์นี้มาก่อน (ตรวจจาก repo 24 ต.ค. 2026): มี migration 21 ตัว (ไฟล์นี้บันทึก 12) และมี OCR ในเบราว์เซอร์แล้ว (ดู OCR_IMPLEMENTATION.md) ซึ่งแทนข้อความ §7 ที่ว่ายังไม่มี OCR จริง ยังไม่ได้ตรวจว่า migration 13–21 apply กับฐาน application แล้วหรือยัง
+
+ลงโค้ด Behavior เป็น behavior-v3 (behaviorRules.ts, behavior.ts, Behavior.tsx และ tests) รายละเอียดและผลทดสอบอยู่ BEHAVIOR_IMPLEMENTATION.md หัวข้อ behavior-v3:
+- AI รันจริง: backend/frontend build ผ่าน; unit + PostgreSQL ฐานแยกใหม่ 59/59 ผ่าน; Chrome API mocks 13/13 ผ่าน ไม่แตะฐาน application ไม่มี schema/migration ใหม่ ไม่ stage/commit/push
+- **User Acceptance ของ behavior-v3 ยังไม่เกิดขึ้น**
+
+ขั้นถัดไปตามแผน 8 ขั้น: ตรวจรับ Behavior v3 → ยืนยันสถานะ migration 13–21 → ตรวจรับ OCR → นิยาม Data Readiness กลาง → กำหนดกฎ Recommendation Engine
