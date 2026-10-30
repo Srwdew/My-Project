@@ -1,0 +1,3 @@
+# paddlepaddle 3.3.x breaks oneDNN on CPU; keep 3.2.x.
+paddlepaddle==3.2.2
+paddleocr==3.7.0
