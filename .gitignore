@@ -3,3 +3,16 @@ node_modules/
 dist/
 build/
 *.log
+# OCR service
+ocr-service/.venv/
+ocr-service/__pycache__/
+.env.*
+!.env.example
+# Rebuilt by `npm run ocr:assets` (frontend/scripts/prepareOcrAssets.cjs, checksums pinned)
+frontend/public/ocr/
+# Local-only: design drafts, tool caches, generated experiment output, demo seed, new mockups
+logo-concepts/
+.impeccable/
+scripts/forecast-experiment/output/
+backend/prisma/seed.ts
+docs/mockups/
