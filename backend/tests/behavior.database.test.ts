@@ -45,7 +45,7 @@ test('Behavior real HTTP/PostgreSQL query/auth/conservation/CRUD with synthetic 
   assert.equal((await req('/behavior'+q+'&categoryId='+randomUUID())).data.status,'no_data');
  });
  await Promise.all(['2026-08-04','2026-08-11','2026-08-18','2026-08-25'].map(d=>create(a.id,repeat.id,'55',d)));
- await t.test('SQL exact recurrence; duplicates suppress ambiguous recurring group',async()=>{
+ await t.test('weekly recurrence; a second near amount on one day suppresses the ambiguous group',async()=>{
   let v=(await req()).data;assert(v.facts.recurrenceCandidates.some((r:any)=>r.categoryId===repeat.id&&r.kind==='weekly'));
   await create(a.id,repeat.id,'55','2026-08-11');v=(await req()).data;assert(!v.facts.recurrenceCandidates.some((r:any)=>r.categoryId===repeat.id));
  });
@@ -119,9 +119,9 @@ test('Behavior real HTTP/PostgreSQL query/auth/conservation/CRUD with synthetic 
  });
  await t.test('PostgreSQL recurrence 50/51 groups, tied counts ordering and hasMore',async()=>{
   const owner=await account(),cats=[await category(),await category()].sort((a,b)=>a.id<b.id?-1:1);
-  const groups=Array.from({length:51},(_,i)=>({categoryId:cats[i<25?0:1]!.id,amount:(100+i%25).toFixed(2),days:4}));
-  // The 51st group needs a unique amount within its category.
-  groups[50]!.amount='199.00';
+  const groups=Array.from({length:51},(_,i)=>({categoryId:cats[i<25?0:1]!.id,amount:(100*1.25**(i%25)).toFixed(2),days:4}));
+  // Amounts are 25% apart, outside the 10% band, so every group stays a distinct item.
+  groups[50]!.amount=(100*1.25**25).toFixed(2);
   const insert=async(selected:typeof groups)=>prisma.transaction.createMany({data:[...selected].reverse().flatMap(g=>
    Array.from({length:g.days},(_,i)=>({userId:owner.id,categoryId:g.categoryId,type:'expense' as const,amount:g.amount,transactionDate:new Date(shiftDay(p.current.startDate,i*7)+'T00:00:00Z')})))});
   await create(owner.id,cat.id,'0.01',p.current.endDate); // inclusive 30-day observed span; not a recurring group
@@ -146,6 +146,22 @@ test('Behavior real HTTP/PostgreSQL query/auth/conservation/CRUD with synthetic 
   }
  });
 
+
+ await t.test('dedup before display cap preserves 51 independent weekly groups and same-group separate windows',async()=>{
+  const owner=await account(),c=await category();
+  await prisma.transaction.createMany({data:Array.from({length:51},(_,i)=>[0,7,14,21,28].map(d=>({userId:owner.id,categoryId:c.id,type:'expense' as const,amount:(100*1.25**i).toFixed(2),transactionDate:new Date(shiftDay(p.current.startDate,d)+'T00:00:00Z')}))).flat()});
+  await create(owner.id,c.id,'0.01',p.current.endDate);
+  const raw=await prisma.$transaction(tx=>behaviorInput(tx,owner.id,p,'2026-09-26'));
+  assert.equal(raw.recurrences.length,51);assert(raw.recurrences.every(r=>r.kind==='weekly'));
+  const v=buildBehavior(raw);assert.equal(v.facts.recurrenceCandidates.length,50);assert.equal(v.facts.recurrence.hasMore,true);
+  assert(v.facts.recurrenceCandidates.every(r=>r.transactions.length===4&&r.occurrenceCount===4));
+  const independent=await account();
+  const period=behaviorPeriod({startDate:'2026-01-01',endDate:'2026-06-30'},'2026-09-26');
+  for(let i=0;i<30;i++)await create(independent.id,c.id,String(500+i),shiftDay('2026-01-01',i*2));
+  for(const date of ['2026-01-01','2026-01-03','2026-01-05','2026-01-07','2026-01-09','2026-02-01','2026-02-08','2026-02-15','2026-02-22','2026-04-15','2026-05-15','2026-06-15'])await create(independent.id,c.id,'69',date);
+  const result=buildBehavior(await prisma.$transaction(tx=>behaviorInput(tx,independent.id,period,'2026-09-26')));
+  assert.deepEqual(result.facts.recurrenceCandidates.filter(r=>Number(r.amount)===69).map(r=>r.kind).sort(),['general','monthly','weekly']);
+ });
  await t.test('HTTP snapshot stays consistent when atomic CRUD commits between aggregate queries',async()=>{
   const original=prisma.$transaction.bind(prisma);
   for(const cut of [1,2]){
@@ -178,8 +194,8 @@ test('Behavior real HTTP/PostgreSQL query/auth/conservation/CRUD with synthetic 
    };
    let during:Awaited<ReturnType<typeof req>>;
    try{during=await req('/behavior'+q,owner);}finally{(prisma as any).$transaction=original;}
-   assert.equal(isolation,'RepeatableRead');assert.equal(queries,3);assert.equal(committed,true);
-   assert.equal(during.status,200);assert.deepEqual(during.data,before.data,'all three aggregates must retain the pre-CRUD snapshot');
+   assert.equal(isolation,'RepeatableRead');assert.equal(queries,2);assert.equal(committed,true);
+   assert.equal(during.status,200);assert.deepEqual(during.data,before.data,'both aggregates must retain the pre-CRUD snapshot');
    const after=await req('/behavior'+q,owner);assert.equal(after.status,200);
    assert.equal(after.data.facts.summary.current.amount,'190.00');
    assert.equal(after.data.facts.summary.current.transactionCount,37);
@@ -232,7 +248,7 @@ test('Behavior real HTTP/PostgreSQL query/auth/conservation/CRUD with synthetic 
    }
   }finally{await client.end();}
  });
- await t.test('rolling general witnesses carry owned exact-amount transactions, duplicate days and before/after cutoff',async()=>{
+ await t.test('rolling general witnesses carry owned in-band transactions, duplicate days and before/after cutoff',async()=>{
   const owner=await account(),foreign=await account(),c=await category();
   const start='2026-01-01',end='2026-03-31';
   for(let i=0;i<30;i++)await create(owner.id,c.id,String(500+i),shiftDay(start,i*2));
@@ -240,20 +256,20 @@ test('Behavior real HTTP/PostgreSQL query/auth/conservation/CRUD with synthetic 
   for(const d of ['2026-01-01','2026-01-03','2026-01-05','2026-01-07','2026-01-30'])
     evidence.push(await create(owner.id,c.id,'69.00',d));
   evidence.push(await create(owner.id,c.id,'69.00','2026-01-03'));
-  await create(owner.id,c.id,'69.01','2026-01-05');
-  for(const offset of [0,2,4,6,30])await create(owner.id,c.id,'69.02',shiftDay(start,offset));
-  for(const offset of [0,40,42,44,46,69])await create(owner.id,c.id,'70.00',shiftDay(start,offset));
+  evidence.push(await create(owner.id,c.id,'69.01','2026-01-05')); // within 10% of the median: same item
+  for(const offset of [0,2,4,6,30])await create(owner.id,c.id,'90.00',shiftDay(start,offset));
+  for(const offset of [0,40,42,44,46,69])await create(owner.id,c.id,'120.00',shiftDay(start,offset));
   const hidden=await create(foreign.id,c.id,'69.00','2026-01-05');
   await create(owner.id,c.id,'69.00','2026-04-01');
   const v=(await req('/behavior?startDate='+start+'&endDate='+end,owner)).data;
   const r=v.facts.recurrenceCandidates.find((r:any)=>r.kind==='general'&&Number(r.amount)===69);
-  assert(!v.facts.recurrenceCandidates.some((r:any)=>Number(r.amount)===69.02),'31-day general witness rejected');
-  const late=v.facts.recurrenceCandidates.find((r:any)=>Number(r.amount)===70);
+  assert(!v.facts.recurrenceCandidates.some((r:any)=>Number(r.amount)===90),'31-day general witness rejected');
+  const late=v.facts.recurrenceCandidates.find((r:any)=>Number(r.amount)===120);
   assert.equal(late.startDate,'2026-02-10');assert.equal(late.endDate,'2026-03-11');
-  assert(r);assert.equal(r.distinctDays,5);assert.equal(r.occurrenceCount,6);
+  assert(r);assert.equal(r.distinctDays,5);assert.equal(r.occurrenceCount,7);
   assert.deepEqual(r.transactions.map((t:any)=>t.id).sort(),evidence.map(t=>t.id).sort());
   assert.equal(r.startDate,'2026-01-01');assert.equal(r.endDate,'2026-01-30');
-  assert(r.transactions.every((t:any)=>t.time===null&&t.id!==hidden.id&&Number(t.amount)===69));
+  assert(r.transactions.every((t:any)=>t.time===null&&t.id!==hidden.id&&Number(t.amount)>=69&&Number(t.amount)<=69.01));
   for(const f of v.findings){
     assert(Array.isArray(f.evidence.transactions));assert(f.evidence.startDate);assert(f.evidence.endDate);
   }
@@ -261,10 +277,10 @@ test('Behavior real HTTP/PostgreSQL query/auth/conservation/CRUD with synthetic 
  await t.test('SQL aggregates with evidence references, no Goal/Review reads; FK retains category integrity',async()=>{
   const client=new PrismaClient({adapter:new PrismaPg({connectionString:process.env.DATABASE_URL!}),log:[{emit:'event',level:'query'}]});const queries:string[]=[];client.$on('query',e=>queries.push(e.query));
   try{const value=await client.$transaction(tx=>behaviorInput(tx,a.id,p,'2026-09-26'),{isolationLevel:'RepeatableRead'});assert.equal(buildBehavior(value).readiness.comparisonReady,true);}finally{await client.$disconnect();}
-  const reads=queries.filter(q=>/FROM "Transaction"/.test(q));assert.equal(reads.length,3);
+  const reads=queries.filter(q=>/FROM "Transaction"/.test(q));assert.equal(reads.length,2);
   for(const q of reads){assert.match(q,/GROUP BY/);assert.match(q,/LEFT JOIN "Category"/);assert.match(q,/"userId"/);assert.match(q,/"transactionDate">=/);assert.match(q,/"transactionDate"</);}
-  assert.match(reads[2]!,/LIMIT/);assert(!queries.some(q=>/GoalLedgerEntry|AnomalyReview/.test(q)));
+  assert(!queries.some(q=>/GoalLedgerEntry|AnomalyReview/.test(q)));
   await assert.rejects(()=>create(a.id,randomUUID(),'1','2026-08-01'),(e:any)=>e.code==='P2003');
-  console.log('BEHAVIOR_SQL: 3 user/expense/date-bounded reads; aggregates include minimal evidence references; recurrence LIMIT51; no Goal/Review reads');
+  console.log('BEHAVIOR_SQL: 2 user/expense/date-bounded reads; aggregates include minimal evidence references; recurrence searched in Node; no Goal/Review reads');
  });
 });

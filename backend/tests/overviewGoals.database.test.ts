@@ -14,12 +14,12 @@ test('real HTTP/PostgreSQL overview and feasibility ownership and read-only beha
  const address=server.address();assert.ok(address&&typeof address!=='string');
  t.after(async()=>{await new Promise<void>(r=>server.close(()=>r()));await prisma.$disconnect();});
  const account=async()=>{const u=await prisma.user.create({data:{email:randomUUID()+'@example.invalid',passwordHash:'synthetic-no-login'}});return {...u,token:jwt.sign({userId:u.id,email:u.email},process.env.JWT_SECRET!)};};
- const a=await account(),b=await account(),today=bangkokToday(),period=lastCompletedMonth(today);
+ const a=await account(),b=await account(),today=bangkokToday(),period=lastCompletedMonth(a.id,today);
  const inc=await prisma.category.create({data:{name:randomUUID(),type:'income'}}),exp=await prisma.category.create({data:{name:randomUUID(),type:'expense'}});
  const add=(owner:string,type:'income'|'expense',amount:string,date:string)=>prisma.transaction.create({data:{userId:owner,type,amount,categoryId:type==='income'?inc.id:exp.id,transactionDate:new Date(date+'T00:00:00Z')}});
  async function get(path:string,who=a,status=200){const r=await fetch('http://127.0.0.1:'+address.port+path,{headers:{Authorization:'Bearer '+who.token}});assert.equal(r.status,status,path);if(status===200)assert.match(r.headers.get('cache-control')??'',/private, no-store/);return r.json() as Promise<any>;}
  assert.equal((await fetch('http://127.0.0.1:'+address.port+'/goals')).status,401);
- const g=await prisma.goal.create({data:{userId:a.id,name:'synthetic',targetAmount:'100',targetDate:new Date(today.slice(0,7)+'-28'),categoryKey:'other'}});
+ const g=await prisma.goal.create({data:{userId:a.id,name:'synthetic',targetAmount:'100',targetDate:new Date('2099-12-28') /* fixed far deadline: never overdue, independent of wall clock */,categoryKey:'other'}});
  const empty=await get('/dashboard?month='+period.month);assert.equal(empty.summary.savingRate.percent,null);
  assert.equal((await get('/goals')).data[0].feasibility.status,'no_transactions');
  await add(a.id,'income','100.00',period.startDate);await add(a.id,'expense','20.01',period.endDate);

@@ -1,32 +1,60 @@
-import { passwordResetRouter } from './routes/passwordReset';
-import { adminRouter } from './routes/admin';
-import { finishLogin } from './lib/adminLogin';
-import { requiresSetup } from './lib/setupRequirement';
-import { transactionRequestKey, transactionFingerprint, replayTransaction, recordTransaction } from './lib/transactionCreateRequest';
-import { ensureDefaultCategories } from './lib/defaultCategories';
-import { behaviorRouter } from './routes/behavior';
-import { forecastRouter } from './routes/forecast';
-import { anomalyRouter } from './routes/anomaly';
-import { assertAnomalyActor, confirmedTime, anomalyWriteFields, checkTransactionAnomaly } from './lib/anomaly';
-import { dashboardRouter } from './routes/dashboard';
-import { dashboardPeriod, DashboardInputError } from './lib/dashboard';
-import { bangkokToday } from './lib/goalCalculations';
-import { saveProfile } from './lib/profile';
-import { settingsRouter } from './routes/settings';
-import { goalsRouter } from './routes/goals';
-import { withGoalLock, guardFundingTransaction, GoalError } from './lib/goalWriteTransaction';
-import { Prisma } from '@prisma/client';
-import { checkBudgetNotifications, currentBudgetPeriod, transactionPeriod, reconcileBudgetNotifications } from './lib/budgetNotifications';
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import { prisma } from './lib/prisma';
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+import { passwordResetRouter } from "./routes/passwordReset";
+import { adminRouter } from "./routes/admin";
+import { finishLogin } from "./lib/adminLogin";
+import { requiresSetup } from "./lib/setupRequirement";
 import {
-  authMiddleware,
-  type AuthRequest,
-} from './middleware/auth';
+  transactionRequestKey,
+  transactionFingerprint,
+  replayTransaction,
+  recordTransaction,
+} from "./lib/transactionCreateRequest";
+import {
+  defaultCategoryRank,
+  ensureDefaultCategories,
+  OTHER_EXPENSE_CATEGORY,
+} from "./lib/defaultCategories";
+import { behaviorRouter } from "./routes/behavior";
+import { forecastRouter } from "./routes/forecast";
+import { anomalyRouter } from "./routes/anomaly";
+import {
+  assertAnomalyActor,
+  confirmedTime,
+  anomalyWriteFields,
+  checkTransactionAnomaly,
+} from "./lib/anomaly";
+import { dashboardRouter } from "./routes/dashboard";
+import { dashboardPeriod, DashboardInputError } from "./lib/dashboard";
+import { bangkokToday } from "./lib/goalCalculations";
+import {
+  cycleBounds,
+  cycleByPeriod,
+  getBudgetTimeline,
+  getCurrentCycle,
+  utcDate,
+} from "./lib/cycle";
+import { saveProfile } from "./lib/profile";
+import { settingsRouter } from "./routes/settings";
+import { goalsRouter } from "./routes/goals";
+import { receiptOcrRouter } from "./routes/receiptOcr";
+import {
+  withGoalLock,
+  guardFundingTransaction,
+  GoalError,
+} from "./lib/goalWriteTransaction";
+import { Prisma } from "@prisma/client";
+import {
+  checkBudgetNotifications,
+  currentBudgetPeriod,
+  transactionPeriod,
+  reconcileBudgetNotifications,
+} from "./lib/budgetNotifications";
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import { prisma } from "./lib/prisma";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import { authMiddleware, type AuthRequest } from "./middleware/auth";
 
 dotenv.config();
 
@@ -34,6 +62,7 @@ const app = express();
 
 app.use(cors());
 app.use(passwordResetRouter);
+app.use(receiptOcrRouter);
 app.use(express.json());
 app.use(adminRouter);
 app.use(goalsRouter);
@@ -44,11 +73,15 @@ app.use(behaviorRouter);
 app.use(anomalyRouter);
 
 function getTransactionTodayKey(): string {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit',
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
   }).formatToParts(new Date());
-  const part = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
-  return `${part('year')}-${part('month')}-${part('day')}`;
+  const part = (type: string) =>
+    parts.find((p) => p.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
 }
 
 type TransactionValueResult =
@@ -66,13 +99,10 @@ type TransactionValueResult =
 function validateTransactionValues(
   amountInput: unknown,
   dateInput: unknown,
-  timeInput: unknown
+  timeInput: unknown,
 ): TransactionValueResult {
-  if (
-    typeof amountInput !== 'string' &&
-    typeof amountInput !== 'number'
-  ) {
-    return { ok: false, error: 'กรุณากรอกจำนวนเงินให้ถูกต้อง' };
+  if (typeof amountInput !== "string" && typeof amountInput !== "number") {
+    return { ok: false, error: "กรุณากรอกจำนวนเงินให้ถูกต้อง" };
   }
 
   const amountText = String(amountInput).trim();
@@ -81,7 +111,7 @@ function validateTransactionValues(
   if (!/^\d{1,10}(?:\.\d{1,2})?$/.test(amountText)) {
     return {
       ok: false,
-      error: 'จำนวนเงินต้องเป็นตัวเลข ทศนิยมไม่เกิน 2 ตำแหน่ง',
+      error: "จำนวนเงินต้องเป็นตัวเลข ทศนิยมไม่เกิน 2 ตำแหน่ง",
     };
   }
 
@@ -94,18 +124,18 @@ function validateTransactionValues(
   ) {
     return {
       ok: false,
-      error: 'จำนวนเงินต้องมากกว่า 0 และไม่เกิน 9,999,999,999.99 บาท',
+      error: "จำนวนเงินต้องมากกว่า 0 และไม่เกิน 9,999,999,999.99 บาท",
     };
   }
 
   if (
-    typeof dateInput !== 'string' ||
+    typeof dateInput !== "string" ||
     !/^\d{4}-\d{2}-\d{2}$/.test(dateInput) ||
-    dateInput.startsWith('0000-')
+    dateInput.startsWith("0000-")
   ) {
     return {
       ok: false,
-      error: 'วันที่ต้องอยู่ในรูปแบบ YYYY-MM-DD',
+      error: "วันที่ต้องอยู่ในรูปแบบ YYYY-MM-DD",
     };
   }
 
@@ -118,28 +148,24 @@ function validateTransactionValues(
   ) {
     return {
       ok: false,
-      error: 'วันที่ไม่ถูกต้องหรือไม่มีอยู่จริง',
+      error: "วันที่ไม่ถูกต้องหรือไม่มีอยู่จริง",
     };
   }
 
   if (dateInput > getTransactionTodayKey()) {
-    return { ok: false, error: 'ไม่สามารถบันทึกวันที่อนาคตได้' };
+    return { ok: false, error: "ไม่สามารถบันทึกวันที่อนาคตได้" };
   }
 
   let transactionTime: Date | null = null;
 
-  if (
-    timeInput !== undefined &&
-    timeInput !== null &&
-    timeInput !== ''
-  ) {
+  if (timeInput !== undefined && timeInput !== null && timeInput !== "") {
     if (
-      typeof timeInput !== 'string' ||
+      typeof timeInput !== "string" ||
       !/^([01]\d|2[0-3]):[0-5]\d$/.test(timeInput)
     ) {
       return {
         ok: false,
-        error: 'เวลาต้องอยู่ในรูปแบบ HH:mm ตั้งแต่ 00:00 ถึง 23:59',
+        error: "เวลาต้องอยู่ในรูปแบบ HH:mm ตั้งแต่ 00:00 ถึง 23:59",
       };
     }
 
@@ -154,302 +180,44 @@ function validateTransactionValues(
   };
 }
 
-app.get('/categories', async (req, res) => {
+// Adds catalog rows introduced after a user registered (idempotent, once per process).
+let defaultCategoriesReady: Promise<void> | null = null;
+app.get("/categories", async (req, res) => {
   try {
-    const categories = await prisma.category.findMany({
-      orderBy: [
-        { type: 'asc' },
-        { name: 'asc' }
-      ]
-    });
+    defaultCategoriesReady ??= prisma
+      .$transaction(ensureDefaultCategories)
+      .catch((error) => {
+        defaultCategoriesReady = null;
+        throw error;
+      });
+    await defaultCategoriesReady;
+    const categories = await prisma.category.findMany();
 
-    res.json(categories);
+    res.json(
+      categories
+        .filter((category) => defaultCategoryRank(category) >= 0)
+        .sort((a, b) => defaultCategoryRank(a) - defaultCategoryRank(b)),
+    );
   } catch (error) {
     console.error(error);
     res.status(500).json({
-      error: 'Failed to load categories'
+      error: "Failed to load categories",
     });
   }
 });
 
-app.post('/transactions', authMiddleware, async (req: AuthRequest,res) => {
- try {
-  const userId=req.user!.userId;
-  const key=transactionRequestKey(req.headers['idempotency-key']);
-  const payload=req.body;
-  if(!payload||typeof payload!=='object'||Array.isArray(payload))throw new GoalError(400,'INVALID_BODY','Invalid request body');
-  const fingerprint=transactionFingerprint(payload);
-  const result=await withGoalLock(userId,async tx=>{
-   await assertAnomalyActor(tx,req.user!);
-   const replay=await replayTransaction(tx,userId,key,fingerprint);
-   if(replay)return {body:replay.responseBody,id:null,period:null};
-   const {categoryId,type,amount,transactionDate,transactionTime,paymentMethod,description,note}=payload;
-   if(!categoryId||!type||!amount||!transactionDate)throw new GoalError(400,'MISSING_FIELDS','Missing required fields');
-   if(!['income','expense'].includes(type))throw new GoalError(400,'INVALID_TYPE','Invalid transaction type');
-   const validated=validateTransactionValues(amount,transactionDate,transactionTime);
-   if(!validated.ok)throw new GoalError(400,'INVALID_TRANSACTION',validated.error);
-   const category=await tx.category.findUnique({where:{id:categoryId}});
-   if(!category)throw new GoalError(404,'CATEGORY_NOT_FOUND','Category not found');
-   if(category.type!==type)throw new GoalError(400,'CATEGORY_TYPE','Category type does not match transaction type');
-   const confirmation=confirmedTime(payload.transactionTimeConfirmed,validated.transactionTime,validated.transactionDate);
-   const anomalyFields=await anomalyWriteFields(tx,userId,{type,categoryId,amount:validated.amount,transactionDate:validated.transactionDate,transactionTime:validated.transactionTime,transactionTimeConfirmed:confirmation,paymentMethod:paymentMethod||null,description:description||null,note:note||null});
-   const transaction=await tx.transaction.create({data:{userId,...anomalyFields,transactionTimeConfirmed:confirmation,categoryId,type,amount:validated.amount,transactionDate:validated.transactionDate,transactionTime:validated.transactionTime,paymentMethod:paymentMethod||null,description:description||null,note:note||null},include:{category:true}});
-   const body=await recordTransaction(tx,userId,key,fingerprint,transaction);
-   return {body,id:transaction.id,period:transactionPeriod(transaction.transactionDate)};
-  });
-  if(result.id&&result.period){
-   try{await checkBudgetNotifications(userId,[result.period]);await checkTransactionAnomaly(req.user!,result.id);}
-   catch{console.error('TRANSACTION_POST_COMMIT_CHECK_FAILED');}
-  }
-  return res.status(201).json(result.body);
- }catch(error){
-  if(error instanceof GoalError)return res.status(error.status).json({error:error.message,code:error.code});
-  console.error('TRANSACTION_CREATE_FAILED', error instanceof Prisma.PrismaClientKnownRequestError && /^P[0-9]{4}$/.test(error.code) ? error.code : 'UNKNOWN_ERROR');
-  return res.status(500).json({error:'Failed to create transaction'});
- }
-});
-
-app.get(
-  '/transactions',
-  authMiddleware,
-  async (req: AuthRequest, res) => {
-    try {
-      const userId = req.user!.userId;
-      const rawLimit = req.query.limit;
-      if (rawLimit !== undefined && (typeof rawLimit !== 'string' || !/^[1-9]\d*$/.test(rawLimit) || Number(rawLimit) > 100)) {
-        return res.status(400).json({ error: 'limit must be an integer from 1 to 100' });
-      }
-      const limit = rawLimit === undefined ? undefined : Number(rawLimit);
-      const monthPeriod = req.query.month === undefined ? null : dashboardPeriod(req.query.month, bangkokToday());
-
-      const transactions = await prisma.transaction.findMany({
-        ...(limit === undefined ? {} : { take: limit }),
-        where: {
-          userId,
-          ...(monthPeriod ? { transactionDate: { gte: new Date(monthPeriod.startDate + 'T00:00:00Z'), lte: new Date(monthPeriod.effectiveEndDate + 'T00:00:00Z') } } : {}),
-        },
-        include: {
-          category: true,
-        },
-        orderBy: [
-          {
-            transactionDate: 'desc',
-          },
-          {
-            createdAt: 'desc',
-          },
-        ],
-      });
-
-      return res.json(transactions);
-    } catch (error) {
-      if (error instanceof DashboardInputError) return res.status(400).json({ error: error.message });
-      console.error(error);
-
-      return res.status(500).json({
-        error: 'Failed to load transactions',
-      });
-    }
-  }
-);
-
-app.get(
-  '/overview',
-  authMiddleware,
-  async (req: AuthRequest, res) => {
-    try {
-      const userId = req.user!.userId;
-      const { startDate, endDate } = req.query;
-
-      // รองรับหน้าเว็บเดิมที่ยังไม่ได้ส่งช่วงวันที่
-      const hasDateFilter =
-        startDate !== undefined || endDate !== undefined;
-
-      let start: Date | undefined;
-      let end: Date | undefined;
-
-      if (hasDateFilter) {
-        if (
-          typeof startDate !== 'string' ||
-          typeof endDate !== 'string'
-        ) {
-          return res.status(400).json({
-            error: 'กรุณาระบุ startDate และ endDate ให้ครบ',
-          });
-        }
-
-        const parseDate = (value: string): Date | null => {
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-            return null;
-          }
-
-          const date = new Date(`${value}T00:00:00.000Z`);
-
-          if (
-            Number.isNaN(date.getTime()) ||
-            date.toISOString().slice(0, 10) !== value
-          ) {
-            return null;
-          }
-
-          return date;
-        };
-
-        const parsedStart = parseDate(startDate);
-        const parsedEnd = parseDate(endDate);
-
-        if (!parsedStart || !parsedEnd) {
-          return res.status(400).json({
-            error: 'กรุณาระบุวันที่จริงในรูปแบบ YYYY-MM-DD',
-          });
-        }
-
-        if (parsedStart > parsedEnd) {
-          return res.status(400).json({
-            error: 'วันเริ่มต้นต้องไม่อยู่หลังวันสิ้นสุด',
-          });
-        }
-
-        start = parsedStart;
-        end = parsedEnd;
-      }
-
-      const transactions = await prisma.transaction.findMany({
-        where: {
-          userId,
-          ...(start && end
-            ? {
-                transactionDate: {
-                  gte: start,
-                  lte: end,
-                },
-              }
-            : {}),
-        },
-        select: {
-  type: true,
-  amount: true,
-  categoryId: true,
-  category: {
-    select: {
-      name: true,
-    },
-  },
-},
-      });
-
-      // รวมเป็นหน่วยสตางค์ เพื่อลดปัญหาทศนิยมตอนบวกเงิน
-      let incomeSatang = 0;
-      let expenseSatang = 0;
-
-      const categoryTotals = new Map<
-  string,
-  {
-    categoryId: string;
-    name: string;
-    amountSatang: number;
-  }
->();
-
-      for (const transaction of transactions) {
-        const amountSatang = Math.round(
-          Number(transaction.amount) * 100
-        );
-
-        if (transaction.type === 'income') {
-          incomeSatang += amountSatang;
-        }
-
-        if (transaction.type === 'expense') {
-  expenseSatang += amountSatang;
-
-  const existingCategory = categoryTotals.get(
-    transaction.categoryId
-  );
-
-  if (existingCategory) {
-    existingCategory.amountSatang += amountSatang;
-  } else {
-    categoryTotals.set(transaction.categoryId, {
-      categoryId: transaction.categoryId,
-      name: transaction.category.name,
-      amountSatang,
-    });
-  }
-}
-      }
-
-      const totalIncome = incomeSatang / 100;
-      const totalExpense = expenseSatang / 100;
-      const netCashFlow =
-        (incomeSatang - expenseSatang) / 100;
-
-      const savingRate =
-        incomeSatang > 0
-          ? new Prisma.Decimal(incomeSatang).minus(expenseSatang)
-              .div(incomeSatang).mul(100)
-              .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP).toNumber()
-          : 0;
-
-          const expenseCategories = Array.from(
-  categoryTotals.values()
-)
-  .map((category) => ({
-    categoryId: category.categoryId,
-    name: category.name,
-    amount: category.amountSatang / 100,
-    percentage:
-      expenseSatang > 0
-        ? new Prisma.Decimal(category.amountSatang).div(expenseSatang).mul(100)
-            .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP).toNumber()
-        : 0,
-  }))
-  .sort(
-    (a, b) =>
-      b.amount - a.amount ||
-      a.categoryId.localeCompare(b.categoryId)
-  );
-
-      return res.json({
-  totalIncome,
-  totalExpense,
-  netCashFlow,
-  savingRate,
-  transactionCount: transactions.length,
-  expenseCategories,
-  period: {
-          startDate: start
-            ? start.toISOString().slice(0, 10)
-            : null,
-          endDate: end
-            ? end.toISOString().slice(0, 10)
-            : null,
-        },
-      });
-    } catch (error) {
-      console.error('GET OVERVIEW ERROR:', error);
-
-      return res.status(500).json({
-        error: 'ไม่สามารถโหลดข้อมูลภาพรวมได้',
-      });
-    }
-  }
-);
-
-app.put(
-  '/transactions/:id',
-  authMiddleware,
-  async (req: AuthRequest, res) => {
-    try {
-      const userId = req.user!.userId;
-      const id = req.params.id;
-
-if (typeof id !== 'string' || id.trim() === '') {
-  return res.status(400).json({
-    error: 'รหัสธุรกรรมไม่ถูกต้อง',
-  });
-}
-
+app.post("/transactions", authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user!.userId;
+    const key = transactionRequestKey(req.headers["idempotency-key"]);
+    const payload = req.body;
+    if (!payload || typeof payload !== "object" || Array.isArray(payload))
+      throw new GoalError(400, "INVALID_BODY", "Invalid request body");
+    const fingerprint = transactionFingerprint(payload);
+    const result = await withGoalLock(userId, async (tx) => {
+      await assertAnomalyActor(tx, req.user!);
+      const replay = await replayTransaction(tx, userId, key, fingerprint);
+      if (replay) return { body: replay.responseBody, id: null, period: null };
       const {
         categoryId,
         type,
@@ -459,84 +227,50 @@ if (typeof id !== 'string' || id.trim() === '') {
         paymentMethod,
         description,
         note,
-      } = req.body;
-
-      const existingTransaction =
-        await prisma.transaction.findFirst({
-          where: {
-            id,
-            userId,
-          },
-        });
-
-      if (!existingTransaction) {
-        return res.status(404).json({
-          error: 'Transaction not found',
-        });
-      }
-
-      if (
-        !categoryId ||
-        !type ||
-        !amount ||
-        !transactionDate
-      ) {
-        return res.status(400).json({
-          error: 'Missing required fields',
-        });
-      }
-
-      if (!['income', 'expense'].includes(type)) {
-        return res.status(400).json({
-          error: 'Invalid transaction type',
-        });
-      }
-
+      } = payload;
+      if (!categoryId || !type || !amount || !transactionDate)
+        throw new GoalError(400, "MISSING_FIELDS", "Missing required fields");
+      if (!["income", "expense"].includes(type))
+        throw new GoalError(400, "INVALID_TYPE", "Invalid transaction type");
       const validated = validateTransactionValues(
-  amount,
-  transactionDate,
-  transactionTime
-);
-
-if (!validated.ok) {
-  return res.status(400).json({
-    error: validated.error,
-  });
-}
-
-
-
-      const category = await prisma.category.findUnique({
-        where: {
-          id: categoryId,
-        },
+        amount,
+        transactionDate,
+        transactionTime,
+      );
+      if (!validated.ok)
+        throw new GoalError(400, "INVALID_TRANSACTION", validated.error);
+      const category = await tx.category.findUnique({
+        where: { id: categoryId },
       });
-
-      if (!category) {
-        return res.status(404).json({
-          error: 'Category not found',
-        });
-      }
-
-      if (category.type !== type) {
-        return res.status(400).json({
-          error: 'Category type does not match transaction type',
-        });
-      }
-
-      const {transaction,previousDate} = await withGoalLock(userId,async tx=>{
-        await assertAnomalyActor(tx,req.user!);
-        const current=await tx.transaction.findFirst({where:{id,userId}});
-        if(!current) throw new GoalError(404,'TRANSACTION_NOT_FOUND','ไม่พบรายการ');
-        await guardFundingTransaction(tx,userId,id,{type,amount:validated.amount,transactionDate:validated.transactionDate});
-        const confirmation=confirmedTime(req.body.transactionTimeConfirmed,validated.transactionTime,validated.transactionDate,current);
-        const anomalyFields=await anomalyWriteFields(tx,userId,{type,categoryId,amount:validated.amount,transactionDate:validated.transactionDate,transactionTime:validated.transactionTime,transactionTimeConfirmed:confirmation,paymentMethod:paymentMethod||null,description:description||null,note:note||null},current);
-        const transaction=await tx.transaction.update({
-        where: {
-          id, userId,
-        },
+      if (!category)
+        throw new GoalError(404, "CATEGORY_NOT_FOUND", "Category not found");
+      if (category.type !== type)
+        throw new GoalError(
+          400,
+          "CATEGORY_TYPE",
+          "Category type does not match transaction type",
+        );
+      const confirmation = confirmedTime(
+        payload.transactionTimeConfirmed,
+        validated.transactionTime,
+        validated.transactionDate,
+      );
+      const anomalyFields = await anomalyWriteFields(tx, userId, {
+        type,
+        categoryId,
+        amount: validated.amount,
+        transactionDate: validated.transactionDate,
+        transactionTime: validated.transactionTime,
+        transactionTimeConfirmed: confirmation,
+        paymentMethod: paymentMethod || null,
+        description: description || null,
+        note: note || null,
+      });
+      const transaction = await tx.transaction.create({
         data: {
-          ...anomalyFields, transactionTimeConfirmed: confirmation,
+          userId,
+          ...anomalyFields,
+          transactionTimeConfirmed: confirmation,
           categoryId,
           type,
           amount: validated.amount,
@@ -546,157 +280,563 @@ if (!validated.ok) {
           description: description || null,
           note: note || null,
         },
-        include: {
-          category: true,
+        include: { category: true },
+      });
+      const body = await recordTransaction(
+        tx,
+        userId,
+        key,
+        fingerprint,
+        transaction,
+      );
+      return {
+        body,
+        id: transaction.id,
+        period: transactionPeriod(userId, transaction.transactionDate),
+      };
+    });
+    if (result.id && result.period) {
+      try {
+        await checkBudgetNotifications(userId, [result.period]);
+        await checkTransactionAnomaly(req.user!, result.id);
+      } catch {
+        console.error("TRANSACTION_POST_COMMIT_CHECK_FAILED");
+      }
+    }
+    return res.status(201).json(result.body);
+  } catch (error) {
+    if (error instanceof GoalError)
+      return res
+        .status(error.status)
+        .json({ error: error.message, code: error.code });
+    console.error(
+      "TRANSACTION_CREATE_FAILED",
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+        /^P[0-9]{4}$/.test(error.code)
+        ? error.code
+        : "UNKNOWN_ERROR",
+    );
+    return res.status(500).json({ error: "Failed to create transaction" });
+  }
+});
+
+app.get("/transactions", authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user!.userId;
+    const rawLimit = req.query.limit;
+    if (
+      rawLimit !== undefined &&
+      (typeof rawLimit !== "string" ||
+        !/^[1-9]\d*$/.test(rawLimit) ||
+        Number(rawLimit) > 100)
+    ) {
+      return res
+        .status(400)
+        .json({ error: "limit must be an integer from 1 to 100" });
+    }
+    const limit = rawLimit === undefined ? undefined : Number(rawLimit);
+    const monthPeriod =
+      req.query.month === undefined
+        ? null
+        : dashboardPeriod(userId, req.query.month, bangkokToday());
+
+    const transactions = await prisma.transaction.findMany({
+      ...(limit === undefined ? {} : { take: limit }),
+      where: {
+        userId,
+        ...(monthPeriod
+          ? {
+              transactionDate: {
+                gte: new Date(monthPeriod.startDate + "T00:00:00Z"),
+                lte: new Date(monthPeriod.effectiveEndDate + "T00:00:00Z"),
+              },
+            }
+          : {}),
+      },
+      include: {
+        category: true,
+      },
+      orderBy: [
+        {
+          transactionDate: "desc",
         },
-      });
+        {
+          createdAt: "desc",
+        },
+      ],
+    });
 
-        return {transaction,previousDate:current.transactionDate};
-      });
-      await checkBudgetNotifications(userId, [transactionPeriod(previousDate), transactionPeriod(transaction.transactionDate)]);
-      await checkTransactionAnomaly(req.user!,transaction.id);
-      return res.json(transaction);
-    } catch (error) {
-      if(error instanceof GoalError) return res.status(error.status).json({error:error.message,code:error.code});
-      console.error(error);
+    return res.json(transactions);
+  } catch (error) {
+    if (error instanceof DashboardInputError)
+      return res.status(400).json({ error: error.message });
+    console.error(error);
 
-      return res.status(500).json({
-        error: 'Failed to update transaction',
+    return res.status(500).json({
+      error: "Failed to load transactions",
+    });
+  }
+});
+
+app.get("/overview", authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user!.userId;
+    const { startDate, endDate } = req.query;
+
+    // รองรับหน้าเว็บเดิมที่ยังไม่ได้ส่งช่วงวันที่
+    const hasDateFilter = startDate !== undefined || endDate !== undefined;
+
+    let start: Date | undefined;
+    let end: Date | undefined;
+
+    if (hasDateFilter) {
+      if (typeof startDate !== "string" || typeof endDate !== "string") {
+        return res.status(400).json({
+          error: "กรุณาระบุ startDate และ endDate ให้ครบ",
+        });
+      }
+
+      const parseDate = (value: string): Date | null => {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+          return null;
+        }
+
+        const date = new Date(`${value}T00:00:00.000Z`);
+
+        if (
+          Number.isNaN(date.getTime()) ||
+          date.toISOString().slice(0, 10) !== value
+        ) {
+          return null;
+        }
+
+        return date;
+      };
+
+      const parsedStart = parseDate(startDate);
+      const parsedEnd = parseDate(endDate);
+
+      if (!parsedStart || !parsedEnd) {
+        return res.status(400).json({
+          error: "กรุณาระบุวันที่จริงในรูปแบบ YYYY-MM-DD",
+        });
+      }
+
+      if (parsedStart > parsedEnd) {
+        return res.status(400).json({
+          error: "วันเริ่มต้นต้องไม่อยู่หลังวันสิ้นสุด",
+        });
+      }
+
+      start = parsedStart;
+      end = parsedEnd;
+    }
+
+    const transactions = await prisma.transaction.findMany({
+      where: {
+        userId,
+        ...(start && end
+          ? {
+              transactionDate: {
+                gte: start,
+                lte: end,
+              },
+            }
+          : {}),
+      },
+      select: {
+        type: true,
+        amount: true,
+        categoryId: true,
+        category: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    // รวมเป็นหน่วยสตางค์ เพื่อลดปัญหาทศนิยมตอนบวกเงิน
+    let incomeSatang = 0;
+    let expenseSatang = 0;
+
+    const categoryTotals = new Map<
+      string,
+      {
+        categoryId: string;
+        name: string;
+        amountSatang: number;
+      }
+    >();
+
+    for (const transaction of transactions) {
+      const amountSatang = Math.round(Number(transaction.amount) * 100);
+
+      if (transaction.type === "income") {
+        incomeSatang += amountSatang;
+      }
+
+      if (transaction.type === "expense") {
+        expenseSatang += amountSatang;
+
+        const existingCategory = categoryTotals.get(transaction.categoryId);
+
+        if (existingCategory) {
+          existingCategory.amountSatang += amountSatang;
+        } else {
+          categoryTotals.set(transaction.categoryId, {
+            categoryId: transaction.categoryId,
+            name: transaction.category.name,
+            amountSatang,
+          });
+        }
+      }
+    }
+
+    const totalIncome = incomeSatang / 100;
+    const totalExpense = expenseSatang / 100;
+    const netCashFlow = (incomeSatang - expenseSatang) / 100;
+
+    const savingRate =
+      incomeSatang > 0
+        ? new Prisma.Decimal(incomeSatang)
+            .minus(expenseSatang)
+            .div(incomeSatang)
+            .mul(100)
+            .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP)
+            .toNumber()
+        : 0;
+
+    const expenseCategories = Array.from(categoryTotals.values())
+      .map((category) => ({
+        categoryId: category.categoryId,
+        name: category.name,
+        amount: category.amountSatang / 100,
+        percentage:
+          expenseSatang > 0
+            ? new Prisma.Decimal(category.amountSatang)
+                .div(expenseSatang)
+                .mul(100)
+                .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP)
+                .toNumber()
+            : 0,
+      }))
+      .sort(
+        (a, b) =>
+          b.amount - a.amount || a.categoryId.localeCompare(b.categoryId),
+      );
+
+    return res.json({
+      totalIncome,
+      totalExpense,
+      netCashFlow,
+      savingRate,
+      transactionCount: transactions.length,
+      expenseCategories,
+      period: {
+        startDate: start ? start.toISOString().slice(0, 10) : null,
+        endDate: end ? end.toISOString().slice(0, 10) : null,
+      },
+    });
+  } catch (error) {
+    console.error("GET OVERVIEW ERROR:", error);
+
+    return res.status(500).json({
+      error: "ไม่สามารถโหลดข้อมูลภาพรวมได้",
+    });
+  }
+});
+
+app.put("/transactions/:id", authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user!.userId;
+    const id = req.params.id;
+
+    if (typeof id !== "string" || id.trim() === "") {
+      return res.status(400).json({
+        error: "รหัสธุรกรรมไม่ถูกต้อง",
       });
     }
-  }
-);
 
-app.delete(
-  '/transactions/:id',
-  authMiddleware,
-  async (req: AuthRequest, res) => {
-    try {
-      const userId = req.user!.userId;
-      const id = req.params.id;
+    const {
+      categoryId,
+      type,
+      amount,
+      transactionDate,
+      transactionTime,
+      paymentMethod,
+      description,
+      note,
+    } = req.body;
 
-if (typeof id !== 'string' || id.trim() === '') {
-  return res.status(400).json({
-    error: 'รหัสธุรกรรมไม่ถูกต้อง',
-  });
-}
+    const existingTransaction = await prisma.transaction.findFirst({
+      where: {
+        id,
+        userId,
+      },
+    });
 
-      const transaction =
-        await prisma.transaction.findFirst({
+    if (!existingTransaction) {
+      return res.status(404).json({
+        error: "Transaction not found",
+      });
+    }
+
+    if (!categoryId || !type || !amount || !transactionDate) {
+      return res.status(400).json({
+        error: "Missing required fields",
+      });
+    }
+
+    if (!["income", "expense"].includes(type)) {
+      return res.status(400).json({
+        error: "Invalid transaction type",
+      });
+    }
+
+    const validated = validateTransactionValues(
+      amount,
+      transactionDate,
+      transactionTime,
+    );
+
+    if (!validated.ok) {
+      return res.status(400).json({
+        error: validated.error,
+      });
+    }
+
+    const category = await prisma.category.findUnique({
+      where: {
+        id: categoryId,
+      },
+    });
+
+    if (!category) {
+      return res.status(404).json({
+        error: "Category not found",
+      });
+    }
+
+    if (category.type !== type) {
+      return res.status(400).json({
+        error: "Category type does not match transaction type",
+      });
+    }
+
+    const { transaction, previousDate } = await withGoalLock(
+      userId,
+      async (tx) => {
+        await assertAnomalyActor(tx, req.user!);
+        const current = await tx.transaction.findFirst({
+          where: { id, userId },
+        });
+        if (!current)
+          throw new GoalError(404, "TRANSACTION_NOT_FOUND", "ไม่พบรายการ");
+        await guardFundingTransaction(tx, userId, id, {
+          type,
+          amount: validated.amount,
+          transactionDate: validated.transactionDate,
+        });
+        const confirmation = confirmedTime(
+          req.body.transactionTimeConfirmed,
+          validated.transactionTime,
+          validated.transactionDate,
+          current,
+        );
+        const anomalyFields = await anomalyWriteFields(
+          tx,
+          userId,
+          {
+            type,
+            categoryId,
+            amount: validated.amount,
+            transactionDate: validated.transactionDate,
+            transactionTime: validated.transactionTime,
+            transactionTimeConfirmed: confirmation,
+            paymentMethod: paymentMethod || null,
+            description: description || null,
+            note: note || null,
+          },
+          current,
+        );
+        const transaction = await tx.transaction.update({
           where: {
             id,
             userId,
           },
+          data: {
+            ...anomalyFields,
+            transactionTimeConfirmed: confirmation,
+            categoryId,
+            type,
+            amount: validated.amount,
+            transactionDate: validated.transactionDate,
+            transactionTime: validated.transactionTime,
+            paymentMethod: paymentMethod || null,
+            description: description || null,
+            note: note || null,
+          },
+          include: {
+            category: true,
+          },
         });
 
-      if (!transaction) {
-        return res.status(404).json({
-          error: 'Transaction not found',
-        });
-      }
-
-      await withGoalLock(userId,async tx=>{
-        await assertAnomalyActor(tx,req.user!);
-        const current=await tx.transaction.findFirst({where:{id,userId}});
-        if(!current) throw new GoalError(404,'TRANSACTION_NOT_FOUND','ไม่พบรายการ');
-        await guardFundingTransaction(tx,userId,id);
-        await tx.transaction.delete({where:{id,userId}});
-        transaction.transactionDate=current.transactionDate;
-      });
-
-      await checkBudgetNotifications(userId, [transactionPeriod(transaction.transactionDate)]);
-      return res.json({
-        message: 'Transaction deleted successfully',
-      });
-    } catch (error) {
-      if(error instanceof GoalError) return res.status(error.status).json({error:error.message,code:error.code});
-      console.error(error);
-
-      return res.status(500).json({
-        error: 'Failed to delete transaction',
-      });
-    }
-  }
-);
-
-
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
-
-app.get('/health/db', async (req, res) => {
-  try {
-    await prisma.$queryRaw`SELECT 1`;
-
-    res.json({
-      status: 'ok',
-      database: 'connected'
-    });
+        return { transaction, previousDate: current.transactionDate };
+      },
+    );
+    await checkBudgetNotifications(userId, [
+      transactionPeriod(userId, previousDate),
+      transactionPeriod(userId, transaction.transactionDate),
+    ]);
+    await checkTransactionAnomaly(req.user!, transaction.id);
+    return res.json(transaction);
   } catch (error) {
+    if (error instanceof GoalError)
+      return res
+        .status(error.status)
+        .json({ error: error.message, code: error.code });
     console.error(error);
 
-    res.status(500).json({
-      status: 'error',
-      database: 'disconnected'
+    return res.status(500).json({
+      error: "Failed to update transaction",
     });
   }
 });
 
-app.get(
-  '/transactions/:id',
+app.delete(
+  "/transactions/:id",
   authMiddleware,
   async (req: AuthRequest, res) => {
     try {
       const userId = req.user!.userId;
       const id = req.params.id;
 
-if (typeof id !== 'string' || id.trim() === '') {
-  return res.status(400).json({
-    error: 'รหัสธุรกรรมไม่ถูกต้อง',
-  });
-}
+      if (typeof id !== "string" || id.trim() === "") {
+        return res.status(400).json({
+          error: "รหัสธุรกรรมไม่ถูกต้อง",
+        });
+      }
 
       const transaction = await prisma.transaction.findFirst({
         where: {
           id,
           userId,
         },
-        include: {
-          category: true,
-        },
       });
 
       if (!transaction) {
         return res.status(404).json({
-          error: 'Transaction not found',
+          error: "Transaction not found",
         });
       }
 
-      return res.json(transaction);
+      await withGoalLock(userId, async (tx) => {
+        await assertAnomalyActor(tx, req.user!);
+        const current = await tx.transaction.findFirst({
+          where: { id, userId },
+        });
+        if (!current)
+          throw new GoalError(404, "TRANSACTION_NOT_FOUND", "ไม่พบรายการ");
+        await guardFundingTransaction(tx, userId, id);
+        await tx.transaction.delete({ where: { id, userId } });
+        transaction.transactionDate = current.transactionDate;
+      });
+
+      await checkBudgetNotifications(userId, [
+        transactionPeriod(userId, transaction.transactionDate),
+      ]);
+      return res.json({
+        message: "Transaction deleted successfully",
+      });
     } catch (error) {
+      if (error instanceof GoalError)
+        return res
+          .status(error.status)
+          .json({ error: error.message, code: error.code });
       console.error(error);
 
       return res.status(500).json({
-        error: 'Failed to load transaction',
+        error: "Failed to delete transaction",
       });
     }
-  }
+  },
 );
 
-app.post('/auth/register', async (req, res) => {
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
+app.get("/health/db", async (req, res) => {
   try {
-    if (Object.prototype.hasOwnProperty.call(req.body ?? {}, 'role')) return res.status(400).json({error:'Role cannot be supplied'});
+    await prisma.$queryRaw`SELECT 1`;
+
+    res.json({
+      status: "ok",
+      database: "connected",
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      status: "error",
+      database: "disconnected",
+    });
+  }
+});
+
+app.get("/transactions/:id", authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user!.userId;
+    const id = req.params.id;
+
+    if (typeof id !== "string" || id.trim() === "") {
+      return res.status(400).json({
+        error: "รหัสธุรกรรมไม่ถูกต้อง",
+      });
+    }
+
+    const transaction = await prisma.transaction.findFirst({
+      where: {
+        id,
+        userId,
+      },
+      include: {
+        category: true,
+      },
+    });
+
+    if (!transaction) {
+      return res.status(404).json({
+        error: "Transaction not found",
+      });
+    }
+
+    return res.json(transaction);
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      error: "Failed to load transaction",
+    });
+  }
+});
+
+app.post("/auth/register", async (req, res) => {
+  try {
+    if (Object.prototype.hasOwnProperty.call(req.body ?? {}, "role"))
+      return res.status(400).json({ error: "Role cannot be supplied" });
     const { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
-        error: 'Email and password are required',
+        error: "Email and password are required",
       });
     }
 
-    if (typeof email !== 'string' || typeof password !== 'string') {
+    if (typeof email !== "string" || typeof password !== "string") {
       return res.status(400).json({
-        error: 'Invalid email or password',
+        error: "Invalid email or password",
       });
     }
 
@@ -704,7 +844,7 @@ app.post('/auth/register', async (req, res) => {
 
     if (password.length < 6) {
       return res.status(400).json({
-        error: 'Password must be at least 6 characters',
+        error: "Password must be at least 6 characters",
       });
     }
 
@@ -716,13 +856,13 @@ app.post('/auth/register', async (req, res) => {
 
     if (existingUser) {
       return res.status(409).json({
-        error: 'Email already exists',
+        error: "Email already exists",
       });
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
 
-    const user = await prisma.$transaction(async tx => {
+    const user = await prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
         data: { email: normalizedEmail, passwordHash },
         select: { id: true, email: true, createdAt: true },
@@ -732,33 +872,41 @@ app.post('/auth/register', async (req, res) => {
     });
 
     return res.status(201).json({
-      message: 'Register successful',
+      message: "Register successful",
       user,
     });
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
-      return res.status(409).json({ error: 'Email already exists' });
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return res.status(409).json({ error: "Email already exists" });
     }
-    console.error('REGISTER ERROR:', error instanceof Prisma.PrismaClientKnownRequestError ? error.code : 'unexpected');
+    console.error(
+      "REGISTER ERROR:",
+      error instanceof Prisma.PrismaClientKnownRequestError
+        ? error.code
+        : "unexpected",
+    );
 
     return res.status(500).json({
-      error: 'Failed to register',
+      error: "Failed to register",
     });
   }
 });
 
-app.post('/auth/login', async (req, res) => {
+app.post("/auth/login", async (req, res) => {
   try {
     const { email, password } = req.body ?? {};
 
     if (
-      typeof email !== 'string' ||
-      typeof password !== 'string' ||
-      email.trim() === '' ||
-      password === ''
+      typeof email !== "string" ||
+      typeof password !== "string" ||
+      email.trim() === "" ||
+      password === ""
     ) {
       return res.status(400).json({
-        error: 'Email and password are required',
+        error: "Email and password are required",
       });
     }
 
@@ -766,7 +914,7 @@ app.post('/auth/login', async (req, res) => {
 
     if (!secret || !secret.trim()) {
       return res.status(500).json({
-        error: 'ระบบยืนยันตัวตนยังไม่พร้อมใช้งาน',
+        error: "ระบบยืนยันตัวตนยังไม่พร้อมใช้งาน",
       });
     }
 
@@ -787,300 +935,308 @@ app.post('/auth/login', async (req, res) => {
 
     if (!user) {
       return res.status(401).json({
-        error: 'Invalid email or password',
+        error: "Invalid email or password",
       });
     }
 
-    const passwordMatch = await bcrypt.compare(
-      password,
-      user.passwordHash
-    );
+    const passwordMatch = await bcrypt.compare(password, user.passwordHash);
 
     if (!passwordMatch) {
       return res.status(401).json({
-        error: 'Invalid email or password',
+        error: "Invalid email or password",
       });
     }
 
     return res.json(await finishLogin(user, secret));
   } catch (error) {
-    if (error instanceof GoalError) return res.status(error.status).json({error:error.message});
-    console.error('LOGIN ERROR');
+    if (error instanceof GoalError)
+      return res.status(error.status).json({ error: error.message });
+    console.error("LOGIN ERROR");
 
     return res.status(500).json({
-      error: 'Failed to login',
+      error: "Failed to login",
     });
   }
 });
 
-app.get(
-  '/auth/me',
-  authMiddleware,
-  async (req: AuthRequest, res) => {
-    try {
-      const userId = req.user!.userId;
+app.get("/auth/me", authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user!.userId;
 
-      const user = await prisma.user.findUnique({
-        where: {
-          id: userId,
-        },
-        select: {
-          id: true,
-          email: true,
-          createdAt: true,
-          setupCompletedAt: true,
-          setupPromptedAt: true,
-          role: true,
-        },
-      });
+    const user = await prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
+      select: {
+        id: true,
+        email: true,
+        createdAt: true,
+        setupCompletedAt: true,
+        setupPromptedAt: true,
+        role: true,
+      },
+    });
 
-      if (!user) {
-        return res.status(404).json({
-          error: 'User not found',
-        });
-      }
-
-      res.set('Cache-Control', 'no-store');
-      const { setupPromptedAt, ...account } = user;
-      return res.json({ ...account, showSetup: requiresSetup(user) });
-    } catch (error) {
-      console.error(error);
-
-      return res.status(500).json({
-        error: 'Failed to load user',
+    if (!user) {
+      return res.status(404).json({
+        error: "User not found",
       });
     }
+
+    res.set("Cache-Control", "no-store");
+    const { setupPromptedAt, ...account } = user;
+    return res.json({ ...account, showSetup: requiresSetup(user) });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      error: "Failed to load user",
+    });
   }
-);
+});
 
-app.get(
-  '/profile',
-  authMiddleware,
-  async (req: AuthRequest, res) => {
-    try {
-      const userId = req.user!.userId;
+app.get("/profile", authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user!.userId;
 
-      const user = await prisma.user.findFirst({
-        where: {
-          id: userId,
-          deletedAt: null,
-        },
-        select: {
-          id: true,
-          email: true,
-          profile: {
-            select: {
-              displayName: true,
-              avatarMime: true,
-            },
+    const user = await prisma.user.findFirst({
+      where: {
+        id: userId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        email: true,
+        profile: {
+          select: {
+            displayName: true,
+            avatarMime: true,
           },
         },
-      });
+      },
+    });
 
-      if (!user) {
-        return res.status(404).json({
-          error: 'ไม่พบบัญชีผู้ใช้',
-        });
-      }
-
-      return res.json({
-        userId: user.id,
-        email: user.email,
-        displayName: user.profile?.displayName ?? null,
-        hasAvatar: Boolean(user.profile?.avatarMime),
-      });
-    } catch (error) {
-      console.error('GET PROFILE ERROR:', error);
-
-      return res.status(500).json({
-        error: 'ไม่สามารถโหลดโปรไฟล์ได้',
+    if (!user) {
+      return res.status(404).json({
+        error: "ไม่พบบัญชีผู้ใช้",
       });
     }
+
+    return res.json({
+      userId: user.id,
+      email: user.email,
+      displayName: user.profile?.displayName ?? null,
+      hasAvatar: Boolean(user.profile?.avatarMime),
+    });
+  } catch (error) {
+    console.error("GET PROFILE ERROR:", error);
+
+    return res.status(500).json({
+      error: "ไม่สามารถโหลดโปรไฟล์ได้",
+    });
   }
-);
+});
 
-app.put(
-  '/profile',
-  authMiddleware,
-  async (req: AuthRequest, res) => {
-    try {
-      const userId = req.user!.userId;
-      const displayName = req.body?.displayName;
+app.put("/profile", authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user!.userId;
+    const displayName = req.body?.displayName;
 
-      if (typeof displayName !== 'string') {
-        return res.status(400).json({
-          error: 'กรุณากรอกชื่อเป็นข้อความ',
-        });
-      }
-
-      const trimmedName = displayName.trim();
-
-      if (!trimmedName) {
-        return res.status(400).json({
-          error: 'กรุณากรอกชื่อที่แสดง',
-        });
-      }
-
-      if (trimmedName.length > 80) {
-        return res.status(400).json({
-          error: 'ชื่อยาวได้ไม่เกิน 80 ตัวอักษร',
-        });
-      }
-
-      const user = await prisma.user.findFirst({
-        where: {
-          id: userId,
-          deletedAt: null,
-        },
-        select: {
-          id: true,
-          email: true,
-        },
-      });
-
-      if (!user) {
-        return res.status(404).json({
-          error: 'ไม่พบบัญชีผู้ใช้',
-        });
-      }
-
-      const profile = await saveProfile(prisma, userId, { displayName: trimmedName });
-
-      return res.json({
-        userId: user.id,
-        email: user.email,
-        displayName: profile.displayName,
-      });
-    } catch (error) {
-      console.error('PUT PROFILE ERROR:', error);
-
-      return res.status(500).json({
-        error: 'ไม่สามารถบันทึกชื่อได้',
+    if (typeof displayName !== "string") {
+      return res.status(400).json({
+        error: "กรุณากรอกชื่อเป็นข้อความ",
       });
     }
+
+    const trimmedName = displayName.trim();
+
+    if (!trimmedName) {
+      return res.status(400).json({
+        error: "กรุณากรอกชื่อที่แสดง",
+      });
+    }
+
+    if (trimmedName.length > 80) {
+      return res.status(400).json({
+        error: "ชื่อยาวได้ไม่เกิน 80 ตัวอักษร",
+      });
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        id: userId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        email: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: "ไม่พบบัญชีผู้ใช้",
+      });
+    }
+
+    const profile = await saveProfile(prisma, userId, {
+      displayName: trimmedName,
+    });
+
+    return res.json({
+      userId: user.id,
+      email: user.email,
+      displayName: profile.displayName,
+    });
+  } catch (error) {
+    console.error("PUT PROFILE ERROR:", error);
+
+    return res.status(500).json({
+      error: "ไม่สามารถบันทึกชื่อได้",
+    });
   }
-);
+});
 
 // ===== Category Budget API =====
 
-app.get(
-  '/budget/categories',
-  authMiddleware,
-  async (req: AuthRequest, res) => {
-    try {
-      const userId = req.user?.userId;
+app.get("/budget/categories", authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user?.userId;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบ' });
-      }
+    if (!userId) {
+      return res.status(401).json({ error: "กรุณาเข้าสู่ระบบ" });
+    }
 
-      const yearInput = req.query.year;
-      const monthInput = req.query.month;
+    const yearInput = req.query.year;
+    const monthInput = req.query.month;
+    // No year/month means "the current cycle", decided only by the backend.
+    const current =
+      yearInput === undefined && monthInput === undefined
+        ? getCurrentCycle(userId, bangkokToday())
+        : null;
 
-      if (
-        typeof yearInput !== 'string' ||
-        typeof monthInput !== 'string' ||
-        !/^\d{4}$/.test(yearInput) ||
-        !/^\d{1,2}$/.test(monthInput)
-      ) {
-        return res.status(400).json({
-          error: 'กรุณาระบุปี ค.ศ. และเดือนให้ถูกต้อง',
-        });
-      }
-
-      const year = Number(yearInput);
-      const month = Number(monthInput);
-
-      if (!isValidBudgetPeriod(year, month)) {
-        return res.status(400).json({
-          error: 'กรุณาระบุปี ค.ศ. และเดือนให้ถูกต้อง',
-        });
-      }
-
-      // transactionDate เป็นวันที่แบบ UTC ตามระบบธุรกรรมเดิม
-      const startDate = new Date(Date.UTC(year, month - 1, 1));
-      const endDate = new Date(Date.UTC(year, month, 1));
-
-      const [categories, budgets, expenses] = await Promise.all([
-        prisma.category.findMany({
-          where: { type: 'expense' },
-          select: { id: true, name: true },
-          orderBy: { name: 'asc' },
-        }),
-
-        prisma.categoryBudget.findMany({
-          where: { userId, year, month },
-        }),
-
-        prisma.transaction.groupBy({
-          by: ['categoryId'],
-          where: {
-            userId,
-            type: 'expense',
-            transactionDate: {
-              gte: startDate,
-              lt: endDate,
-            },
-          },
-          _sum: { amount: true },
-        }),
-      ]);
-
-      const budgetMap = new Map(
-        budgets.map((budget) => [budget.categoryId, budget])
-      );
-
-      const expenseMap = new Map(
-        expenses.map((expense) => [
-          expense.categoryId,
-          expense._sum.amount,
-        ])
-      );
-
-      const items = categories.map((category) => {
-        const budget = budgetMap.get(category.id);
-        const expense = expenseMap.get(category.id);
-
-        const expenseAmount = expense ? expense.toNumber() : 0;
-        const budgetAmount = budget ? budget.amount.toNumber() : null;
-
-        // คำนวณส่วนต่างด้วย Decimal ก่อนแปลงเป็นตัวเลข
-        const remainingAmount = budget
-          ? budget.amount.minus(expense ?? 0).toNumber()
-          : null;
-
-        const status =
-          remainingAmount === null
-            ? 'not_set'
-            : remainingAmount < 0
-              ? 'over_budget'
-              : remainingAmount === 0
-                ? 'at_budget'
-                : 'within_budget';
-
-        return {
-          categoryId: category.id,
-          categoryName: category.name,
-          budgetAmount,
-          expenseAmount,
-          remainingAmount,
-          status,
-        };
-      });
-
-      return res.json({ year, month, items });
-    } catch (error) {
-      console.error('GET /budget/categories error:', error);
-
-      return res.status(500).json({
-        error: 'ไม่สามารถโหลดงบรายหมวดได้',
+    if (
+      !current &&
+      (typeof yearInput !== "string" ||
+      typeof monthInput !== "string" ||
+      !/^\d{4}$/.test(yearInput) ||
+      !/^\d{1,2}$/.test(monthInput))
+    ) {
+      return res.status(400).json({
+        error: "กรุณาระบุปี ค.ศ. และเดือนให้ถูกต้อง",
       });
     }
+
+    const year = current?.year ?? Number(yearInput);
+    const month = current?.month ?? Number(monthInput);
+
+    if (!isValidBudgetPeriod(year, month)) {
+      return res.status(400).json({
+        error: "กรุณาระบุปี ค.ศ. และเดือนให้ถูกต้อง",
+      });
+    }
+
+    // transactionDate เป็นวันที่แบบ UTC ตามระบบธุรกรรมเดิม
+    const { start: startDate, end: endDate } = cycleBounds(
+      cycleByPeriod(userId, year, month),
+    );
+
+    const [allCategories, budgets, expenses] = await Promise.all([
+      prisma.category.findMany({
+        where: { type: "expense" },
+        select: { id: true, name: true, type: true },
+      }),
+
+      prisma.categoryBudget.findMany({
+        where: { userId, year, month },
+      }),
+
+      prisma.transaction.groupBy({
+        by: ["categoryId"],
+        where: {
+          userId,
+          type: "expense",
+          transactionDate: {
+            gte: startDate,
+            lt: endDate,
+          },
+        },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    const budgetMap = new Map(
+      budgets.map((budget) => [budget.categoryId, budget]),
+    );
+
+    const expenseMap = new Map(
+      expenses.map((expense) => [expense.categoryId, expense._sum.amount]),
+    );
+
+    const categories = allCategories
+      .filter((category) => defaultCategoryRank(category) >= 0)
+      .sort((a, b) => defaultCategoryRank(a) - defaultCategoryRank(b));
+
+    // Spending in hidden legacy categories still counts: fold it into "อื่นๆ" so totals stay complete.
+    const other = categories.find((c) => c.name === OTHER_EXPENSE_CATEGORY);
+    if (other) {
+      const hiddenSum = allCategories
+        .filter((category) => defaultCategoryRank(category) < 0)
+        .reduce(
+          (sum, category) => sum.plus(expenseMap.get(category.id) ?? 0),
+          new Prisma.Decimal(0),
+        );
+      if (!hiddenSum.isZero()) {
+        expenseMap.set(
+          other.id,
+          hiddenSum.plus(expenseMap.get(other.id) ?? 0),
+        );
+      }
+    }
+
+    const items = categories.map((category) => {
+      const budget = budgetMap.get(category.id);
+      const expense = expenseMap.get(category.id);
+
+      const expenseAmount = expense ? expense.toNumber() : 0;
+      const budgetAmount = budget ? budget.amount.toNumber() : null;
+
+      // คำนวณส่วนต่างด้วย Decimal ก่อนแปลงเป็นตัวเลข
+      const remainingAmount = budget
+        ? budget.amount.minus(expense ?? 0).toNumber()
+        : null;
+
+      const status =
+        remainingAmount === null
+          ? "not_set"
+          : remainingAmount < 0
+            ? "over_budget"
+            : remainingAmount === 0
+              ? "at_budget"
+              : "within_budget";
+
+      return {
+        categoryId: category.id,
+        categoryName: category.name,
+        budgetAmount,
+        expenseAmount,
+        remainingAmount,
+        status,
+      };
+    });
+
+    return res.json({ year, month, items });
+  } catch (error) {
+    console.error("GET /budget/categories error:", error);
+
+    return res.status(500).json({
+      error: "ไม่สามารถโหลดงบรายหมวดได้",
+    });
   }
-);
+});
 
 app.put(
-  '/budget/categories/:categoryId',
+  "/budget/categories/:categoryId",
   authMiddleware,
   async (req: AuthRequest, res) => {
     try {
@@ -1089,22 +1245,22 @@ app.put(
       const { year, month, amount } = req.body ?? {};
 
       if (!userId) {
-        return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบ' });
+        return res.status(401).json({ error: "กรุณาเข้าสู่ระบบ" });
       }
 
-      if (typeof categoryId !== 'string' || !categoryId.trim()) {
-        return res.status(400).json({ error: 'กรุณาระบุหมวดหมู่' });
+      if (typeof categoryId !== "string" || !categoryId.trim()) {
+        return res.status(400).json({ error: "กรุณาระบุหมวดหมู่" });
       }
 
       if (!isValidBudgetPeriod(year, month)) {
         return res.status(400).json({
-          error: 'กรุณาส่งปี ค.ศ. และเดือนเป็นตัวเลขที่ถูกต้อง',
+          error: "กรุณาส่งปี ค.ศ. และเดือนเป็นตัวเลขที่ถูกต้อง",
         });
       }
 
-      if (typeof amount !== 'number' && typeof amount !== 'string') {
+      if (typeof amount !== "number" && typeof amount !== "string") {
         return res.status(400).json({
-          error: 'กรุณาระบุจำนวนเงินงบประมาณ',
+          error: "กรุณาระบุจำนวนเงินงบประมาณ",
         });
       }
 
@@ -1117,21 +1273,21 @@ app.put(
       ) {
         return res.status(400).json({
           error:
-            'งบต้องมากกว่า 0 ไม่เกิน 9,999,999,999.99 บาท และมีทศนิยมไม่เกิน 2 ตำแหน่ง',
+            "งบต้องมากกว่า 0 ไม่เกิน 9,999,999,999.99 บาท และมีทศนิยมไม่เกิน 2 ตำแหน่ง",
         });
       }
 
       const category = await prisma.category.findFirst({
         where: {
           id: categoryId,
-          type: 'expense',
+          type: "expense",
         },
         select: { id: true },
       });
 
       if (!category) {
         return res.status(404).json({
-          error: 'ไม่พบหมวดหมู่รายจ่าย',
+          error: "ไม่พบหมวดหมู่รายจ่าย",
         });
       }
 
@@ -1164,17 +1320,17 @@ app.put(
         budgetAmount: budget.amount.toNumber(),
       });
     } catch (error) {
-      console.error('PUT /budget/categories error:', error);
+      console.error("PUT /budget/categories error:", error);
 
       return res.status(500).json({
-        error: 'ไม่สามารถบันทึกงบรายหมวดได้',
+        error: "ไม่สามารถบันทึกงบรายหมวดได้",
       });
     }
-  }
+  },
 );
 
 app.delete(
-  '/budget/categories/:categoryId',
+  "/budget/categories/:categoryId",
   authMiddleware,
   async (req: AuthRequest, res) => {
     try {
@@ -1184,21 +1340,21 @@ app.delete(
       const monthInput = req.query.month;
 
       if (!userId) {
-        return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบ' });
+        return res.status(401).json({ error: "กรุณาเข้าสู่ระบบ" });
       }
 
-      if (typeof categoryId !== 'string' || !categoryId.trim()) {
-        return res.status(400).json({ error: 'กรุณาระบุหมวดหมู่' });
+      if (typeof categoryId !== "string" || !categoryId.trim()) {
+        return res.status(400).json({ error: "กรุณาระบุหมวดหมู่" });
       }
 
       if (
-        typeof yearInput !== 'string' ||
-        typeof monthInput !== 'string' ||
+        typeof yearInput !== "string" ||
+        typeof monthInput !== "string" ||
         !/^\d{4}$/.test(yearInput) ||
         !/^\d{1,2}$/.test(monthInput)
       ) {
         return res.status(400).json({
-          error: 'กรุณาระบุปี ค.ศ. และเดือนให้ถูกต้อง',
+          error: "กรุณาระบุปี ค.ศ. และเดือนให้ถูกต้อง",
         });
       }
 
@@ -1207,7 +1363,7 @@ app.delete(
 
       if (!isValidBudgetPeriod(year, month)) {
         return res.status(400).json({
-          error: 'กรุณาระบุปี ค.ศ. และเดือนให้ถูกต้อง',
+          error: "กรุณาระบุปี ค.ศ. และเดือนให้ถูกต้อง",
         });
       }
 
@@ -1221,87 +1377,86 @@ app.delete(
       });
 
       await checkBudgetNotifications(userId, [{ year, month }]);
-      return res.json({ message: 'ยกเลิกงบรายหมวดแล้ว' });
+      return res.json({ message: "ยกเลิกงบรายหมวดแล้ว" });
     } catch (error) {
-      console.error('DELETE /budget/categories error:', error);
+      console.error("DELETE /budget/categories error:", error);
 
       return res.status(500).json({
-        error: 'ไม่สามารถยกเลิกงบรายหมวดได้',
+        error: "ไม่สามารถยกเลิกงบรายหมวดได้",
       });
     }
-  }
+  },
 );
 
 // ===== End Category Budget API =====
 
 // Explicit retry; GET /notifications stays read-only.
-app.post('/notifications/reconcile', authMiddleware, async (req: AuthRequest, res) => {
-  try {
-    const ok = await reconcileBudgetNotifications(req.user!.userId);
-    return res.status(ok ? 200 : 503).json({ reconciled: ok });
-  } catch {
-    return res.status(503).json({ error: 'ตรวจงบซ้ำไม่สำเร็จ กรุณาลองอีกครั้ง' });
-  }
-});
+app.post(
+  "/notifications/reconcile",
+  authMiddleware,
+  async (req: AuthRequest, res) => {
+    try {
+      const ok = await reconcileBudgetNotifications(req.user!.userId);
+      return res.status(ok ? 200 : 503).json({ reconciled: ok });
+    } catch {
+      return res
+        .status(503)
+        .json({ error: "ตรวจงบซ้ำไม่สำเร็จ กรุณาลองอีกครั้ง" });
+    }
+  },
+);
 // ===== Notification API =====
 
 // อ่านแจ้งเตือนล่าสุด 30 รายการ พร้อมจำนวนที่ยังไม่อ่านทั้งหมด
-app.get(
-  '/notifications',
-  authMiddleware,
-  async (req: AuthRequest, res) => {
-    try {
-      const userId = req.user?.userId;
+app.get("/notifications", authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user?.userId;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบ' });
-      }
-
-      const [items, unreadCount] = await prisma.$transaction([
-        prisma.notification.findMany({
-          where: { userId },
-          orderBy: [
-            { createdAt: 'desc' },
-            { id: 'desc' },
-          ],
-          take: 30,
-          select: {
-            id: true,
-            type: true,
-            title: true,
-            message: true,
-            link: true,
-            sourceId: true,
-            readAt: true,
-            createdAt: true,
-          },
-        }),
-        prisma.notification.count({
-          where: { userId, readAt: null },
-        }),
-      ]);
-
-      return res.json({ items, unreadCount });
-    } catch (error) {
-      console.error('GET /notifications error:', error);
-
-      return res.status(500).json({
-        error: 'ไม่สามารถโหลดการแจ้งเตือนได้',
-      });
+    if (!userId) {
+      return res.status(401).json({ error: "กรุณาเข้าสู่ระบบ" });
     }
+
+    const [items, unreadCount] = await prisma.$transaction([
+      prisma.notification.findMany({
+        where: { userId },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: 30,
+        select: {
+          id: true,
+          type: true,
+          title: true,
+          message: true,
+          link: true,
+          sourceId: true,
+          readAt: true,
+          createdAt: true,
+        },
+      }),
+      prisma.notification.count({
+        where: { userId, readAt: null },
+      }),
+    ]);
+
+    return res.json({ items, unreadCount });
+  } catch (error) {
+    console.error("GET /notifications error:", error);
+
+    return res.status(500).json({
+      error: "ไม่สามารถโหลดการแจ้งเตือนได้",
+    });
   }
-);
+});
 
 // ทำเครื่องหมายแจ้งเตือนทั้งหมดของผู้ใช้ว่าอ่านแล้ว
 app.patch(
-  '/notifications/read-all',
+  "/notifications/read-all",
   authMiddleware,
   async (req: AuthRequest, res) => {
     try {
       const userId = req.user?.userId;
 
       if (!userId) {
-        return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบ' });
+        return res.status(401).json({ error: "กรุณาเข้าสู่ระบบ" });
       }
 
       const result = await prisma.notification.updateMany({
@@ -1316,18 +1471,18 @@ app.patch(
 
       return res.json({ updatedCount: result.count });
     } catch (error) {
-      console.error('PATCH /notifications/read-all error:', error);
+      console.error("PATCH /notifications/read-all error:", error);
 
       return res.status(500).json({
-        error: 'ไม่สามารถทำเครื่องหมายว่าอ่านแล้วได้',
+        error: "ไม่สามารถทำเครื่องหมายว่าอ่านแล้วได้",
       });
     }
-  }
+  },
 );
 
 // ทำเครื่องหมายแจ้งเตือนหนึ่งรายการว่าอ่านแล้ว
 app.patch(
-  '/notifications/:id/read',
+  "/notifications/:id/read",
   authMiddleware,
   async (req: AuthRequest, res) => {
     try {
@@ -1335,12 +1490,12 @@ app.patch(
       const id = req.params.id;
 
       if (!userId) {
-        return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบ' });
+        return res.status(401).json({ error: "กรุณาเข้าสู่ระบบ" });
       }
 
-      if (typeof id !== 'string' || !id.trim()) {
+      if (typeof id !== "string" || !id.trim()) {
         return res.status(400).json({
-          error: 'รหัสการแจ้งเตือนไม่ถูกต้อง',
+          error: "รหัสการแจ้งเตือนไม่ถูกต้อง",
         });
       }
 
@@ -1351,7 +1506,7 @@ app.patch(
 
       if (!notification) {
         return res.status(404).json({
-          error: 'ไม่พบการแจ้งเตือน',
+          error: "ไม่พบการแจ้งเตือน",
         });
       }
 
@@ -1367,27 +1522,27 @@ app.patch(
         },
       });
 
-      return res.json({ message: 'ทำเครื่องหมายว่าอ่านแล้ว' });
+      return res.json({ message: "ทำเครื่องหมายว่าอ่านแล้ว" });
     } catch (error) {
-      console.error('PATCH /notifications/:id/read error:', error);
+      console.error("PATCH /notifications/:id/read error:", error);
 
       return res.status(500).json({
-        error: 'ไม่สามารถทำเครื่องหมายว่าอ่านแล้วได้',
+        error: "ไม่สามารถทำเครื่องหมายว่าอ่านแล้วได้",
       });
     }
-  }
+  },
 );
 
 // อ่านการตั้งค่าแจ้งเตือนงบ
 app.get(
-  '/notification-settings/budget',
+  "/notification-settings/budget",
   authMiddleware,
   async (req: AuthRequest, res) => {
     try {
       const userId = req.user?.userId;
 
       if (!userId) {
-        return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบ' });
+        return res.status(401).json({ error: "กรุณาเข้าสู่ระบบ" });
       }
 
       const setting = await prisma.budgetNotificationSetting.findUnique({
@@ -1410,28 +1565,28 @@ app.get(
           notifyNearLimit: false,
           totalBudget: true,
           categoryBudgets: true,
-        }
+        },
       );
     } catch (error) {
-      console.error('GET notification settings error:', error);
+      console.error("GET notification settings error:", error);
 
       return res.status(500).json({
-        error: 'ไม่สามารถโหลดการตั้งค่าแจ้งเตือนได้',
+        error: "ไม่สามารถโหลดการตั้งค่าแจ้งเตือนได้",
       });
     }
-  }
+  },
 );
 
 // บันทึกการตั้งค่าแจ้งเตือนงบ
 app.put(
-  '/notification-settings/budget',
+  "/notification-settings/budget",
   authMiddleware,
   async (req: AuthRequest, res) => {
     try {
       const userId = req.user?.userId;
 
       if (!userId) {
-        return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบ' });
+        return res.status(401).json({ error: "กรุณาเข้าสู่ระบบ" });
       }
 
       const {
@@ -1443,35 +1598,36 @@ app.put(
       } = req.body ?? {};
 
       if (
-        typeof enabled !== 'boolean' ||
-        typeof notifyExceeded !== 'boolean' ||
-        typeof totalBudget !== 'boolean' ||
-        typeof categoryBudgets !== 'boolean'
+        typeof enabled !== "boolean" ||
+        typeof notifyExceeded !== "boolean" ||
+        typeof totalBudget !== "boolean" ||
+        typeof categoryBudgets !== "boolean"
       ) {
         return res.status(400).json({
-          error: 'ค่าการเปิด–ปิดแจ้งเตือนต้องเป็น true หรือ false',
+          error: "ค่าการเปิด–ปิดแจ้งเตือนต้องเป็น true หรือ false",
         });
       }
 
       if (
-        typeof warningPercent !== 'number' ||
+        typeof warningPercent !== "number" ||
         !Number.isInteger(warningPercent) ||
         warningPercent < 1 ||
         warningPercent > 100
       ) {
         return res.status(400).json({
-          error: 'เปอร์เซ็นต์แจ้งเตือนต้องเป็นจำนวนเต็มตั้งแต่ 1 ถึง 100',
+          error: "เปอร์เซ็นต์แจ้งเตือนต้องเป็นจำนวนเต็มตั้งแต่ 1 ถึง 100",
         });
       }
 
       if (enabled && !totalBudget && !categoryBudgets) {
         return res.status(400).json({
-          error: 'เลือกแจ้งเตือนงบรวมหรืองบรายหมวดอย่างน้อยหนึ่งรายการ',
+          error: "เลือกแจ้งเตือนงบรวมหรืองบรายหมวดอย่างน้อยหนึ่งรายการ",
         });
       }
 
       const near = req.body.notifyNearLimit ?? enabled;
-      if (typeof near !== "boolean") return res.status(400).json({ error: "Invalid near toggle" });
+      if (typeof near !== "boolean")
+        return res.status(400).json({ error: "Invalid near toggle" });
       const values = {
         enabled: enabled && (near || notifyExceeded),
         notifyNearLimit: enabled && near,
@@ -1498,95 +1654,57 @@ app.put(
         },
       });
 
-      await checkBudgetNotifications(userId, [currentBudgetPeriod()]);
+      await checkBudgetNotifications(userId, [currentBudgetPeriod(userId)]);
       return res.json(setting);
     } catch (error) {
-      console.error('PUT notification settings error:', error);
+      console.error("PUT notification settings error:", error);
 
       return res.status(500).json({
-        error: 'ไม่สามารถบันทึกการตั้งค่าแจ้งเตือนได้',
+        error: "ไม่สามารถบันทึกการตั้งค่าแจ้งเตือนได้",
       });
     }
-  }
+  },
 );
 
 // ===== End Notification API =====
 
 function isValidBudgetPeriod(year: unknown, month: unknown) {
   return (
-    typeof year === 'number' &&
+    typeof year === "number" &&
     Number.isInteger(year) &&
     year >= 1900 &&
     year <= 9999 &&
-    typeof month === 'number' &&
+    typeof month === "number" &&
     Number.isInteger(month) &&
     month >= 1 &&
     month <= 12
   );
 }
 
-function getBudgetTimeline(year: number, month: number) {
-  // ใช้วันที่ประเทศไทย เพื่อให้วันเปลี่ยนตรงกับผู้ใช้
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Bangkok",
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-  }).formatToParts(new Date());
-
-  const getPart = (type: string) =>
-    Number(parts.find((part) => part.type === type)?.value);
-
-  const currentYear = getPart("year");
-  const currentMonth = getPart("month");
-  const currentDay = getPart("day");
-
-  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
-
-  const selectedPeriod = year * 12 + month;
-  const currentPeriod = currentYear * 12 + currentMonth;
-
-  const monthState =
-    selectedPeriod < currentPeriod
-      ? "past"
-      : selectedPeriod > currentPeriod
-        ? "future"
-        : "current";
-
-  const elapsedDays =
-    monthState === "past"
-      ? daysInMonth
-      : monthState === "future"
-        ? 0
-        : currentDay;
-
-  return {
-    monthState,
-    daysInMonth,
-    elapsedDays,
-    // ขอบเขตแบบไม่รวมวันนี้ + 1 เพื่อรวมรายการของวันนี้ทั้งหมด
-    expenseCutoff: new Date(Date.UTC(year, month - 1, elapsedDays + 1)),
-  };
-}
 
 app.get("/budget", authMiddleware, async (req: AuthRequest, res) => {
   try {
     const yearQuery = req.query.year;
     const monthQuery = req.query.month;
+    const current =
+      yearQuery === undefined && monthQuery === undefined
+        ? getCurrentCycle(req.user!.userId, bangkokToday())
+        : null;
 
     if (
-      typeof yearQuery !== "string" ||
-      typeof monthQuery !== "string" ||
-      !/^\d{4}$/.test(yearQuery) ||
-      !/^\d{1,2}$/.test(monthQuery)
+      !current &&
+      (typeof yearQuery !== "string" ||
+        typeof monthQuery !== "string" ||
+        !/^\d{4}$/.test(yearQuery) ||
+        !/^\d{1,2}$/.test(monthQuery))
     ) {
       return res.status(400).json({
         message: "กรุณาระบุปีและเดือนให้ถูกต้อง",
       });
     }
 
-    const year = Number(yearQuery);
-    const month = Number(monthQuery);
+    const year = current?.year ?? Number(yearQuery);
+    const month = current?.month ?? Number(monthQuery);
 
     if (!isValidBudgetPeriod(year, month)) {
       return res.status(400).json({
@@ -1610,9 +1728,8 @@ app.get("/budget", authMiddleware, async (req: AuthRequest, res) => {
       });
     }
 
-    const startDate = new Date(Date.UTC(year, month - 1, 1));
-    const nextMonth = new Date(Date.UTC(year, month, 1));
-    const timeline = getBudgetTimeline(year, month);
+    const timeline = getBudgetTimeline(userId, year, month);
+    const { start: startDate, end: nextMonth } = cycleBounds(timeline.cycle);
 
     const [budget, monthlyExpenses, expensesToDate] = await Promise.all([
       prisma.budget.findUnique({
@@ -1653,23 +1770,24 @@ app.get("/budget", authMiddleware, async (req: AuthRequest, res) => {
       : null;
 
     const monthlyExpenseSatang = Math.round(
-      Number(monthlyExpenses._sum.amount ?? 0) * 100
+      Number(monthlyExpenses._sum.amount ?? 0) * 100,
     );
 
     const expenseToDateSatang = Math.round(
-      Number(expensesToDate._sum.amount ?? 0) * 100
+      Number(expensesToDate._sum.amount ?? 0) * 100,
     );
 
     const remainingSatang =
-      budgetSatang === null
-        ? null
-        : budgetSatang - monthlyExpenseSatang;
+      budgetSatang === null ? null : budgetSatang - monthlyExpenseSatang;
 
     const usedPercentage =
       budgetSatang === null || budgetSatang <= 0
         ? null
-        : new Prisma.Decimal(monthlyExpenseSatang).div(budgetSatang).mul(100)
-            .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP).toNumber();
+        : new Prisma.Decimal(monthlyExpenseSatang)
+            .div(budgetSatang)
+            .mul(100)
+            .toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP)
+            .toNumber();
 
     const status =
       budgetSatang === null
@@ -1684,7 +1802,7 @@ app.get("/budget", authMiddleware, async (req: AuthRequest, res) => {
       budgetSatang === null
         ? null
         : Math.round(
-            (budgetSatang * timeline.elapsedDays) / timeline.daysInMonth
+            (budgetSatang * timeline.elapsedDays) / timeline.daysInMonth,
           );
 
     // บวก = ใช้เกินแผน, ลบ = ใช้น้อยกว่าแผน
@@ -1724,8 +1842,7 @@ app.get("/budget", authMiddleware, async (req: AuthRequest, res) => {
         plannedExpenseToDate:
           plannedSatang === null ? null : plannedSatang / 100,
         actualExpenseToDate: expenseToDateSatang / 100,
-        deviation:
-          deviationSatang === null ? null : deviationSatang / 100,
+        deviation: deviationSatang === null ? null : deviationSatang / 100,
         paceStatus,
       },
     });
@@ -1738,383 +1855,358 @@ app.get("/budget", authMiddleware, async (req: AuthRequest, res) => {
   }
 });
 
-app.put(
-  '/budget',
-  authMiddleware,
-  async (req: AuthRequest, res) => {
-    try {
-      const userId = req.user!.userId;
-      const { year, month, amount } = req.body ?? {};
+app.put("/budget", authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user!.userId;
+    const { year, month, amount } = req.body ?? {};
 
-      if (!isValidBudgetPeriod(year, month)) {
-        return res.status(400).json({
-          error: 'กรุณาส่งปี ค.ศ. และเดือนเป็นตัวเลขที่ถูกต้อง',
-        });
-      }
-
-      if (
-        typeof amount !== 'number' &&
-        typeof amount !== 'string'
-      ) {
-        return res.status(400).json({
-          error: 'กรุณาระบุจำนวนเงินงบประมาณ',
-        });
-      }
-
-      const amountText = String(amount).trim();
-
-      // รองรับจำนวนเต็มสูงสุด 10 หลัก และทศนิยมไม่เกิน 2 ตำแหน่ง
-      if (!/^\d{1,10}(\.\d{1,2})?$/.test(amountText)) {
-        return res.status(400).json({
-          error: 'จำนวนเงินต้องเป็นตัวเลข ทศนิยมไม่เกิน 2 ตำแหน่ง',
-        });
-      }
-
-      const amountNumber = Number(amountText);
-
-      if (
-        !Number.isFinite(amountNumber) ||
-        amountNumber <= 0 ||
-        amountNumber > 9999999999.99
-      ) {
-        return res.status(400).json({
-          error: 'งบต้องมากกว่า 0 และไม่เกิน 9,999,999,999.99 บาท',
-        });
-      }
-
-      const user = await prisma.user.findFirst({
-        where: {
-          id: userId,
-          deletedAt: null,
-        },
-        select: {
-          id: true,
-        },
+    if (!isValidBudgetPeriod(year, month)) {
+      return res.status(400).json({
+        error: "กรุณาส่งปี ค.ศ. และเดือนเป็นตัวเลขที่ถูกต้อง",
       });
+    }
 
-      if (!user) {
-        return res.status(404).json({
-          error: 'ไม่พบบัญชีผู้ใช้',
-        });
-      }
+    if (typeof amount !== "number" && typeof amount !== "string") {
+      return res.status(400).json({
+        error: "กรุณาระบุจำนวนเงินงบประมาณ",
+      });
+    }
 
-      const budget = await prisma.budget.upsert({
-        where: {
-          userId_year_month: {
-            userId,
-            year,
-            month,
-          },
-        },
-        create: {
+    const amountText = String(amount).trim();
+
+    // รองรับจำนวนเต็มสูงสุด 10 หลัก และทศนิยมไม่เกิน 2 ตำแหน่ง
+    if (!/^\d{1,10}(\.\d{1,2})?$/.test(amountText)) {
+      return res.status(400).json({
+        error: "จำนวนเงินต้องเป็นตัวเลข ทศนิยมไม่เกิน 2 ตำแหน่ง",
+      });
+    }
+
+    const amountNumber = Number(amountText);
+
+    if (
+      !Number.isFinite(amountNumber) ||
+      amountNumber <= 0 ||
+      amountNumber > 9999999999.99
+    ) {
+      return res.status(400).json({
+        error: "งบต้องมากกว่า 0 และไม่เกิน 9,999,999,999.99 บาท",
+      });
+    }
+
+    const user = await prisma.user.findFirst({
+      where: {
+        id: userId,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: "ไม่พบบัญชีผู้ใช้",
+      });
+    }
+
+    const budget = await prisma.budget.upsert({
+      where: {
+        userId_year_month: {
           userId,
           year,
           month,
-          amount: amountText,
         },
-        update: {
-          amount: amountText,
-        },
-      });
-
-      await checkBudgetNotifications(userId, [{ year, month }]);
-      return res.json({
-        message: 'บันทึกงบประมาณเรียบร้อยแล้ว',
-        year: budget.year,
-        month: budget.month,
-        budgetAmount: Number(budget.amount),
-      });
-    } catch (error) {
-      console.error('PUT BUDGET ERROR:', error);
-
-      return res.status(500).json({
-        error: 'ไม่สามารถบันทึกงบประมาณได้',
-      });
-    }
-  }
-);
-
-app.get(
-  "/overview/weekly",
-  authMiddleware,
-  async (req: AuthRequest, res) => {
-    try {
-      const DAY_MS = 24 * 60 * 60 * 1000;
-
-      function parseDate(value: unknown): Date | null {
-        if (
-          typeof value !== "string" ||
-          !/^\d{4}-\d{2}-\d{2}$/.test(value)
-        ) {
-          return null;
-        }
-
-        const year = Number(value.slice(0, 4));
-
-        if (year < 1900 || year > 9999) {
-          return null;
-        }
-
-        const date = new Date(`${value}T00:00:00.000Z`);
-
-        if (
-          Number.isNaN(date.getTime()) ||
-          date.toISOString().slice(0, 10) !== value
-        ) {
-          return null;
-        }
-
-        return date;
-      }
-
-      function formatDate(date: Date) {
-        return date.toISOString().slice(0, 10);
-      }
-
-      let startDate: Date;
-      let endDate: Date;
-
-      // เก็บไว้เพื่อรองรับ Frontend แบบเลือกเดือนเดิม
-      let year: number | null = null;
-      let month: number | null = null;
-
-      const hasDateRange =
-        req.query.startDate !== undefined ||
-        req.query.endDate !== undefined;
-
-      if (hasDateRange) {
-        const parsedStart = parseDate(req.query.startDate);
-        const parsedEnd = parseDate(req.query.endDate);
-
-        if (!parsedStart || !parsedEnd) {
-          return res.status(400).json({
-            message:
-              "กรุณาระบุ startDate และ endDate เป็นวันที่จริงในรูปแบบ YYYY-MM-DD",
-          });
-        }
-
-        startDate = parsedStart;
-        endDate = parsedEnd;
-      } else {
-        const yearQuery = req.query.year;
-        const monthQuery = req.query.month;
-
-        if (
-          typeof yearQuery !== "string" ||
-          typeof monthQuery !== "string" ||
-          !/^\d{4}$/.test(yearQuery) ||
-          !/^\d{1,2}$/.test(monthQuery)
-        ) {
-          return res.status(400).json({
-            message: "กรุณาระบุช่วงวันที่ หรือปีและเดือนให้ถูกต้อง",
-          });
-        }
-
-        year = Number(yearQuery);
-        month = Number(monthQuery);
-
-        if (!isValidBudgetPeriod(year, month)) {
-          return res.status(400).json({
-            message: "ปีหรือเดือนไม่ถูกต้อง",
-          });
-        }
-
-        startDate = new Date(Date.UTC(year, month - 1, 1));
-        endDate = new Date(Date.UTC(year, month, 0));
-      }
-
-      if (startDate > endDate) {
-        return res.status(400).json({
-          message: "วันเริ่มต้นต้องไม่อยู่หลังวันสิ้นสุด",
-        });
-      }
-
-      const dayCount =
-        Math.round(
-          (endDate.getTime() - startDate.getTime()) / DAY_MS
-        ) + 1;
-
-      // ขอบเขตสำหรับ API รายสัปดาห์รอบนี้
-      if (dayCount > 366) {
-        return res.status(400).json({
-          message: "กรุณาเลือกช่วงเวลาไม่เกิน 366 วัน",
-        });
-      }
-
-      const userId = req.user!.userId;
-
-      const user = await prisma.user.findFirst({
-        where: {
-          id: userId,
-          deletedAt: null,
-        },
-        select: { id: true },
-      });
-
-      if (!user) {
-        return res.status(404).json({
-          message: "ไม่พบผู้ใช้",
-        });
-      }
-
-      const endExclusive = new Date(endDate.getTime() + DAY_MS);
-
-      const transactions = await prisma.transaction.findMany({
-        where: {
-          userId,
-          type: "expense",
-          transactionDate: {
-            gte: startDate,
-            lt: endExclusive,
-          },
-        },
-        select: {
-          amount: true,
-          transactionDate: true,
-          categoryId: true,
-          category: {
-            select: { name: true },
-          },
-        },
-      });
-
-      type CategoryBucket = {
-        categoryId: string;
-        name: string;
-        totalSatang: number;
-        transactionCount: number;
-      };
-
-      type WeekBucket = {
-        weekNumber: number;
-        start: Date;
-        end: Date;
-        totalSatang: number;
-        transactionCount: number;
-        categories: Map<string, CategoryBucket>;
-      };
-
-      const weeks: WeekBucket[] = [];
-      let cursor = new Date(startDate.getTime());
-
-      // แบ่งจันทร์–อาทิตย์ โดยตัดขอบตามช่วงที่เลือก
-      while (cursor <= endDate) {
-        const daysUntilSunday = (7 - cursor.getUTCDay()) % 7;
-
-        const weekEnd = new Date(
-          Math.min(
-            cursor.getTime() + daysUntilSunday * DAY_MS,
-            endDate.getTime()
-          )
-        );
-
-        weeks.push({
-          weekNumber: weeks.length + 1,
-          start: new Date(cursor.getTime()),
-          end: weekEnd,
-          totalSatang: 0,
-          transactionCount: 0,
-          categories: new Map(),
-        });
-
-        cursor = new Date(weekEnd.getTime() + DAY_MS);
-      }
-
-      for (const transaction of transactions) {
-        const timestamp = transaction.transactionDate.getTime();
-
-        const week = weeks.find(
-          (item) =>
-            timestamp >= item.start.getTime() &&
-            timestamp < item.end.getTime() + DAY_MS
-        );
-
-        if (!week) continue;
-
-        const satang = Math.round(
-          Number(transaction.amount) * 100
-        );
-
-        week.totalSatang += satang;
-        week.transactionCount += 1;
-
-        const existing = week.categories.get(
-          transaction.categoryId
-        );
-
-        if (existing) {
-          existing.totalSatang += satang;
-          existing.transactionCount += 1;
-        } else {
-          week.categories.set(transaction.categoryId, {
-            categoryId: transaction.categoryId,
-            name: transaction.category.name,
-            totalSatang: satang,
-            transactionCount: 1,
-          });
-        }
-      }
-
-      const totalSatang = weeks.reduce(
-        (sum, week) => sum + week.totalSatang,
-        0
-      );
-
-      return res.json({
+      },
+      create: {
+        userId,
         year,
         month,
-        period: {
-          startDate: formatDate(startDate),
-          endDate: formatDate(endDate),
-          dayCount,
-        },
-        weekStartsOn: "monday",
-        totalExpense: totalSatang / 100,
-        transactionCount: transactions.length,
+        amount: amountText,
+      },
+      update: {
+        amount: amountText,
+      },
+    });
 
-        weeks: weeks.map((week) => ({
-          weekNumber: week.weekNumber,
-          startDate: formatDate(week.start),
-          endDate: formatDate(week.end),
-          dayCount:
-            Math.round(
-              (week.end.getTime() - week.start.getTime()) / DAY_MS
-            ) + 1,
-          totalExpense: week.totalSatang / 100,
-          transactionCount: week.transactionCount,
+    await checkBudgetNotifications(userId, [{ year, month }]);
+    return res.json({
+      message: "บันทึกงบประมาณเรียบร้อยแล้ว",
+      year: budget.year,
+      month: budget.month,
+      budgetAmount: Number(budget.amount),
+    });
+  } catch (error) {
+    console.error("PUT BUDGET ERROR:", error);
 
-          categories: Array.from(week.categories.values())
-            .sort(
-              (a, b) =>
-                b.totalSatang - a.totalSatang ||
-                a.categoryId.localeCompare(b.categoryId)
-            )
-            .map((category) => ({
-              categoryId: category.categoryId,
-              name: category.name,
-              amount: category.totalSatang / 100,
-              transactionCount: category.transactionCount,
-            })),
-        })),
-      });
-    } catch (error) {
-      console.error("GET /overview/weekly error:", error);
+    return res.status(500).json({
+      error: "ไม่สามารถบันทึกงบประมาณได้",
+    });
+  }
+});
 
-      return res.status(500).json({
-        message: "ไม่สามารถโหลดสรุปรายจ่ายรายสัปดาห์ได้",
+app.get("/overview/weekly", authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const DAY_MS = 24 * 60 * 60 * 1000;
+
+    function parseDate(value: unknown): Date | null {
+      if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return null;
+      }
+
+      const year = Number(value.slice(0, 4));
+
+      if (year < 1900 || year > 9999) {
+        return null;
+      }
+
+      const date = new Date(`${value}T00:00:00.000Z`);
+
+      if (
+        Number.isNaN(date.getTime()) ||
+        date.toISOString().slice(0, 10) !== value
+      ) {
+        return null;
+      }
+
+      return date;
+    }
+
+    function formatDate(date: Date) {
+      return date.toISOString().slice(0, 10);
+    }
+
+    let startDate: Date;
+    let endDate: Date;
+
+    // เก็บไว้เพื่อรองรับ Frontend แบบเลือกเดือนเดิม
+    let year: number | null = null;
+    let month: number | null = null;
+
+    const hasDateRange =
+      req.query.startDate !== undefined || req.query.endDate !== undefined;
+
+    if (hasDateRange) {
+      const parsedStart = parseDate(req.query.startDate);
+      const parsedEnd = parseDate(req.query.endDate);
+
+      if (!parsedStart || !parsedEnd) {
+        return res.status(400).json({
+          message:
+            "กรุณาระบุ startDate และ endDate เป็นวันที่จริงในรูปแบบ YYYY-MM-DD",
+        });
+      }
+
+      startDate = parsedStart;
+      endDate = parsedEnd;
+    } else {
+      const yearQuery = req.query.year;
+      const monthQuery = req.query.month;
+
+      if (
+        typeof yearQuery !== "string" ||
+        typeof monthQuery !== "string" ||
+        !/^\d{4}$/.test(yearQuery) ||
+        !/^\d{1,2}$/.test(monthQuery)
+      ) {
+        return res.status(400).json({
+          message: "กรุณาระบุช่วงวันที่ หรือปีและเดือนให้ถูกต้อง",
+        });
+      }
+
+      year = Number(yearQuery);
+      month = Number(monthQuery);
+
+      if (!isValidBudgetPeriod(year, month)) {
+        return res.status(400).json({
+          message: "ปีหรือเดือนไม่ถูกต้อง",
+        });
+      }
+
+      const cycle = cycleByPeriod(req.user!.userId, year, month);
+      startDate = utcDate(cycle.startDate);
+      endDate = utcDate(cycle.endDate);
+    }
+
+    if (startDate > endDate) {
+      return res.status(400).json({
+        message: "วันเริ่มต้นต้องไม่อยู่หลังวันสิ้นสุด",
       });
     }
+
+    const dayCount =
+      Math.round((endDate.getTime() - startDate.getTime()) / DAY_MS) + 1;
+
+    // ขอบเขตสำหรับ API รายสัปดาห์รอบนี้
+    if (dayCount > 366) {
+      return res.status(400).json({
+        message: "กรุณาเลือกช่วงเวลาไม่เกิน 366 วัน",
+      });
+    }
+
+    const userId = req.user!.userId;
+
+    const user = await prisma.user.findFirst({
+      where: {
+        id: userId,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        message: "ไม่พบผู้ใช้",
+      });
+    }
+
+    const endExclusive = new Date(endDate.getTime() + DAY_MS);
+
+    const transactions = await prisma.transaction.findMany({
+      where: {
+        userId,
+        type: "expense",
+        transactionDate: {
+          gte: startDate,
+          lt: endExclusive,
+        },
+      },
+      select: {
+        amount: true,
+        transactionDate: true,
+        categoryId: true,
+        category: {
+          select: { name: true },
+        },
+      },
+    });
+
+    type CategoryBucket = {
+      categoryId: string;
+      name: string;
+      totalSatang: number;
+      transactionCount: number;
+    };
+
+    type WeekBucket = {
+      weekNumber: number;
+      start: Date;
+      end: Date;
+      totalSatang: number;
+      transactionCount: number;
+      categories: Map<string, CategoryBucket>;
+    };
+
+    const weeks: WeekBucket[] = [];
+    let cursor = new Date(startDate.getTime());
+
+    // แบ่งจันทร์–อาทิตย์ โดยตัดขอบตามช่วงที่เลือก
+    while (cursor <= endDate) {
+      const daysUntilSunday = (7 - cursor.getUTCDay()) % 7;
+
+      const weekEnd = new Date(
+        Math.min(
+          cursor.getTime() + daysUntilSunday * DAY_MS,
+          endDate.getTime(),
+        ),
+      );
+
+      weeks.push({
+        weekNumber: weeks.length + 1,
+        start: new Date(cursor.getTime()),
+        end: weekEnd,
+        totalSatang: 0,
+        transactionCount: 0,
+        categories: new Map(),
+      });
+
+      cursor = new Date(weekEnd.getTime() + DAY_MS);
+    }
+
+    for (const transaction of transactions) {
+      const timestamp = transaction.transactionDate.getTime();
+
+      const week = weeks.find(
+        (item) =>
+          timestamp >= item.start.getTime() &&
+          timestamp < item.end.getTime() + DAY_MS,
+      );
+
+      if (!week) continue;
+
+      const satang = Math.round(Number(transaction.amount) * 100);
+
+      week.totalSatang += satang;
+      week.transactionCount += 1;
+
+      const existing = week.categories.get(transaction.categoryId);
+
+      if (existing) {
+        existing.totalSatang += satang;
+        existing.transactionCount += 1;
+      } else {
+        week.categories.set(transaction.categoryId, {
+          categoryId: transaction.categoryId,
+          name: transaction.category.name,
+          totalSatang: satang,
+          transactionCount: 1,
+        });
+      }
+    }
+
+    const totalSatang = weeks.reduce((sum, week) => sum + week.totalSatang, 0);
+
+    return res.json({
+      year,
+      month,
+      period: {
+        startDate: formatDate(startDate),
+        endDate: formatDate(endDate),
+        dayCount,
+      },
+      weekStartsOn: "monday",
+      totalExpense: totalSatang / 100,
+      transactionCount: transactions.length,
+
+      weeks: weeks.map((week) => ({
+        weekNumber: week.weekNumber,
+        startDate: formatDate(week.start),
+        endDate: formatDate(week.end),
+        dayCount:
+          Math.round((week.end.getTime() - week.start.getTime()) / DAY_MS) + 1,
+        totalExpense: week.totalSatang / 100,
+        transactionCount: week.transactionCount,
+
+        categories: Array.from(week.categories.values())
+          .sort(
+            (a, b) =>
+              b.totalSatang - a.totalSatang ||
+              a.categoryId.localeCompare(b.categoryId),
+          )
+          .map((category) => ({
+            categoryId: category.categoryId,
+            name: category.name,
+            amount: category.totalSatang / 100,
+            transactionCount: category.transactionCount,
+          })),
+      })),
+    });
+  } catch (error) {
+    console.error("GET /overview/weekly error:", error);
+
+    return res.status(500).json({
+      message: "ไม่สามารถโหลดสรุปรายจ่ายรายสัปดาห์ได้",
+    });
   }
-);
+});
 
 export { app };
 
 if (require.main === module) {
   const PORT = Number(process.env.PORT) || 4000;
-  const server = app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
-  server.on('error', (error) => {
-    console.error('Server error:', error);
+  server.on("error", (error) => {
+    console.error("Server error:", error);
   });
 }

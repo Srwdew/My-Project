@@ -32,13 +32,13 @@ test('All total labels, currencies, multiline and excluded tender/tax',()=>{
  for(const value of ['1,23.45','12.345','100.00 200.00'])assert.equal(parseReceipt('TOTAL '+value).fields.amount,null);
 });
 test('Conflicting totals remain blank with labeled choices; repeated totals agree',()=>{
- const r=parseReceipt('TOTAL 107.00\nBALANCE DUE 57.00\nยอดรวม 107.00');
- assert.equal(r.fields.amount,null);assert.deepEqual(r.amountCandidates.map(c=>c.value),['107.00','57.00','107.00']);
+ const r=parseReceipt('BALANCE DUE 57.00\nยอดรวม 107.00');
+ assert.equal(r.fields.amount,null);assert.deepEqual(r.amountCandidates.map(c=>c.value),['57.00','107.00']);
  assert.equal(parseReceipt('TOTAL 107.00\nยอดรวม 107.00').fields.amount,'107.00');
 });
-test('Numeric date ambiguity is not guessed',()=>{
- assert.equal(parseReceipt('03/04/2025').fields.transactionDate,null);
- assert.equal(parseReceipt('03/04/2568').fields.transactionDate,null);
+test('Numeric dates are day-first (Thai), month-first only when day-first is impossible',()=>{
+ assert.equal(parseReceipt('03/04/2025').fields.transactionDate,'2025-04-03');
+ assert.equal(parseReceipt('05/10/2569').fields.transactionDate,'2026-10-05');
  assert.equal(parseReceipt('12/31/2025').fields.transactionDate,'2025-12-31');
  assert.equal(parseReceipt('31/12/2025').fields.transactionDate,'2025-12-31');
  assert.equal(parseReceipt('2025-04-03').fields.transactionDate,'2025-04-03');
@@ -121,11 +121,12 @@ test('7-Eleven redacted structure: pre-discount total, net quantity, savings and
  assert.equal(parseReceipt('CP ALL,7-Eleven\nร้านค้า: ร้านอื่น').fields.description,null);
 });
 
-test('7-Eleven dates: only unambiguous Buddhist calendar evidence is converted',()=>{
+test('7-Eleven dates: day-first Buddhist dates; invalid or conflicting dates stay empty',()=>{
  for(const text of ['13/10/2565','13 ต.ค. 2565','13 ต.ค. 65','๑๓ ต.ค. ๒๕๖๕','13/10/65']){
   assert.equal(parseReceipt('CP ALL,7-Eleven\n'+text+' 18:08').fields.transactionDate,'2022-10-13');
  }
- for(const text of ['05/10/2565','31/02/2565','05/10/2565\n06/10/2565']){
+ assert.equal(parseReceipt('CP ALL,7-Eleven\n05/10/2565').fields.transactionDate,'2022-10-05');
+ for(const text of ['31/02/2565','05/10/2565\n06/10/2565']){
   assert.equal(parseReceipt('CP ALL,7-Eleven\n'+text).fields.transactionDate,null,text);
  }
 });
@@ -162,11 +163,17 @@ test('English Total is allowed only with no discount or competing subtotal; Purs
  const ref='R#000000001 P1:0000001 09/04/59 16:12';
  const r=parseReceipt(header+'\nTotal (7) 155.00\nCash/Change 10,000.00 9,845.00\n'+ref+'\nรับสิทธิแลกซื้อ\nTotal 999.00\nหมดเขต 25 เม.ย. 59');
  assert.equal(r.fields.amount,'155.00');assert.equal(r.fields.transactionDate,'2016-04-09');
- for(const text of ['Sub Total 74.00\nส่วนลด 4.00\nTotal (6) 70.00\nPurse 66.00\nCash/Change 5.00 1.00','Sub Total 74.00\nTotal (6) 70.00','Total (6) 70.00\nDiscount 4.00','Purse 210.00','Total (7) 155.00\nTotal (7) 156.00','Total (7) 155.00 100.00']){
+ // Discounted Total is accepted only when Sub Total − discounts adds up exactly; Purse is still ignored.
+ assert.equal(parseReceipt(header+'\nSub Total 74.00\n1 ส่วนลดสโมกกี้ไบท์ ชีสไบท์ 4.00\nTotal (6) 70.00\nPurse 66.00\nCash/Change 5.00 1.00\n'+ref).fields.amount,'70.00');
+ assert.equal(parseReceipt(header+'\nSub Total 224.00\n2 ส่วนลดโยเกิร์ตเมจิ 4.00\n1 ส่วนลด10บ.สบู่เบนเนทส้ม 10.00\nTotal (42) 210.00\nPurse 210.00\n'+ref).fields.amount,'210.00');
+ for(const text of ['Sub Total 74.00\nส่วนลด 5.00\nTotal (6) 70.00','Sub Total 74.00\nส่วนลด\nTotal (6) 70.00','Sub Total 74.00\nTotal (6) 70.00','Total (6) 70.00\nDiscount 4.00','Purse 210.00','Total (7) 155.00\nTotal (7) 156.00','Total (7) 155.00 100.00']){
   assert.equal(parseReceipt(header+'\n'+text+'\n'+ref).fields.amount,null);
  }
  const cropped=parseReceipt('VAT Included\nSub Total 224.00\nส่วนลด 14.00\nTotal (42) 210.00\nPurse 210.00\nR#000000001 P1:0000001 11/11/56 18:03');
  assert.equal(cropped.fields.description,null);assert.equal(cropped.fields.transactionDate,null);assert.equal(cropped.fields.amount,null);
+ // A cropped header is still identified by CP ALL's tax ID line.
+ const taxed=parseReceipt('TAX#0107542000011(VAT Included)\nVat 05634 POS# :0200176\nSub Total 224.00\n2 ส่วนลดโยเกิร์ตเมจิ 4.00\n1 ส่วนลด10บ.สบู่เบนเนทส้ม 10.00\nTotal (42) 210.00\nPurse 210.00\nR#0000872886 P1:0453397 11/11/56 18:03');
+ assert.equal(taxed.fields.amount,'210.00');assert.equal(taxed.fields.transactionDate,'2013-11-11');assert.equal(taxed.fields.transactionTime,'18:03');
 });
 
 
@@ -187,7 +194,7 @@ test('MyMo PromptPay: labeled amount, Buddhist date and recipient; no fee/refere
  assert.equal(parseReceipt(text.replace('จำนวนเงิน\n','')).fields.amount,null);
  assert.equal(parseReceipt(text.replace('20.00','')).fields.amount,null);
  assert.equal(parseReceipt(text+'\nยอดโอน 30.00').fields.amount,null);
- assert.equal(parseReceipt(text.replace('12 ต.ค. 2569','03/04/2569')).fields.transactionDate,null);
+ assert.equal(parseReceipt(text.replace('12 ต.ค. 2569','03/04/2569')).fields.transactionDate,'2026-04-03');
  assert.equal(parseReceipt(text.replace('รายการโอนเงินพร้อมเพย์สำเร็จ','รายการไม่สำเร็จ')).suggestedPaymentMethod,null);
  assert.equal(parseReceipt('myMo by GSB\n20.00\n0.00 ค่าธรรมเนียม').suggestedPaymentMethod,null);
 });
@@ -198,4 +205,28 @@ test('Actual MyMo date OCR: month/year without whitespace remains unambiguous',(
  }
  assert.equal(parseReceipt('31 ก.พ.2569 15:58').fields.transactionDate,null);
  assert.equal(parseReceipt('12 ต.ค.2569\n13 ต.ค.2569').fields.transactionDate,null);
+});
+
+test('Full Thai month names and unlabeled currency amounts',()=>{
+ assert.equal(parseReceipt('24 ตุลาคม 2569 14:22 น.').fields.transactionDate,'2026-10-24');
+ assert.equal(parseReceipt('2 กุมภาพันธ์ 68').fields.transactionDate,'2025-02-02');
+ assert.equal(parseReceipt('โอนเงินสำเร็จ\n1,250.00 บาท\nค่าธรรมเนียม 0.00 บาท').fields.amount,'1250.00');
+ assert.equal(parseReceipt('฿ 89.50').fields.amount,'89.50');
+ // Two different unlabeled values or a labeled section stay unresolved.
+ assert.equal(parseReceipt('100.00 บาท\n200.00 บาท').fields.amount,null);
+ assert.equal(parseReceipt('จำนวน:\n7,.403.00 บาท').fields.amount,null);
+ assert.equal(parseReceipt('ยอดเงินคงเหลือ 888.00 บาท').fields.amount,null);
+});
+test('12-hour AM/PM times convert to 24-hour',()=>{
+ for(const [text,expected] of [['เวลา 1:05 PM','13:05'],['Time 12:30 AM','00:30'],['12:15 pm','12:15'],['09:40 a.m.','09:40'],['11:59PM','23:59'],['8:05 น.','08:05']] as const)
+  assert.equal(parseReceipt(text).fields.transactionTime,expected,text);
+ assert.equal(parseReceipt('13:05 PM').fields.transactionTime,null);
+});
+test('Any line naming a total is the amount and outranks other amount labels',()=>{
+ for(const text of ['Order Total: 120.00','Total amount 120.00 THB','Net Total 120.00','Total\n120.00','TOTAL 120.00\nAMOUNT 80.00'])
+  assert.equal(parseReceipt(text).fields.amount,'120.00',text);
+ assert.equal(parseReceipt('TOTAL 107.00\nBALANCE DUE 57.00\nยอดรวม 107.00').fields.amount,'107.00');
+ // Subtotals and tendered cash are still not totals; disagreeing totals stay blank.
+ for(const text of ['Sub Total 100.00','SUBTOTAL 100.00','TOTAL PAID 200.00','TOTAL 100.00\nGrand Total 120.00'])
+  assert.equal(parseReceipt(text).fields.amount,null,text);
 });

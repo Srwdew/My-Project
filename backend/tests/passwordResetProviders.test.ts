@@ -63,3 +63,8 @@ test('SMTP TLS, validation, one send, no retries/fallback; errors redacted',asyn
  }
  assert.throws(()=>configuredMailer({...env,PASSWORD_RESET_MAIL_PROVIDER:'smtp',SMTP_HOST:'smtp.example.test',SMTP_PORT:'25',SMTP_USER:'synthetic',SMTP_PASSWORD:'synthetic'}));
 });
+test('development sends externally only with explicit PASSWORD_RESET_MODE=dev-mail',()=>{
+ assert.throws(()=>configuredMailer({...env,NODE_ENV:'development'}));
+ assert.throws(()=>configuredMailer({...env,NODE_ENV:'development',PASSWORD_RESET_MODE:'local-test'}));
+ assert.equal(typeof configuredMailer({...env,NODE_ENV:'development',PASSWORD_RESET_MODE:'dev-mail'}).send,'function');
+});

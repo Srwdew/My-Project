@@ -2,12 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { lastCompletedMonth, goalFeasibility } from '../src/lib/goalFeasibility';
 import { calculateGoal } from '../src/lib/goalCalculations';
-const period=lastCompletedMonth('2026-10-08');
+const period=lastCompletedMonth('u','2026-10-08');
 test('reference month is complete, handles January and leap year',()=>{
- assert.deepEqual(lastCompletedMonth('2026-01-01'),{month:'2025-12',startDate:'2025-12-01',endDate:'2025-12-31'});
- assert.equal(lastCompletedMonth('2024-03-31').endDate,'2024-02-29');
- assert.equal(lastCompletedMonth('2025-03-01').endDate,'2025-02-28');
- assert.deepEqual(lastCompletedMonth('2026-10-31'),period);
+ assert.deepEqual(lastCompletedMonth('u','2026-01-01'),{month:'2025-12',startDate:'2025-12-01',endDate:'2025-12-31'});
+ assert.equal(lastCompletedMonth('u','2024-03-31').endDate,'2024-02-29');
+ assert.equal(lastCompletedMonth('u','2025-03-01').endDate,'2025-02-28');
+ assert.deepEqual(lastCompletedMonth('u','2026-10-31'),period);
 });
 test('feasibility comparison is informational and does not replace required monthly formula',()=>{
  const goal={targetAmount:'100',targetDate:new Date('2026-12-31'),plannedMonthlyAmount:null,archivedAt:null};

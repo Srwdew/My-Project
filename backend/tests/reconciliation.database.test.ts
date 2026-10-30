@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken';
 import { Prisma } from '@prisma/client';
 import { app } from '../src/index';
 import { prisma } from '../src/lib/prisma';
+import { ensureDefaultCategories } from '../src/lib/defaultCategories';
 
 const cents = (value: unknown): bigint => {
   const [whole, fraction = ''] = String(value).split('.');
@@ -43,9 +44,12 @@ test('PostgreSQL HTTP reconciliation against independent integer-satang totals',
       redirect(prisma, '$transaction', (arg: any) => Array.isArray(arg) ? Promise.all(arg) : arg(tx));
       redirect(prisma, '$executeRaw', tx.$executeRaw.bind(tx));
       const existingUsers = await tx.user.findMany({ where: { deletedAt: null }, select: { id: true, email: true, authVersion: true } });
-      const expenseA = await tx.category.create({ data: { name: `reconciliation-a-${randomUUID()}`, type: 'expense' } });
-      const expenseB = await tx.category.create({ data: { name: `reconciliation-b-${randomUUID()}`, type: 'expense' } });
-      const incomeCategory = await tx.category.create({ data: { name: `reconciliation-income-${randomUUID()}`, type: 'income' } });
+      // /budget/categories lists only the default catalog (others fold into "อื่นๆ"), so use real default rows.
+      await ensureDefaultCategories(tx);
+      const catalog = (name: string, type: 'expense' | 'income') => tx.category.findUniqueOrThrow({ where: { name_type: { name, type } } });
+      const expenseA = await catalog('การเดินทาง', 'expense');
+      const expenseB = await catalog('ช็อปปิ้ง', 'expense');
+      const incomeCategory = await catalog('เงินเดือน', 'income');
       async function account() {
         const user = await tx.user.create({ data: { email: `reconciliation-${randomUUID()}@example.invalid`, passwordHash: 'rollback-only-no-login' } });
         createdUserIds.push(user.id);
@@ -116,7 +120,9 @@ test('PostgreSQL HTTP reconciliation against independent integer-satang totals',
           const total = sum(monthly);
           assert.equal(cents(budget.totalExpense), total);
           assert.equal(sum(categories.items, 'expenseAmount'), total);
-          for (const item of categories.items) assert.equal(cents(item.expenseAmount), sum(monthly.filter(row => row.categoryId === item.categoryId)));
+          // Spending in hidden (non-default) categories is folded into "อื่นๆ", like the endpoint does.
+          const listed = new Set(categories.items.map((item: any) => item.categoryId));
+          for (const item of categories.items) assert.equal(cents(item.expenseAmount), sum(monthly.filter(row => row.categoryId === item.categoryId || (item.categoryName === 'อื่นๆ' && !listed.has(row.categoryId)))));
           const unbudgeted = categories.items.find((row: any) => row.categoryId === expenseB.id);
           assert.equal(unbudgeted.budgetAmount, null);
           const storedBudget = await tx.budget.findUnique({ where: { userId_year_month: { userId: user.id, year: year!, month: month! } } });

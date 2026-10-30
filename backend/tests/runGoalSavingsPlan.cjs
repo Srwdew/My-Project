@@ -18,6 +18,6 @@ const run=(cmd,args,options={})=>{const r=cp.spawnSync(cmd,args,{encoding:'utf8'
  const runNode=args=>{const r=cp.spawnSync(process.execPath,args,{env,stdio:'inherit',windowsHide:true});if(r.status!==0)throw Error('Test/build command failed');};
  runNode([require.resolve('prisma/build/index.js'),'migrate','deploy']);
  runNode([require.resolve('prisma/build/index.js'),'migrate','status']);
- runNode(['--import','tsx','--test','--test-concurrency=1','tests/goalSavingsPlan.test.ts','tests/goals.calculations.test.ts','tests/goalFeasibility.test.ts','tests/goalSavingsPlan.database.test.ts']);
+ runNode(['--import','tsx','--test','--test-concurrency=1','tests/goalSavingsPlan.test.ts','tests/goals.calculations.test.ts','tests/goalFeasibility.test.ts','tests/goalSavingsPlan.database.test.ts','tests/cycleDefaults.database.test.ts']);
  console.log('Synthetic test database retained; no UAT/application database accessed:',name);
 })().catch(e=>{console.error(e.message.includes('Command failed')?'Isolated command failed (connection details suppressed)':e.message);process.exitCode=1;});

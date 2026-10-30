@@ -24,9 +24,9 @@ for (const [spent, percent, exceeded, prior, expected] of [
 test('decimal precision, zero budget and Bangkok month boundary', () => {
   assert.equal(noticeType(D('0.07').plus('0.01'), D('0.10'), 80, true, false), 'budget_near_limit');
   assert.equal(noticeType(D(100), D(0), 80, true, false), null);
-  assert.deepEqual(currentBudgetPeriod(new Date('2026-09-30T16:59:59Z')), { year: 2026, month: 9 });
-  assert.deepEqual(currentBudgetPeriod(new Date('2026-09-30T17:00:00Z')), { year: 2026, month: 10 });
-  assert.deepEqual(transactionPeriod(new Date('2026-09-30T00:00:00Z')), { year: 2026, month: 9 });
+  assert.deepEqual(currentBudgetPeriod('u',new Date('2026-09-30T16:59:59Z')), { year: 2026, month: 9 });
+  assert.deepEqual(currentBudgetPeriod('u',new Date('2026-09-30T17:00:00Z')), { year: 2026, month: 10 });
+  assert.deepEqual(transactionPeriod('u',new Date('2026-09-30T00:00:00Z')), { year: 2026, month: 9 });
 });
 
 function fixture() {

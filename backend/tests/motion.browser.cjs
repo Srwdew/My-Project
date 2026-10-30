@@ -88,7 +88,7 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));const origin=process.env.SETTIN
  console.log('PASS API-gated budget success; no success before resolution or after error; accessible dismiss');
 
  await click('.user-header-notification');await waitFor("document.querySelectorAll('.notification-item').length===2");
- await click('.notification-item');await waitFor("location.pathname==='/anomaly'&&document.querySelector('.anomaly-readiness')");
+ await click('.notification-item');await waitFor("location.pathname==='/anomaly'&&document.querySelector('.anomaly-queue-count')");
  assert.equal(await evaluate("!document.querySelector('.notification-dialog')"),true);
  await evaluate("document.querySelector('a[href=\"/overview\"]').click()");await waitFor("document.querySelector('.dashboard-cards')");
  await click('.user-header-notification');await waitFor("document.querySelectorAll('.notification-item').length===2");
