@@ -10,6 +10,8 @@ import {
 } from "../lib/pendingTransaction";
 import {
   batchRowProblems,
+  duplicateCheckDates,
+  duplicateCheckPath,
   findDuplicates,
   ocrDoubts,
   type BatchFields,
@@ -62,7 +64,7 @@ export default function ReceiptBatch({ files, session, categories, onClose }: Pr
       allowDuplicate: false,
     })),
   );
-  // A month stays "loading" or "failed" until its saved expenses are known; those rows are held back.
+  // A slip date stays "loading" or "failed" until its saved expenses are known; those rows are held back.
   const [existing, setExisting] = useState<
     Record<string, ExistingTransaction[] | "loading" | "failed">
   >({});
@@ -142,31 +144,33 @@ export default function ReceiptBatch({ files, session, categories, onClose }: Pr
   }, []);
 
   const today = getBangkokTodayKey();
-  const months = [
-    ...new Set(
-      rows
-        .map((r) => r.fields.transactionDate.slice(0, 7))
-        .filter((m) => /^\d{4}-\d{2}$/.test(m) && m <= today.slice(0, 7)),
-    ),
-  ].sort();
-  const missingMonths = months.filter((m) => !(m in existing)).join(",");
+  const missingDates = duplicateCheckDates(rows, today)
+    .filter((d) => !(d in existing))
+    .join(",");
   useEffect(() => {
-    if (!missingMonths) return;
-    for (const month of missingMonths.split(",")) {
-      setExisting((e) => ({ ...e, [month]: "loading" }));
-      apiFetch("/transactions?month=" + month)
-        .then((res) => {
-          if (!res.ok) throw Error("LOAD_FAILED");
-          return res.json();
-        })
-        .then((data: ExistingTransaction[]) => {
-          if (mounted.current) setExisting((e) => ({ ...e, [month]: data }));
-        })
-        .catch(() => {
-          if (mounted.current) setExisting((e) => ({ ...e, [month]: "failed" }));
-        });
-    }
-  }, [missingMonths]);
+    if (!missingDates) return;
+    const dates = missingDates.split(",");
+    const mark = (
+      value: (d: string) => ExistingTransaction[] | "loading" | "failed",
+    ) =>
+      setExisting((e) => ({
+        ...e,
+        ...Object.fromEntries(dates.map((d) => [d, value(d)])),
+      }));
+    mark(() => "loading");
+    apiFetch(duplicateCheckPath(dates))
+      .then((res) => {
+        if (!res.ok) throw Error("LOAD_FAILED");
+        return res.json();
+      })
+      .then((data: ExistingTransaction[]) => {
+        if (mounted.current)
+          mark((d) => data.filter((t) => t.transactionDate.slice(0, 10) === d));
+      })
+      .catch(() => {
+        if (mounted.current) mark(() => "failed");
+      });
+  }, [missingDates]);
 
   const duplicates = useMemo(
     () =>
@@ -182,17 +186,17 @@ export default function ReceiptBatch({ files, session, categories, onClose }: Pr
     const red =
       r.stage === "read" &&
       (problems.length > 0 || r.doubts.length > 0 || (!!r.saveError && !r.key));
-    const month = existing[r.fields.transactionDate.slice(0, 7)];
+    const day = existing[r.fields.transactionDate];
     const duplicate =
       r.stage !== "read"
         ? undefined
-        : month === "failed"
+        : day === "failed"
           ? "ตรวจรายการซ้ำกับที่บันทึกไว้ไม่ได้"
           : duplicates.get(r.id);
     const ready =
       r.stage === "read" &&
       !red &&
-      month !== "loading" &&
+      day !== "loading" &&
       !!r.fields.categoryId &&
       (!duplicate || r.allowDuplicate);
     return { row: r, problems, red, duplicate, ready };

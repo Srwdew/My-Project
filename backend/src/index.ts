@@ -339,6 +339,27 @@ app.get("/transactions", authMiddleware, async (req: AuthRequest, res) => {
       req.query.month === undefined
         ? null
         : dashboardPeriod(userId, req.query.month, bangkokToday());
+    // Exact calendar days for the receipt duplicate check; deliberately never goes through cycle.ts.
+    const rawDates = req.query.date;
+    const dates =
+      rawDates === undefined ? null : Array.isArray(rawDates) ? rawDates : [rawDates];
+    if (
+      dates &&
+      (req.query.month !== undefined ||
+        dates.length > 10 ||
+        new Set(dates).size !== dates.length ||
+        !dates.every(
+          (d) =>
+            typeof d === "string" &&
+            /^\d{4}-\d{2}-\d{2}$/.test(d) &&
+            !Number.isNaN(Date.parse(d + "T00:00:00Z")) &&
+            new Date(d + "T00:00:00Z").toISOString().slice(0, 10) === d,
+        ))
+    ) {
+      return res.status(400).json({
+        error: "date must be 1 to 10 distinct YYYY-MM-DD values and cannot be combined with month",
+      });
+    }
 
     const transactions = await prisma.transaction.findMany({
       ...(limit === undefined ? {} : { take: limit }),
@@ -349,6 +370,13 @@ app.get("/transactions", authMiddleware, async (req: AuthRequest, res) => {
               transactionDate: {
                 gte: new Date(monthPeriod.startDate + "T00:00:00Z"),
                 lte: new Date(monthPeriod.effectiveEndDate + "T00:00:00Z"),
+              },
+            }
+          : {}),
+        ...(dates
+          ? {
+              transactionDate: {
+                in: (dates as string[]).map((d) => new Date(d + "T00:00:00Z")),
               },
             }
           : {}),

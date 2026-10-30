@@ -47,3 +47,12 @@ export function findDuplicates(rows: { id: string; fields: BatchFields }[], exis
   });
   return found;
 }
+
+/** Distinct real slip dates up to today; the duplicate check asks for exactly these days, never a month or cycle. */
+export function duplicateCheckDates(rows: { fields: BatchFields }[], today: string) {
+  return [...new Set(rows.map(r => r.fields.transactionDate))]
+    .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= today)
+    .sort();
+}
+export const duplicateCheckPath = (dates: string[]) =>
+  "/transactions?" + dates.map(d => "date=" + d).join("&");
