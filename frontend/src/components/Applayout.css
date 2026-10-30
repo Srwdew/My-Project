@@ -1,19 +1,33 @@
-:root {
-  --sidebar-width: 250px;
-}
-
 .app-layout {
   width: 100%;
   min-height: 100vh;
-  background: #f6f8fc;
+  background: var(--color-surface-page);
 }
 
 .app-content {
-  margin-left: var(--sidebar-width);
-  width: calc(100% - var(--sidebar-width));
+  margin-left: var(--sb-width);
   min-height: 100vh;
   box-sizing: border-box;
-  background: #f6f8fc;
-}@media (max-width: 760px) {
- .app-content { margin-left:0; width:100%; }
+  background: var(--color-surface-page);
+  transition: margin-left var(--sb-duration) var(--sb-ease);
+}
+
+.app-layout:has(.sidebar.is-collapsed) .app-content { margin-left: var(--sb-rail); }
+
+/* Tablet keeps the rail width; the expanded sidebar overlays content instead of pushing it. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .app-layout:has(.sidebar) .app-content { margin-left: var(--sb-rail); }
+}
+
+@media (max-width: 767px) {
+  .app-layout:has(.sidebar) .app-content {
+    margin-left: 0;
+    padding-top: env(safe-area-inset-top);
+    /* Room for the floating tab bar (64px + 10px gap + breathing space). */
+    padding-bottom: calc(92px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-content { transition: none; }
 }

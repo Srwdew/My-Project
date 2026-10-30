@@ -1,3 +1,4 @@
+import { thaiMonth } from "../utils/thaiDate";
 import {
   useCallback,
   useEffect,
@@ -14,6 +15,7 @@ import { getToken, removeToken } from "../auth";
 import { useUnsavedSettings } from "../utils/useUnsavedSettings";
 import "./Settings.css";
 import { FINANCIAL_INTENTIONS } from "../utils/setupChecklist";
+import Dropdown from "../components/Dropdown";
 type SettingsData = {
   email: string;
   displayName: string | null;
@@ -463,22 +465,22 @@ export default function Settings() {
                 </label>
                 <label htmlFor="settings-payday">
                   วันที่เงินเข้า
-                  <select
+                  <Dropdown
                     id="settings-payday"
-                    value={draft.paydayDay}
-                    onChange={(e) => change("paydayDay", e.target.value)}
-                  >
-                    <option value="">ยังไม่ระบุ</option>
-                    {Array.from({ length: 31 }, (_, i) => (
-                      <option key={i} value={i + 1}>
-                        วันที่ {i + 1} ของทุกเดือน
-                      </option>
-                    ))}
-                  </select>
+                    value={String(draft.paydayDay)}
+                    onChange={(value) => change("paydayDay", value)}
+                    options={[
+                      { value: "", label: "ยังไม่ระบุ" },
+                      ...Array.from({ length: 31 }, (_, i) => ({
+                        value: String(i + 1),
+                        label: `วันที่ ${i + 1} ของทุกเดือน`,
+                      })),
+                    ]}
+                  />
                   <small>เดือนที่มีวันน้อยกว่าใช้วันสุดท้ายของเดือน</small>
                 </label>
                 <label htmlFor="settings-budget">
-                  งบประมาณรายเดือน (บาท) · {data.budgetMonth}
+                  งบประมาณรายเดือน (บาท) · {thaiMonth(data.budgetMonth)}
                   <input
                     id="settings-budget"
                     inputMode="decimal"
@@ -493,23 +495,18 @@ export default function Settings() {
                 </label>
                 <label htmlFor="settings-primary-goal">
                   เป้าหมายการออมหลัก
-                  <select
+                  <Dropdown
                     id="settings-primary-goal"
                     value={draft.primaryGoalId}
-                    onChange={(e) => change("primaryGoalId", e.target.value)}
-                  >
-                    <option value="">ยังไม่เลือก</option>
-                    {data.primaryGoal?.archivedAt && (
-                      <option disabled value={data.primaryGoal.id}>
-                        {data.primaryGoal.name} — ไม่พร้อมใช้งาน
-                      </option>
-                    )}
-                    {data.goals.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(value) => change("primaryGoalId", value)}
+                    options={[
+                      { value: "", label: "ยังไม่เลือก" },
+                      ...(data.primaryGoal?.archivedAt
+                        ? [{ value: data.primaryGoal.id, label: `${data.primaryGoal.name} — ไม่พร้อมใช้งาน`, disabled: true }]
+                        : []),
+                      ...data.goals.map((g) => ({ value: g.id, label: g.name })),
+                    ]}
+                  />
                   {data.primaryGoal?.archivedAt && (
                     <small role="status">
                       เป้าหมายหลักถูกเก็บถาวร กรุณาเลือกใหม่
@@ -519,26 +516,19 @@ export default function Settings() {
               </div>
               <label htmlFor="settings-intention">
                 ความตั้งใจทางการเงิน
-                <select
+                <Dropdown
                   id="settings-intention"
                   value={draft.financialIntention}
-                  onChange={(e) => change("financialIntention", e.target.value)}
-                >
-                  <option value="" disabled>
-                    ยังไม่เลือก
-                  </option>
-                  {data.legacyGoal &&
-                    !FINANCIAL_INTENTIONS.some(
-                      (v) => v === data.legacyGoal,
-                    ) && (
-                      <option value={data.legacyGoal}>{data.legacyGoal}</option>
-                    )}
-                  {FINANCIAL_INTENTIONS.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(value) => change("financialIntention", value)}
+                  options={[
+                    { value: "", label: "ยังไม่เลือก", disabled: true },
+                    ...(data.legacyGoal &&
+                    !FINANCIAL_INTENTIONS.some((v) => v === data.legacyGoal)
+                      ? [{ value: data.legacyGoal, label: data.legacyGoal }]
+                      : []),
+                    ...FINANCIAL_INTENTIONS.map((v) => ({ value: v, label: v })),
+                  ]}
+                />
                 <small>ใช้วางแผน ไม่สร้างเป้าหมายการออมจริง</small>
               </label>
             </section>

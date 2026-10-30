@@ -7,8 +7,8 @@
 .summary-card-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .summary-card .summary-card-icon { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 11px; color: #155acb; background: #e8f0ff; }
 .summary-card .summary-card-value { display: block; font-size: clamp(24px,1.95vw,31px); line-height: 1.4; font-weight: 750; font-variant-numeric: tabular-nums; letter-spacing: -.025em; }
-.summary-card .summary-card-value small { display: inline; margin: 0; font-size: 12px; font-weight: 450; color: #64748b; }
-.summary-card > p { font-size: 12px; margin: 9px 0 0; color: #64748b; }
+.summary-card .summary-card-value small { display: inline; margin: 0; font-size: 12px; font-weight: 450; color: var(--color-ink-muted); }
+.summary-card > p { font-size: 12px; margin: 9px 0 0; color: var(--color-ink-muted); }
 .summary-card.dashboard-kpi-income .summary-card-icon { background: #e8f6ef; color: #147251; }
 .summary-card.dashboard-kpi-expense .summary-card-icon { background: #fff0e5; color: #a65319; }
 .summary-card.dashboard-kpi-income .summary-card-value { color: #14724f; }

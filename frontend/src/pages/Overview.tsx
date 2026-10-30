@@ -1,3 +1,4 @@
+import { thaiDate, thaiMonth } from "../utils/thaiDate";
 import { categoryAppearance } from '../utils/categoryAppearance';
 import SummaryCard from "../components/SummaryCard";
 import {
@@ -10,6 +11,13 @@ import {
   ShieldQuestion,
   Target,
   Wallet,
+  AlarmClock,
+  Check,
+  CirclePlus,
+  Coins,
+  Info,
+  Sprout,
+  Star,
 } from "lucide-react";
 import {
   AnomalyOverview,
@@ -21,13 +29,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { apiFetch } from "../api";
 import { getToken, useSessionKey } from "../auth";
 import UserHeader from "../components/UserHeader";
-import {
-  bangkokDate,
-  moneyText,
-  shiftMonth,
-  validDashboardMonth,
-  type DailyAmount,
-} from "../utils/dashboard";
+import { bangkokDate, moneyText, type DailyAmount } from "../utils/dashboard";
 import "./Overview.css";
 type Dashboard = {
   month: string;
@@ -37,6 +39,9 @@ type Dashboard = {
     effectiveEndDate: string;
     calendarEndDate: string;
     isCurrentMonth: boolean;
+    currentMonth: string;
+    previousMonth: string | null;
+    nextMonth: string | null;
   };
   summary: {
     savingRate: { percent: string | null; reason: string | null };
@@ -87,9 +92,18 @@ type Dashboard = {
     } | null;
   };
 };
+type GoalItem = {
+  id: string;
+  name: string;
+  calculatedStatus: string;
+  targetAmount: string;
+  savedAmount: string;
+  progressPercent: string;
+  progressBarPercent: string;
+};
 const statuses: Record<string, string> = {
   active: "กำลังออม",
-  not_started: "ยังไม่มีเงินจัดสรร",
+  not_started: "ยังไม่ได้เก็บเงิน",
   overdue: "เลยกำหนด",
   completed: "ครบเป้าหมาย",
 };
@@ -106,17 +120,18 @@ export default function Overview() {
       window.removeEventListener("focus", update);
     };
   }, []);
+  // No month in the URL means "current cycle"; only the backend decides which one that is.
   const values = params.getAll("month"),
-    month = values[0] ?? today.slice(0, 7);
-  const valid = values.length <= 1 && validDashboardMonth(month, today);
+    month = values[0] ?? null;
+  const valid = values.length <= 1;
   return (
     <OverviewMonth
-      key={`${session}:${month}:${today}:${valid}`}
+      key={`${session}:${month ?? "current"}:${today}:${valid}`}
       session={session}
       month={month}
       today={today}
       valid={valid}
-      setMonth={(m) => setParams({ month: m })}
+      setMonth={(m) => setParams(m ? { month: m } : {})}
     />
   );
 }
@@ -128,15 +143,29 @@ function OverviewMonth({
   setMonth,
 }: {
   session: string | null;
-  month: string;
+  month: string | null;
   today: string;
   valid: boolean;
-  setMonth: (m: string) => void;
+  setMonth: (m: string | null) => void;
 }) {
   const [data, setData] = useState<Dashboard | null>(null),
+    [rejected, setRejected] = useState(false),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [revision, setRevision] = useState(0);
+  const [goalList, setGoalList] = useState<GoalItem[]>([]);
+  // Up to 3 non-archived goals for the Goals card; the dashboard API only carries the primary one.
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!session) return () => controller.abort();
+    apiFetch("/goals?limit=30", { signal: controller.signal })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((body: { data?: GoalItem[] } | null) => {
+        if (getToken() === session && body?.data) setGoalList(body.data);
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [session, revision]);
   useEffect(() => {
     const update = () => setRevision((v) => v + 1);
     window.addEventListener("spendsense-data-changed", update);
@@ -158,12 +187,20 @@ function OverviewMonth({
     void (async () => {
       try {
         const r = await apiFetch(
-          "/dashboard?month=" + encodeURIComponent(month),
+          "/dashboard" + (month ? "?month=" + encodeURIComponent(month) : ""),
           { signal: controller.signal },
         );
+        if (r.status === 400) {
+          if (active && getToken() === session) setRejected(true);
+          return;
+        }
         if (!r.ok) throw Error();
         const result = (await r.json()) as Dashboard;
-        if (active && getToken() === session && result.month === month)
+        if (
+          active &&
+          getToken() === session &&
+          (month === null || result.month === month)
+        )
           setData(result);
       } catch {
         if (active && !controller.signal.aborted && getToken() === session)
@@ -178,6 +215,10 @@ function OverviewMonth({
     };
   }, [session, month, valid, revision]);
   const g = data?.goals.primaryGoal;
+  const shownGoals: GoalItem[] = [
+    ...(g ? [g] : []),
+    ...goalList.filter((x) => x.id !== g?.id),
+  ].slice(0, 3);
   return (
     <div className="overview-page dashboard-page">
       <div className="dashboard-topbar">
@@ -192,39 +233,48 @@ function OverviewMonth({
           </div>
           <div className="dashboard-month-controls">
             <button
-              disabled={!valid || month === "0001-01"}
-              onClick={() => setMonth(shiftMonth(month, -1))}
+              disabled={!data?.period.previousMonth}
+              onClick={() => setMonth(data!.period.previousMonth)}
             >
               เดือนก่อน
             </button>
             <label>
               เดือน{" "}
-              <input
-                aria-label="เดือน"
-                type="month"
-                min="0001-01"
-                max={today.slice(0, 7)}
-                value={valid ? month : ""}
-                onChange={(e) => {
-                  if (e.target.value) setMonth(e.target.value);
-                }}
-              />
+              {loading && !data ? (
+                // The current month comes from the API; show text instead of an empty picker while it loads.
+                <input
+                  aria-label="เดือน"
+                  type="text"
+                  value="กำลังโหลด…"
+                  readOnly
+                  disabled
+                />
+              ) : (
+                <input
+                  aria-label="เดือน"
+                  type="month"
+                  min="0001-01"
+                  max={data?.period.currentMonth}
+                  value={data?.month ?? ""}
+                  onChange={(e) => {
+                    if (e.target.value) setMonth(e.target.value);
+                  }}
+                />
+              )}
             </label>
             <button
-              disabled={!valid || month >= today.slice(0, 7)}
-              onClick={() => setMonth(shiftMonth(month, 1))}
+              disabled={!data?.period.nextMonth}
+              onClick={() => setMonth(data!.period.nextMonth)}
             >
               เดือนถัดไป
             </button>
           </div>
         </nav>
       </div>
-      {!valid && (
+      {(!valid || rejected) && (
         <div className="dashboard-state dashboard-error" role="alert">
           <p>กรุณาเลือกเดือนที่ถูกต้องและไม่เป็นเดือนอนาคต</p>
-          <button onClick={() => setMonth(today.slice(0, 7))}>
-            กลับเดือนปัจจุบัน
-          </button>
+          <button onClick={() => setMonth(null)}>กลับเดือนปัจจุบัน</button>
         </div>
       )}
       {loading && valid && (
@@ -267,15 +317,17 @@ function OverviewMonth({
                 </span>
               </div>
             </div>
-            <Link className="dashboard-hero-link" to="/forecast">
-              ดูประมาณการ 7 วันตั้งแต่วันนี้{" "}
-              <ArrowUpRight aria-hidden="true" size={18} />
+            <Link className="dashboard-hero-link" to="/transactions/add">
+              เพิ่มรายการ <CirclePlus aria-hidden="true" size={18} />
             </Link>
           </section>
           <div
             className="dashboard-cards"
             aria-label={
-              "สรุปเดือน " + month + " ถึง " + data.period.effectiveEndDate
+              "สรุปเดือน " +
+              thaiMonth(data.month) +
+              " ถึง " +
+              thaiDate(data.period.effectiveEndDate)
             }
           >
             {[
@@ -292,7 +344,7 @@ function OverviewMonth({
                 Icon: ArrowUpRight,
               },
               {
-                label: "อัตราการออม (Saving Rate)",
+                label: "อัตราการออม",
                 value: data.summary.savingRate?.percent ?? null,
                 kind: "saving",
                 Icon: ChartNoAxesCombined,
@@ -338,46 +390,9 @@ function OverviewMonth({
                     ? " dashboard-exceeded"
                     : "")
                 }
-              >
-                {kind === "saving" ? (
-                  <p>
-                    {!data.summary.hasTransactions
-                      ? "ยังไม่มีธุรกรรมในช่วงนี้"
-                      : value === null
-                        ? "ไม่มีรายรับที่บันทึก หรือรายรับเป็นศูนย์ จึงคำนวณอัตราไม่ได้"
-                        : "(รายรับจริง − รายจ่ายจริง) ÷ รายรับจริง × 100"}
-                  </p>
-                ) : kind === "budget" ? (
-                  <p>
-                    {data.summary.budgetExceeded ? (
-                      <span className="dashboard-status dashboard-status-danger">
-                        เกินงบที่ตั้งไว้
-                      </span>
-                    ) : data.summary.budgetAmount === null ? (
-                      "ตั้งงบรวมเพื่อดูงบคงเหลือ"
-                    ) : (
-                      "งบรวม " + moneyText(data.summary.budgetAmount) + " บาท"
-                    )}{" "}
-                    <Link to={"/budget?month=" + month}>ดูงบประมาณ</Link>
-                  </p>
-                ) : (
-                  <p>
-                    {kind === "income"
-                      ? "จากรายการประเภทรายรับ"
-                      : kind === "expense"
-                        ? "จากรายการประเภทรายจ่าย"
-                        : "รายรับจริง − รายจ่ายจริง"}
-                  </p>
-                )}
-              </SummaryCard>
+              />
             ))}
           </div>
-          <p className="dashboard-section-note dashboard-summary-note">
-            สรุปเดือน {month} ถึง {data.period.effectiveEndDate}
-            {data.period.isCurrentMonth ? " · เดือนนี้ยังไม่สิ้นสุด" : ""} ·
-            อัตราการออมคำนวณจากรายการที่บันทึก ไม่ใช่ยอดที่จัดสรรเข้า Goals
-            หรือข้อกำหนดให้ต้องออมเงินทั้งหมด
-          </p>
           {!data.summary.hasTransactions && (
             <div className="dashboard-empty" role="status">
               ยังไม่มีรายการในเดือนนี้ ยอดจากรายการที่บันทึกเป็น 0.00 บาท
@@ -393,8 +408,8 @@ function OverviewMonth({
             <section className="dashboard-panel dashboard-category-panel">
               <div className="dashboard-panel-heading">
                 <h2>รายจ่ายตามหมวด</h2>
-                <Link to={"/transactions?month=" + month}>
-                  ดูธุรกรรม <ArrowUpRight aria-hidden="true" size={15} />
+                <Link to={"/budget?month=" + data.month}>
+                  ดูงบประมาณ <ArrowUpRight aria-hidden="true" size={15} />
                 </Link>
               </div>
               {!data.expenseCategories.length ? (
@@ -452,9 +467,13 @@ function OverviewMonth({
               <BehaviorOverview session={session} today={today} />
             </section>
           )}
-          {valid && (
+          {data && (
             <div className="dashboard-weekly-panel">
-              <WeeklyExpenses month={month} today={today} session={session} />
+              <WeeklyExpenses
+                month={data.month}
+                today={today}
+                session={session}
+              />
             </div>
           )}
         </div>
@@ -489,13 +508,18 @@ function OverviewMonth({
                       {data.recentTransactions.items.map((t) => (
                         <tr key={t.id}>
                           <td>
-                            <time>{t.date}</time>
+                            <time dateTime={t.date}>{thaiDate(t.date)}</time>
                           </td>
-                          <td>{t.description || "ไม่มีคำอธิบาย"}</td>
-                          <td>{t.categoryName}</td>
+                          <td title={t.description || undefined}>
+                            {t.description || "ไม่มีคำอธิบาย"}
+                          </td>
+                          <td title={t.categoryName}>{t.categoryName}</td>
                           <td className={"dashboard-amount-" + t.type}>
-                            {t.type === "income" ? "รายรับ +" : "รายจ่าย −"}
-                            {moneyText(t.amount)} บาท
+                            <span className="dashboard-recent-type">
+                              {t.type === "income" ? "รายรับ" : "รายจ่าย"}
+                            </span>
+                            {t.type === "income" ? "+" : "−"}
+                            {moneyText(t.amount)} ฿
                           </td>
                         </tr>
                       ))}
@@ -505,7 +529,7 @@ function OverviewMonth({
               )}
               <Link
                 className="dashboard-text-link"
-                to={"/transactions?month=" + month}
+                to={"/transactions?month=" + data.month}
               >
                 ดูประวัติของเดือนนี้
                 {data.recentTransactions.hasMore ? "ทั้งหมด" : ""}{" "}
@@ -514,70 +538,137 @@ function OverviewMonth({
             </section>
           )}
           {data && (
-            <section className="dashboard-panel dashboard-goals-panel">
-              <div className="dashboard-panel-heading">
-                <h2>Goals — สถานะปัจจุบัน</h2>
-                <span className="dashboard-icon dashboard-icon-success">
-                  <Target aria-hidden="true" size={20} />
+            <section className="dashboard-panel dashboard-goals-panel goals-card">
+              <div className="goals-card-head">
+                <span className="goals-card-icon" aria-hidden="true">
+                  <Target size={22} />
                 </span>
+                <h2>เป้าหมายการออม</h2>
+                <Link
+                  className="goals-card-open"
+                  to="/goals"
+                  aria-label="ไปหน้า Goals"
+                >
+                  <ArrowUpRight aria-hidden="true" size={18} />
+                </Link>
               </div>
-              <dl className="dashboard-goal-counts">
+
+              <div className="goals-card-allocated">
+                <span className="goals-card-coin" aria-hidden="true">
+                  <Coins size={22} />
+                </span>
                 <div>
-                  <dt>กำลังออม</dt>
+                  <span className="goals-card-label">
+                    เงินที่เก็บแล้ว
+                    <span
+                      className="goals-card-info"
+                      tabIndex={0}
+                      title="รวมทุกเป้าหมาย รวมเป้าหมายครบแล้วและเก็บถาวรที่ยังมีเงินเก็บอยู่"
+                      aria-label="รวมทุกเป้าหมาย รวมเป้าหมายครบแล้วและเก็บถาวรที่ยังมีเงินเก็บอยู่"
+                    >
+                      <Info size={14} aria-hidden="true" />
+                    </span>
+                  </span>
+                  <strong>
+                    {moneyText(data.goals.allocatedAmount)} <small>฿</small>
+                  </strong>
+                </div>
+              </div>
+
+              <dl className="goals-card-counts">
+                <div
+                  className={data.goals.activeCount ? "is-on active" : "active"}
+                >
+                  <span aria-hidden="true">
+                    <Sprout size={18} />
+                  </span>
                   <dd>{data.goals.activeCount}</dd>
+                  <dt>กำลังออม</dt>
                 </div>
-                <div>
-                  <dt>ยังไม่มีเงินจัดสรร</dt>
+                <div
+                  className={
+                    data.goals.notStartedCount
+                      ? "is-on not-started"
+                      : "not-started"
+                  }
+                >
+                  <span aria-hidden="true">
+                    <CirclePlus size={18} />
+                  </span>
                   <dd>{data.goals.notStartedCount}</dd>
+                  <dt>ยังไม่ได้เก็บ</dt>
                 </div>
-                <div>
-                  <dt>เลยกำหนด</dt>
+                <div
+                  className={
+                    data.goals.overdueCount ? "is-on overdue" : "overdue"
+                  }
+                >
+                  <span aria-hidden="true">
+                    <AlarmClock size={18} />
+                  </span>
                   <dd>{data.goals.overdueCount}</dd>
+                  <dt>เลยกำหนด</dt>
                 </div>
               </dl>
-              <p>
-                เงินที่จัดสรรอยู่{" "}
-                <strong>{moneyText(data.goals.allocatedAmount)} บาท</strong>
-              </p>
-              <p className="dashboard-section-note">
-                รวมทุกเป้าหมาย รวมเป้าหมายครบแล้วและเก็บถาวรที่ยังมีเงินจัดสรร
-              </p>
-              {g ? (
-                <div className="dashboard-primary-goal">
-                  <h3>เป้าหมายหลัก: {g.name}</h3>
-                  <p>
-                    <span
-                      className={
-                        "dashboard-status dashboard-goal-status-" +
-                        g.calculatedStatus
-                      }
+
+              {shownGoals.length ? (
+                <ul className="goals-card-list">
+                  {shownGoals.map((goal) => (
+                    <li
+                      key={goal.id}
+                      className={"status-" + goal.calculatedStatus}
                     >
-                      {g.archivedAt ? "เก็บถาวรแล้ว · " : ""}
-                      {statuses[g.calculatedStatus]}
-                    </span>
-                  </p>
-                  <p>
-                    จัดสรร {moneyText(g.savedAmount)} /{" "}
-                    {moneyText(g.targetAmount)} บาท ({g.progressPercent}%)
-                  </p>
-                  <div className="dashboard-bar" aria-hidden="true">
-                    <span
-                      style={{ width: Number(g.progressBarPercent) + "%" }}
-                    />
-                  </div>
-                  <p className="dashboard-section-note">
-                    ต้องการอีก {moneyText(g.remainingAmount)} บาท
-                  </p>
-                </div>
+                      <div className="goals-card-row-top">
+                        <span className="goals-card-row-name">
+                          {goal.id === g?.id && (
+                            <Star size={14} aria-label="เป้าหมายหลัก" />
+                          )}
+                          <strong>{goal.name}</strong>
+                        </span>
+                        <span
+                          className={
+                            "goals-card-badge status-" + goal.calculatedStatus
+                          }
+                        >
+                          {goal.calculatedStatus === "completed" && (
+                            <Check size={12} aria-hidden="true" />
+                          )}
+                          {goal.calculatedStatus === "completed"
+                            ? "ครบแล้ว"
+                            : statuses[goal.calculatedStatus]}
+                        </span>
+                      </div>
+                      <div
+                        className="goals-card-bar"
+                        role="progressbar"
+                        aria-label={"ความคืบหน้า " + goal.name}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-valuenow={Number(goal.progressBarPercent)}
+                      >
+                        <span
+                          style={{
+                            width: Number(goal.progressBarPercent) + "%",
+                          }}
+                        />
+                      </div>
+                      <div className="goals-card-amounts">
+                        <span>
+                          <strong>{moneyText(goal.savedAmount)}</strong> /{" "}
+                          {moneyText(goal.targetAmount)} ฿
+                        </span>
+                        <strong className="goals-card-percent">
+                          {Number(goal.progressPercent).toFixed(0)}%
+                        </strong>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               ) : (
-                <p className="dashboard-panel-empty">
-                  ยังไม่ได้เลือกเป้าหมายหลัก{" "}
-                  <Link to="/settings">เลือกใน Settings</Link>
+                <p className="goals-card-empty">
+                  ยังไม่มีเป้าหมาย <Link to="/goals">สร้างเป้าหมาย</Link>
                 </p>
               )}
-              <Link className="dashboard-text-link" to="/goals">
-                ไปหน้า Goals <ArrowUpRight aria-hidden="true" size={16} />
-              </Link>
             </section>
           )}
         </div>

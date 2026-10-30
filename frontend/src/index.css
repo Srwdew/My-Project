@@ -1,14 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  font-family:
-    "Segoe UI",
-    "Noto Sans Thai",
-    system-ui,
-    sans-serif;
+  /* Design tokens: see DESIGN.md. Page CSS references these instead of hex. */
+  --color-brand: #4f5ff5;
+  --color-brand-strong: #3548e8;
+  --color-ink: #111827;
+  --color-ink-muted: #64748b;
+  --color-surface-page: #f6f8fc;
+  --color-success: #17945a;
+  --color-warn: #d97706;
+  --color-plan: #f5a524;
+  --color-ink-soft: #52616d;
 
-  color: #111827;
-  background: #f6f8fc;
+  font-family: "Kanit", "Segoe UI", "Noto Sans Thai", sans-serif;
+
+  color: var(--color-ink);
+  background: var(--color-surface-page);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -34,7 +41,7 @@ body,
 body {
   min-height: 100vh;
 
-  background: #f6f8fc;
+  background: var(--color-surface-page);
 
   overflow-x: hidden;
 }
@@ -43,9 +50,23 @@ body {
   min-height: 100vh;
 }
 
+
+/* Transaction pages font (loaded in index.html) */
+.add-page,
+.history-page,
+.edit-page,
+.transaction-date-popper,
+.edit-datepicker-popper {
+  font-family: "Kanit", "Segoe UI", "Noto Sans Thai", system-ui,
+    sans-serif;
+}
+:is(.add-page, .history-page, .edit-page) :is(input, select, textarea, button) {
+  font-family: inherit;
+}
+
 button,
 input,
 select,
 textarea {
-  font: inherit;
+  font-family: inherit;
 }

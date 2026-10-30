@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import type { FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import './Register.css';
-import { apiFetch } from '../api';
+import { useState } from "react";
+import type { FormEvent } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { KeyRound, Lock, Mail } from "lucide-react";
+import "./Login.css";
+import { apiFetch } from "../api";
 
 type RegisterResponse = {
   message?: string;
@@ -17,181 +18,155 @@ type RegisterResponse = {
 export default function Register() {
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
 
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
 
     if (!email.trim() || !password || !confirmPassword) {
-      setError('กรุณากรอกข้อมูลให้ครบ');
+      setError("กรุณากรอกข้อมูลให้ครบ");
       return;
     }
 
     if (password.length < 6) {
-      setError('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร');
+      setError("รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร");
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน');
+      setError("รหัสผ่านและยืนยันรหัสผ่านไม่ตรงกัน");
       return;
     }
 
     try {
       setIsLoading(true);
 
-      const response = await apiFetch('/auth/register', {
-  method: 'POST',
-  auth: false,
-  body: JSON.stringify({
-    email: email.trim().toLowerCase(),
-    password,
-  }),
-});
+      const response = await apiFetch("/auth/register", {
+        method: "POST",
+        auth: false,
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          password,
+        }),
+      });
 
       const data: RegisterResponse = await response.json();
 
       if (!response.ok) {
-        setError(data.error || 'สมัครสมาชิกไม่สำเร็จ');
+        setError(data.error || "สมัครสมาชิกไม่สำเร็จ");
         return;
       }
 
-      setSuccess('สมัครสมาชิกสำเร็จ กำลังไปหน้าเข้าสู่ระบบ...');
+      setSuccess("สมัครสมาชิกสำเร็จ กำลังไปหน้าเข้าสู่ระบบ...");
 
       setTimeout(() => {
-        navigate('/login', {
+        navigate("/login", {
           replace: true,
         });
       }, 800);
     } catch (error) {
       console.error(error);
 
-      setError('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
+      setError("ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="register-page">
-      <div className="register-container">
-        <div className="register-brand">
-          <div className="register-logo">
-            S
+    <div className="login-page">
+      <div className="login-container">
+        <div className="login-card">
+          <div className="login-card-header is-start">
+            <h2>สร้างบัญชีใหม่</h2>
+            <p>เริ่มต้นทำความเข้าใจพฤติกรรมการเงินของคุณ</p>
           </div>
 
-          <div>
-            <h1>SpendSense</h1>
-            <p>เริ่มต้นจัดการการเงินของคุณ</p>
-          </div>
-        </div>
-
-        <div className="register-card">
-          <div className="register-card-header">
-            <h2>สมัครสมาชิก</h2>
-            <p>
-              สร้างบัญชีเพื่อเริ่มบันทึกและติดตามการเงิน
-            </p>
-          </div>
-
-          <form
-            className="register-form"
-            onSubmit={handleSubmit}
-          >
-            <div className="register-field">
-              <label htmlFor="register-email">
-                อีเมล
-              </label>
-
-              <input
-                id="register-email"
-                type="email"
-                placeholder="example@email.com"
-                value={email}
-                onChange={(event) =>
-                  setEmail(event.target.value)
-                }
-                autoComplete="email"
-              />
-            </div>
-
-            <div className="register-field">
-              <label htmlFor="register-password">
-                รหัสผ่าน
-              </label>
-
-              <input
-                id="register-password"
-                type="password"
-                placeholder="อย่างน้อย 6 ตัวอักษร"
-                value={password}
-                onChange={(event) =>
-                  setPassword(event.target.value)
-                }
-                autoComplete="new-password"
-              />
-            </div>
-
-            <div className="register-field">
-              <label htmlFor="register-confirm-password">
-                ยืนยันรหัสผ่าน
-              </label>
-
-              <input
-                id="register-confirm-password"
-                type="password"
-                placeholder="กรอกรหัสผ่านอีกครั้ง"
-                value={confirmPassword}
-                onChange={(event) =>
-                  setConfirmPassword(event.target.value)
-                }
-                autoComplete="new-password"
-              />
-            </div>
-
-            {error && (
-              <div className="register-error">
-                {error}
+          <form className="login-form" onSubmit={handleSubmit}>
+            <div className="login-field">
+              <label htmlFor="register-email">อีเมล</label>
+              <div className="login-input">
+                <Mail size={20} aria-hidden="true" />
+                <input
+                  id="register-email"
+                  type="email"
+                  placeholder="Email@gmail.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="email"
+                />
               </div>
-            )}
+            </div>
+
+            <div className="login-field">
+              <label htmlFor="register-password">รหัสผ่าน</label>
+              <div className="login-input">
+                <KeyRound size={20} aria-hidden="true" />
+                <input
+                  id="register-password"
+                  type="password"
+                  placeholder="รหัสผ่านอย่างน้อย 6 ตัว"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+
+            <div className="login-field">
+              <label htmlFor="register-confirm-password">ยืนยันรหัสผ่าน</label>
+              <div className="login-input">
+                <Lock size={20} aria-hidden="true" />
+                <input
+                  id="register-confirm-password"
+                  type="password"
+                  placeholder="กรอกรหัสผ่านอีกครั้ง"
+                  value={confirmPassword}
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  autoComplete="new-password"
+                />
+              </div>
+            </div>
+
+            {error && <div className="login-error">{error}</div>}
 
             {success && (
-              <div className="register-success">
+              <div className="login-message" role="status">
                 {success}
               </div>
             )}
 
             <button
               type="submit"
-              className="register-submit"
+              className="login-submit register-submit"
               disabled={isLoading}
             >
-              {isLoading
-                ? 'กำลังสมัครสมาชิก...'
-                : 'สมัครสมาชิก'}
+              {isLoading ? "กำลังลงทะเบียน..." : "ลงทะเบียน"}
             </button>
           </form>
 
-          <p><Link to="/guide">แนะนำการใช้งาน SpendSense</Link></p>
-          <div className="register-footer">
+          <p className="login-consent">
+            การสมัครถือว่ายอมรับ{" "}
+            <Link to="/privacy">นโยบายความเป็นส่วนตัว (PDPA)</Link>
+          </p>
+          <div className="login-footer">
             <span>มีบัญชีอยู่แล้ว?</span>
-
-            <button
-              type="button"
-              onClick={() => navigate('/login')}
-            >
+            <button type="button" onClick={() => navigate("/login")}>
               เข้าสู่ระบบ
             </button>
           </div>
+          <p className="login-links">
+            <Link to="/">กลับหน้าแรก</Link>
+          </p>
         </div>
       </div>
     </div>

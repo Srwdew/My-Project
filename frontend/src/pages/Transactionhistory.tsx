@@ -1,15 +1,27 @@
+import { thaiMonth } from "../utils/thaiDate";
 import { useToast } from "../components/LocalToast";
-import { getTransactionDateLabel as getDateLabel } from "../utils/transactionStatus";
-import { useEffect, useMemo, useState } from "react";
+import {
+  getBangkokTodayKey,
+  getTransactionDateLabel as getDateLabel,
+} from "../utils/transactionStatus";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { getToken, useSessionKey } from "../auth";
 import { validDashboardMonth } from "../utils/dashboard";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { CalendarDays } from "lucide-react";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  CalendarDays,
+  Search,
+  Wallet,
+} from "lucide-react";
 import "./TransactionHistory.css";
 import { apiFetch } from "../api";
 import UserHeader from "../components/UserHeader";
+import BudgetIcon from "../components/BudgetIcon";
+import { categoryAppearance } from "../utils/categoryAppearance";
 
 type TransactionType = "income" | "expense";
 
@@ -52,6 +64,10 @@ export default function TransactionHistory() {
   );
 }
 function TransactionHistorySession({ session }: { session: string | null }) {
+  const todayKey = getBangkokTodayKey();
+  const weekStart = new Date(`${todayKey}T00:00:00Z`);
+  weekStart.setUTCDate(weekStart.getUTCDate() - 6);
+  const weekStartKey = weekStart.toISOString().slice(0, 10);
   const toast = useToast();
   const [params] = useSearchParams();
   const values = params.getAll("month");
@@ -62,7 +78,6 @@ function TransactionHistorySession({ session }: { session: string | null }) {
   const [revision, setRevision] = useState(0);
   const navigate = useNavigate();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [search, setSearch] = useState("");
@@ -70,6 +85,7 @@ function TransactionHistorySession({ session }: { session: string | null }) {
   const [typeFilter, setTypeFilter] = useState("");
   const [dateFilter, setDateFilter] = useState<Date | null>(null);
   const [showAllHistory, setShowAllHistory] = useState(false);
+  const [periodFilter, setPeriodFilter] = useState<"" | "7d" | "month">("");
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
@@ -104,23 +120,14 @@ function TransactionHistorySession({ session }: { session: string | null }) {
     }
     void (async () => {
       try {
-        const [transactionsRes, categoriesRes] = await Promise.all([
-          apiFetch(
-            "/transactions" +
-              (month === null ? "" : "?month=" + encodeURIComponent(month)),
-            { signal: controller.signal },
-          ),
-          apiFetch("/categories", { signal: controller.signal }),
-        ]);
-        if (!transactionsRes.ok || !categoriesRes.ok) throw Error();
-        const [items, categories] = await Promise.all([
-          transactionsRes.json(),
-          categoriesRes.json(),
-        ]);
-        if (active && getToken() === session) {
-          setTransactions(items);
-          setCategories(categories);
-        }
+        const transactionsRes = await apiFetch(
+          "/transactions" +
+            (month === null ? "" : "?month=" + encodeURIComponent(month)),
+          { signal: controller.signal },
+        );
+        if (!transactionsRes.ok) throw Error();
+        const items = await transactionsRes.json();
+        if (active && getToken() === session) setTransactions(items);
       } catch {
         if (active && !controller.signal.aborted && getToken() === session)
           setError("ไม่สามารถโหลดข้อมูลธุรกรรมได้ กรุณาลองใหม่");
@@ -133,7 +140,8 @@ function TransactionHistorySession({ session }: { session: string | null }) {
       controller.abort();
     };
   }, [session, month, validMonth, revision]);
-  const filteredTransactions = useMemo(() => {
+  // Every filter except category; category chips count within this set.
+  const baseTransactions = useMemo(() => {
     const keyword = search.trim().toLowerCase();
 
     return transactions.filter((transaction) => {
@@ -147,18 +155,52 @@ function TransactionHistorySession({ session }: { session: string | null }) {
         note.includes(keyword) ||
         categoryName.includes(keyword);
 
-      const matchesCategory =
-        !categoryFilter || transaction.categoryId === categoryFilter;
-
       const matchesType = !typeFilter || transaction.type === typeFilter;
 
       const transactionDate = transaction.transactionDate.slice(0, 10);
       const selectedDate = dateFilter ? getLocalDateKey(dateFilter) : null;
       const matchesDate = !selectedDate || transactionDate === selectedDate;
+      const matchesPeriod =
+        !periodFilter ||
+        (periodFilter === "month"
+          ? transactionDate.slice(0, 7) === todayKey.slice(0, 7)
+          : transactionDate >= weekStartKey && transactionDate <= todayKey);
 
-      return matchesSearch && matchesCategory && matchesType && matchesDate;
+      return matchesSearch && matchesType && matchesDate && matchesPeriod;
     });
-  }, [transactions, search, categoryFilter, typeFilter, dateFilter]);
+  }, [transactions, search, typeFilter, dateFilter, periodFilter, todayKey, weekStartKey]);
+
+  const categoryChips = useMemo(() => {
+    const chips = new Map<string, { id: string; name: string; count: number }>();
+    for (const t of baseTransactions) {
+      const chip = chips.get(t.categoryId) ?? { id: t.categoryId, name: t.category?.name || "อื่น ๆ", count: 0 };
+      chip.count += 1;
+      chips.set(t.categoryId, chip);
+    }
+    // Keep the selected chip visible at 0 so it can still be cleared.
+    if (categoryFilter && !chips.has(categoryFilter)) {
+      const name = transactions.find((t) => t.categoryId === categoryFilter)?.category?.name || "อื่น ๆ";
+      chips.set(categoryFilter, { id: categoryFilter, name, count: 0 });
+    }
+    return [...chips.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "th"));
+  }, [baseTransactions, categoryFilter, transactions]);
+
+  const filteredTransactions = useMemo(
+    () =>
+      categoryFilter
+        ? baseTransactions.filter((t) => t.categoryId === categoryFilter)
+        : baseTransactions,
+    [baseTransactions, categoryFilter],
+  );
+
+  const totals = useMemo(() => {
+    let income = 0,
+      expense = 0;
+    for (const t of filteredTransactions)
+      if (t.type === "income") income += Number(t.amount);
+      else expense += Number(t.amount);
+    return { income, expense, net: income - expense };
+  }, [filteredTransactions]);
 
   const groupedTransactions = useMemo<GroupedTransactions[]>(() => {
     const groups: Record<string, Transaction[]> = {};
@@ -184,6 +226,7 @@ function TransactionHistorySession({ session }: { session: string | null }) {
 
   const hasActiveFilters =
     month !== null ||
+    periodFilter !== "" ||
     search.trim() !== "" ||
     categoryFilter !== "" ||
     typeFilter !== "" ||
@@ -207,21 +250,16 @@ function TransactionHistorySession({ session }: { session: string | null }) {
     const expenseTransactions = transactions.filter(
       (transaction) => transaction.type === "expense",
     );
-
     const totalExpense = expenseTransactions.reduce(
       (sum, transaction) => sum + Number(transaction.amount),
       0,
     );
-
     const categoryTotals: Record<string, number> = {};
-
     for (const transaction of expenseTransactions) {
       const name = transaction.category?.name || "อื่น ๆ";
-
       categoryTotals[name] =
         (categoryTotals[name] || 0) + Number(transaction.amount);
     }
-
     return Object.entries(categoryTotals)
       .map(([name, amount]) => ({
         name,
@@ -232,44 +270,84 @@ function TransactionHistorySession({ session }: { session: string | null }) {
       .slice(0, 5);
   }, [transactions]);
 
-  const handleDelete = async (transactionId: string) => {
-    const confirmed = window.confirm("ต้องการลบรายการนี้ใช่หรือไม่?");
+  // Deferred delete: hide now, call the API after the undo window closes (or on leave).
+  const pendingDelete = useRef<{ transaction: Transaction; index: number; timer: number } | null>(null);
+  const [undoTransaction, setUndoTransaction] = useState<Transaction | null>(null);
 
-    if (!confirmed) {
-      return;
-    }
+  const restore = (transaction: Transaction, index: number) =>
+    setTransactions((current) =>
+      current.some((item) => item.id === transaction.id)
+        ? current
+        : [...current.slice(0, index), transaction, ...current.slice(index)],
+    );
 
+  const commitDelete = async (transaction: Transaction, index: number) => {
     try {
-      const response = await apiFetch(`/transactions/${transactionId}`, {
+      const response = await apiFetch(`/transactions/${transaction.id}`, {
         method: "DELETE",
       });
 
       const data = await response.json();
 
       if (!response.ok) {
+        restore(transaction, index);
         toast(data.error ? `ลบไม่สำเร็จ: ${data.error}` : "ลบไม่สำเร็จ");
-        return;
       }
-
-      setTransactions((current) =>
-        current.filter((transaction) => transaction.id !== transactionId),
-      );
-
-      setOpenMenuId(null);
     } catch (error) {
       console.error(error);
+      restore(transaction, index);
       toast("ไม่สามารถเชื่อมต่อกับ Backend ได้");
     }
   };
 
-  const formatAmount = (amount: string | number, type: TransactionType) => {
-    const value = Number(amount).toLocaleString("th-TH", {
+  const flushPendingDelete = () => {
+    const pending = pendingDelete.current;
+    if (!pending) return;
+    window.clearTimeout(pending.timer);
+    pendingDelete.current = null;
+    setUndoTransaction(null);
+    void commitDelete(pending.transaction, pending.index);
+  };
+
+  useEffect(() => () => flushPendingDelete(), []);
+
+  const handleDelete = (transactionId: string) => {
+    flushPendingDelete();
+    const index = transactions.findIndex((item) => item.id === transactionId);
+    if (index < 0) return;
+    const transaction = transactions[index];
+
+    setTransactions((current) =>
+      current.filter((item) => item.id !== transactionId),
+    );
+    setOpenMenuId(null);
+    setUndoTransaction(transaction);
+    pendingDelete.current = {
+      transaction,
+      index,
+      timer: window.setTimeout(flushPendingDelete, 6000),
+    };
+  };
+
+  const undoDelete = () => {
+    const pending = pendingDelete.current;
+    if (!pending) return;
+    window.clearTimeout(pending.timer);
+    pendingDelete.current = null;
+    setUndoTransaction(null);
+    restore(pending.transaction, pending.index);
+  };
+
+  const formatBaht = (value: number, signed = true) => {
+    const text = Math.abs(value).toLocaleString("th-TH", {
       minimumFractionDigits: 0,
       maximumFractionDigits: 2,
     });
-
-    return type === "income" ? `+${value} ฿` : `-${value} ฿`;
+    const sign = value < 0 ? "-" : signed ? "+" : "";
+    return `${sign}${text} ฿`;
   };
+  const signedAmount = (t: Transaction) =>
+    t.type === "income" ? Number(t.amount) : -Number(t.amount);
 
   const formatTime = (value: string | null) => {
     if (!value) {
@@ -285,20 +363,21 @@ function TransactionHistorySession({ session }: { session: string | null }) {
     const hours = String(date.getUTCHours()).padStart(2, "0");
     const minutes = String(date.getUTCMinutes()).padStart(2, "0");
 
-    return `${hours}:${minutes}`;
+    return `${hours}:${minutes} น.`;
   };
 
   const getCategoryIcon = (categoryName: string) => {
-    const name = categoryName.toLowerCase();
+    const appearance = categoryAppearance(categoryName);
 
-    if (name.includes("food") || name.includes("อาหาร")) return "🍴";
-    if (name.includes("transport") || name.includes("เดินทาง")) return "🚘";
-    if (name.includes("shopping") || name.includes("ซื้อ")) return "🛍️";
-    if (name.includes("education") || name.includes("ศึกษา")) return "🎓";
-    if (name.includes("health") || name.includes("สุขภาพ")) return "💚";
-    if (name.includes("salary") || name.includes("เงินเดือน")) return "💵";
-
-    return "💳";
+    return (
+      <span
+        className="history-category-icon"
+        aria-hidden="true"
+        style={{ color: appearance.color, background: appearance.background }}
+      >
+        <BudgetIcon name={appearance.icon} />
+      </span>
+    );
   };
 
   const getSummaryColorClass = (index: number) => {
@@ -309,6 +388,16 @@ function TransactionHistorySession({ session }: { session: string | null }) {
 
   return (
     <div className="history-page">
+      {undoTransaction && (
+        <div className="local-toast-region history-undo">
+          <div className="local-toast" role="status">
+            <span>ลบรายการแล้ว</span>
+            <button type="button" onClick={undoDelete}>
+              เลิกทำ
+            </button>
+          </div>
+        </div>
+      )}
       <header className="history-header compact-page-toolbar">
         <h1 className="page-heading-accessible">การจัดการธุรกรรม</h1>
 
@@ -317,7 +406,7 @@ function TransactionHistorySession({ session }: { session: string | null }) {
 
       {month !== null && (
         <p>
-          กรองเดือน {month} · <Link to="/transactions">ดูประวัติทั้งหมด</Link>
+          กรองเดือน {thaiMonth(month)} · <Link to="/transactions">ดูประวัติทั้งหมด</Link>
         </p>
       )}
       {!validMonth && (
@@ -333,7 +422,9 @@ function TransactionHistorySession({ session }: { session: string | null }) {
         <section className="history-main-card">
           <div className="history-top-bar">
             <div className="history-tabs">
-              <span className="history-tab active">{historyViewLabel}</span>
+              <span key={historyViewLabel} className="history-tab active">
+                {historyViewLabel}
+              </span>
             </div>
             <button
               type="button"
@@ -344,66 +435,156 @@ function TransactionHistorySession({ session }: { session: string | null }) {
             </button>
           </div>
 
-          <div className="history-filter-box">
-            <div className="history-search-box">
-              <span className="history-search-icon">🔍</span>
+          <div className="history-totals">
+            <div className="history-total income">
+              <span className="history-total-icon" aria-hidden="true">
+                <ArrowDownLeft size={18} />
+              </span>
+              <div>
+                <span>รายรับ</span>
+                <strong key={formatBaht(totals.income)}>{formatBaht(totals.income)}</strong>
+              </div>
+            </div>
+            <div className="history-total expense">
+              <span className="history-total-icon" aria-hidden="true">
+                <ArrowUpRight size={18} />
+              </span>
+              <div>
+                <span>รายจ่าย</span>
+                <strong key={formatBaht(-totals.expense)}>{formatBaht(-totals.expense)}</strong>
+              </div>
+            </div>
+            <div className="history-total net">
+              <span className="history-total-icon" aria-hidden="true">
+                <Wallet size={18} />
+              </span>
+              <div>
+                <span>สุทธิ</span>
+                <strong key={formatBaht(totals.net, false)}>{formatBaht(totals.net, false)}</strong>
+              </div>
+            </div>
+          </div>
 
+          <div className="history-filter-box">
+            <label className="history-search-box">
+              <Search size={17} aria-hidden="true" />
               <input
                 type="text"
                 placeholder="ค้นหารายการ..."
+                aria-label="ค้นหารายการ"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
+            </label>
+
+            <div className="history-segment" role="group" aria-label="ประเภท">
+              <SegmentTrack index={["", "expense", "income"].indexOf(typeFilter)} count={3}>
+              {(
+                [
+                  ["", "ทั้งหมด"],
+                  ["expense", "รายจ่าย"],
+                  ["income", "รายรับ"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={typeFilter === value ? "active" : ""}
+                  aria-pressed={typeFilter === value}
+                  onClick={() => setTypeFilter(value)}
+                >
+                  {label}
+                </button>
+              ))}
+              </SegmentTrack>
             </div>
 
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-            >
-              <option value="">หมวดหมู่: ทั้งหมด</option>
-
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
+            <div className="history-segment" role="group" aria-label="ช่วงเวลา">
+              <SegmentTrack
+                index={dateFilter ? -1 : ["", "7d", "month"].indexOf(periodFilter)}
+                count={3}
+              >
+              {(
+                [
+                  ["", "ทั้งหมด"],
+                  ["7d", "7 วัน"],
+                  ["month", "เดือนนี้"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={!dateFilter && periodFilter === value ? "active" : ""}
+                  aria-pressed={!dateFilter && periodFilter === value}
+                  onClick={() => {
+                    setPeriodFilter(value);
+                    setDateFilter(null);
+                  }}
+                >
+                  {label}
+                </button>
               ))}
-            </select>
-
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-            >
-              <option value="">ประเภท: ทั้งหมด</option>
-              <option value="expense">รายจ่าย</option>
-              <option value="income">รายรับ</option>
-            </select>
-
-            <div className="history-date-picker-wrap">
+              </SegmentTrack>
               <DatePicker
                 selected={dateFilter}
-                onChange={(date: Date | null) => setDateFilter(date)}
+                onChange={(date: Date | null) => {
+                  setDateFilter(date);
+                  setPeriodFilter("");
+                }}
                 dateFormat="dd/MM/yyyy"
                 calendarStartDay={1}
                 todayButton="วันนี้"
                 popperClassName="history-datepicker-popper"
                 popperPlacement="bottom-end"
-                isClearable
                 customInput={
                   <button
                     type="button"
                     className={`history-calendar-button ${
                       dateFilter ? "active" : ""
                     }`}
-                    title={dateFilter ? "กรองตามวันที่" : "เลือกวันที่"}
+                    aria-label={
+                      dateFilter
+                        ? `กรองวันที่ ${dateFilter.toLocaleDateString("th-TH")}`
+                        : "เลือกวันที่"
+                    }
                   >
-                    <CalendarDays size={19} strokeWidth={1.8} />
+                    <CalendarDays size={18} aria-hidden="true" />
                   </button>
                 }
               />
             </div>
           </div>
 
-          <div className="history-groups">
+          {categoryChips.length > 0 && (
+            <div className="history-category-chips" role="group" aria-label="หมวดหมู่">
+              <button
+                type="button"
+                className={categoryFilter === "" ? "active" : ""}
+                aria-pressed={categoryFilter === ""}
+                onClick={() => setCategoryFilter("")}
+              >
+                <i aria-hidden="true" style={{ background: "var(--color-brand)" }} />
+                ทั้งหมด <span>{baseTransactions.length}</span>
+              </button>
+              {categoryChips.map((chip) => (
+                <button
+                  key={chip.id}
+                  type="button"
+                  className={categoryFilter === chip.id ? "active" : ""}
+                  aria-pressed={categoryFilter === chip.id}
+                  onClick={() => setCategoryFilter(categoryFilter === chip.id ? "" : chip.id)}
+                >
+                  <i aria-hidden="true" style={{ background: categoryAppearance(chip.name).color }} />
+                  {chip.name} <span>{chip.count}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div
+            className="history-groups"
+            key={[search, typeFilter, periodFilter, dateFilter?.getTime(), categoryFilter].join("|")}
+          >
             {loading ? (
               <div className="history-empty-state">กำลังโหลดข้อมูล...</div>
             ) : groupedTransactions.length === 0 ? (
@@ -445,7 +626,7 @@ function TransactionHistorySession({ session }: { session: string | null }) {
                         <div
                           className={`history-row-amount ${transaction.type}`}
                         >
-                          {formatAmount(transaction.amount, transaction.type)}
+                          {formatBaht(signedAmount(transaction))}
                         </div>
 
                         <div className="history-row-time">
@@ -508,6 +689,7 @@ function TransactionHistorySession({ session }: { session: string | null }) {
                   setCategoryFilter("");
                   setTypeFilter("");
                   setDateFilter(null);
+                  setPeriodFilter("");
                   setOpenMenuId(null);
                 }}
               >
@@ -576,6 +758,52 @@ function TransactionHistorySession({ session }: { session: string | null }) {
           </div>
         </aside>
       </div>
+    </div>
+  );
+}
+
+// Sliding "water drop" highlight: slides with transform and briefly stretches mid-move.
+function SegmentTrack({
+  index,
+  count,
+  children,
+}: {
+  index: number;
+  count: number;
+  children: React.ReactNode;
+}) {
+  const [drop, setDrop] = useState({ index, last: Math.max(index, 0), moves: 0 });
+  if (drop.index !== index)
+    setDrop({
+      index,
+      last: index >= 0 ? index : drop.last,
+      moves: index >= 0 && index !== drop.last ? drop.moves + 1 : drop.moves,
+    });
+  const at = index >= 0 ? index : drop.last;
+  return (
+    <div
+      className="history-segment-track"
+      style={
+        {
+          gridTemplateColumns: `repeat(${count}, 1fr)`,
+          "--count": count,
+          "--at": at,
+        } as React.CSSProperties
+      }
+    >
+      <span
+        className="history-segment-drop"
+        data-on={index >= 0}
+        aria-hidden="true"
+      >
+        {/* Alternating class restarts the stretch keyframe on every move. */}
+        <i
+          className={
+            drop.moves ? (drop.moves % 2 ? "stretch-a" : "stretch-b") : undefined
+          }
+        />
+      </span>
+      {children}
     </div>
   );
 }

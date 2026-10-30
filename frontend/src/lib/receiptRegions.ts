@@ -54,6 +54,49 @@ export function gateTemplateDateTime(result:ReceiptResult,reference:Page) {
     }
   }
 }
+/** Upscaled, contrast-stretched copy of one text line: thermal-print digits (7/1, 4/14) separate better. */
+function sharpenLine(source:HTMLCanvasElement,box:Box) {
+  const scale=Math.min(4,Math.max(1,72/box.height));
+  const c=document.createElement('canvas');c.width=Math.max(1,Math.round(box.width*scale));c.height=Math.max(1,Math.round(box.height*scale));
+  const ctx=c.getContext('2d')!;ctx.imageSmoothingQuality='high';
+  ctx.filter='grayscale(1)';ctx.drawImage(source,box.x,box.y,box.width,box.height,0,0,c.width,c.height);ctx.filter='none';
+  const img=ctx.getImageData(0,0,c.width,c.height),d=img.data,hist=new Array<number>(256).fill(0);
+  for(let i=0;i<d.length;i+=4)hist[d[i]]++;
+  const total=d.length/4;let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];
+  let sumB=0,wB=0,best=0,threshold=128;
+  for(let t=0;t<256;t++){
+    wB+=hist[t];if(!wB)continue;const wF=total-wB;if(!wF)break;
+    sumB+=t*hist[t];const mB=sumB/wB,mF=(sum-sumB)/wF,between=wB*wF*(mB-mF)**2;
+    if(between>best){best=between;threshold=t;}
+  }
+  // Contrast stretch around the Otsu threshold; a hard black/white cut erased faint digits in tests.
+  for(let i=0;i<d.length;i+=4){const v=Math.max(0,Math.min(255,(d[i]-threshold)*2.2+160));d[i]=d[i+1]=d[i+2]=v;}
+  ctx.putImageData(img,0,0);return c;
+}
+/**
+ * Re-read only the Sub Total / discount / Total lines from sharpened crops and
+ * rebuild them as "label value". Labels come from the first pass; digits from the re-read.
+ */
+async function rereadSummaryDigits(worker:Worker,body:HTMLCanvasElement,page:Page,canvases:HTMLCanvasElement[],check:()=>void){
+  const targets=lines(page).filter(l=>/sub\s*tota?l?|^\W{0,3}\w{0,2}\s*tota?l?\b|ส่?วน\s*[ลอจต][ดตจ]|discount/i.test(l.text));
+  if(!targets.some(l=>/tota?l?/i.test(l.text)&&!/sub/i.test(l.text)))return null;
+  await worker.setParameters({tessedit_pageseg_mode:'7' as never});
+  try{
+    const out:string[]=[];
+    for(const l of targets){
+      const h=l.bbox.y1-l.bbox.y0,pad=Math.max(4,h*.25);
+      const y=Math.max(0,l.bbox.y0-pad),box={x:0,y,width:body.width,height:Math.min(body.height-y,h+pad*2)};
+      const c=sharpenLine(body,box);canvases.push(c);
+      check();const text=(await worker.recognize(c)).data.text;check();
+      const value=[...text.matchAll(/\d{1,3}(?:,\d{3})*\.\d{2}/g)].at(-1)?.[0];
+      if(!value)return null;
+      const label=/sub/i.test(l.text)?'Sub Total':/tota?l?/i.test(l.text)?'Total':'ส่วนลด';
+      const count=label==='Total'?text.match(/\(?(\d{1,3})\)?\s+\d/)?.[1]:undefined;
+      out.push(label+(count?' ('+count+')':'')+' '+value);
+    }
+    return out.join('\n');
+  }finally{await worker.setParameters({tessedit_pageseg_mode:'6' as never});}
+}
 /** Pixel locations come from the detected paper and OCR lines, not sample coordinates. */
 export async function readSevenElevenRegions(worker:Worker,source:HTMLCanvasElement,initial:Page,
   check:()=>void,diagnostic?:Diagnostic):Promise<ReceiptResult|null>{
@@ -93,10 +136,22 @@ export async function readSevenElevenRegions(worker:Worker,source:HTMLCanvasElem
     const bodyPage=await recognize(body,'template-amounts');
     const timestamp=reference.text.match(/\d{1,2}\/\d{1,2}\/\d{2,4}\s+\d{1,2}:\d{2}/)?.[0]??'';
     const combined=headerText+'\n'+bodyPage.text+'\n'+timestamp;
-    const result=parseReceipt(combined);
+    let result=parseReceipt(combined);
+    if(!result.fields.amount){
+      const repaired=await rereadSummaryDigits(worker,body,bodyPage,canvases,check);
+      if(repaired){
+        const retry=parseReceipt(headerText+'\n'+repaired+'\n'+timestamp);
+        if(import.meta.env.DEV)diagnostic?.('template-digit-reread',repaired,retry);
+        // Only the amount comes from the re-read; it still has to pass the parser's arithmetic gate.
+        if(retry.fields.amount){
+          result={...result,fields:{...result.fields,amount:retry.fields.amount},amountCandidates:retry.amountCandidates,
+            issues:result.issues.filter(v=>!v.startsWith('amount_'))};
+        }
+      }
+    }
     // Preserve layout evidence of discounts; a failed regional read must not erase it.
     const layoutBeforeReference=lines(layout).filter(l=>l.bbox.y1<=ref.bbox.y1).map(l=>l.text).join('\n');
-    if(!/ยอดสุทธิ/.test(bodyPage.text)&&/ส่วนลด|discount|Sub\s*Total/i.test(layoutBeforeReference)){
+    if(!result.fields.amount&&!/ยอดสุทธิ/.test(bodyPage.text)&&/ส่วนลด|discount|Sub\s*Total/i.test(layoutBeforeReference)){
       result.fields.amount=null;result.amountCandidates=[];result.issues.push('amount_requires_review');
     }
     gateTemplateDateTime(result,reference);

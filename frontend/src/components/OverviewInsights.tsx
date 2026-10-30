@@ -1,3 +1,4 @@
+import { thaiDate } from "../utils/thaiDate";
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiFetch } from '../api';
@@ -53,7 +54,7 @@ export function BehaviorOverview({ session, today }: { session: string | null; t
     {loading && <p role="status">กำลังโหลดสรุปพฤติกรรม...</p>}
     {error && <div role="alert"><p>โหลดพฤติกรรมไม่สำเร็จ</p><button onClick={retry}>ลองโหลดพฤติกรรมอีกครั้ง</button></div>}
     {data && <>
-      <p className="dashboard-section-note">ช่วงพฤติกรรม {data.periods.current.startDate} ถึง {data.periods.current.endDate} เทียบ {data.periods.previous.startDate} ถึง {data.periods.previous.endDate} · ใช้ช่วงเดิม 30 วันถึงเมื่อวาน ไม่ใช่เดือนที่เลือกด้านบน</p>
+      <p className="dashboard-section-note">ช่วงพฤติกรรม {thaiDate(data.periods.current.startDate)} ถึง {thaiDate(data.periods.current.endDate)} เทียบ {thaiDate(data.periods.previous.startDate)} ถึง {thaiDate(data.periods.previous.endDate)} · ใช้ช่วงเดิม 30 วันถึงเมื่อวาน ไม่ใช่เดือนที่เลือกด้านบน</p>
       {!ready ? <><p role="status">ข้อมูลยังไม่พร้อมสรุปการเปลี่ยนแปลง</p><p>ช่วงปัจจุบัน {data.readiness.current.expenseCount} รายการ ครอบคลุม {data.readiness.current.observedSpanDays} วัน · ต้องผ่านเกณฑ์ทั้งช่วงปัจจุบันและช่วงก่อนหน้า ดูเหตุผลเพิ่มเติมในหน้าพฤติกรรม</p></> :
         finding ? <><strong>{finding.title}</strong><p>{finding.recommendation}</p></> : <p>ข้อมูลผ่านเกณฑ์ แต่ยังไม่มีข้อค้นพบตามกติกาปัจจุบัน</p>}
     </>}

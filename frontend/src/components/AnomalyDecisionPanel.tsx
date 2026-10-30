@@ -2,6 +2,7 @@ import {cadenceLabels} from './AnomalyPatterns';
 import {useEffect,useRef,useState} from 'react';
 import {apiFetch} from '../api';
 import {getToken,useSessionKey} from '../auth';
+import Dropdown from './Dropdown';
 type Dimension='amount'|'time';
 type Action='normal'|'occasional'|'problem'|'recurring';
 type Decision={id:string;action:Action;dimension:Dimension;sequence:number;decidedAt:string;supersedesId:string|null};
@@ -64,7 +65,7 @@ function DecisionBody({evaluationId,revision,onDone,session,dimensions}:{evaluat
  <dialog ref={dialog} className="anomaly-confirm-dialog" aria-labelledby="anomaly-confirm-title" onCancel={e=>{e.preventDefault();if(!busy&&!pending)setChoice(null);}}>
  {choice&&<><h2 id="anomaly-confirm-title">{actionLabels[choice.action]}</h2><p>ยืนยันสำหรับ{choice.dimension==='amount'?'จำนวนเงิน':'เวลา'}ของรายการนี้</p>
  <p className="anomaly-confirm-effect">{choice.action==='normal'?'ใช้เป็นข้อมูลอ้างอิงหลักของมิตินี้':choice.action==='occasional'?'เก็บเป็นข้อยกเว้น ไม่ใช้เป็นข้อมูลอ้างอิงหลัก':choice.action==='problem'?'เก็บผลว่ามีปัญหา ไม่ใช้เป็นข้อมูลอ้างอิง และไม่ลบธุรกรรม':'เก็บเป็นรูปแบบแยกจากข้อมูลอ้างอิงหลัก'}</p>
- {choice.action==='recurring'&&<label>รอบของรายการ<select value={cadence[choice.dimension]} disabled={busy||!!pending} onChange={e=>setCadence(v=>({...v,[choice.dimension]:e.target.value}))}><option value="">เลือกรอบ</option>{Object.entries(cadenceLabels).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>}
+ {choice.action==='recurring'&&<label>รอบของรายการ<Dropdown value={cadence[choice.dimension]} disabled={busy||!!pending} onChange={value=>setCadence(v=>({...v,[choice.dimension]:value}))} options={[{value:'',label:'เลือกรอบ'},...Object.entries(cadenceLabels).map(([value,label])=>({value,label}))]}/></label>}
  {error&&<p role="alert">{error}</p>}
  <div className="anomaly-confirm-actions"><button type="button" data-confirm-cancel disabled={busy||!!pending} onClick={()=>setChoice(null)}>ยกเลิก</button>
  {pending&&!busy?<button type="button" onClick={()=>void send(pending)}>ลองคำขอเดิม</button>:<button type="button" data-confirm-decision disabled={busy||!!pending||(choice.action==='recurring'&&!cadence[choice.dimension])} onClick={()=>decide(choice.dimension,choice.action)}>{busy?'กำลังบันทึก...':'ยืนยัน'}</button>}</div></>}

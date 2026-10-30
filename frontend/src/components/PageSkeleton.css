@@ -1,4 +1,4 @@
-.page-skeleton{width:100%;min-height:70vh;box-sizing:border-box;padding:32px;background:#f6f8fc}
+.page-skeleton{width:100%;min-height:70vh;box-sizing:border-box;padding:32px;background:var(--color-surface-page)}
 .page-skeleton-toolbar{display:flex;justify-content:space-between;gap:24px;margin-bottom:24px}
 .page-skeleton-toolbar span{width:180px;height:36px}
 .page-skeleton-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}

@@ -11,13 +11,28 @@ import {
   List,
   Plus,
   X,
+  TriangleAlert,
+  ArrowRight,
+  CircleCheck,
+  Flag,
+  CalendarDays,
+  Undo2,
+  History,
+  Archive,
+  Check,
+  Car,
+  Gift,
+  Smartphone,
+  HeartPulse,
+  PiggyBank,
 } from "lucide-react";
-import GoalFeasibility, {
-  type Feasibility,
-} from "../components/GoalFeasibility";
+import { thaiMonth } from "../utils/thaiDate";
+import type { Feasibility } from "../components/GoalFeasibility";
 import UserHeader from "../components/UserHeader";
+import { useToast } from "../components/LocalToast";
 import { apiFetch } from "../api";
 import { getToken } from "../auth";
+import Dropdown from "../components/Dropdown";
 import "./Goals.css";
 type Goal = {
   feasibility?: Feasibility;
@@ -85,24 +100,32 @@ type Modal = {
   initialName?: string;
 };
 const categories = {
-  home: { label: "บ้าน / รถ", Icon: House },
+  home: { label: "บ้าน", Icon: House },
+  car: { label: "รถ", Icon: Car },
   travel: { label: "ท่องเที่ยว", Icon: Plane },
   education: { label: "การศึกษา", Icon: GraduationCap },
   emergency: { label: "เงินสำรอง", Icon: Shield },
+  gift: { label: "ของขวัญ", Icon: Gift },
+  gadget: { label: "อุปกรณ์", Icon: Smartphone },
+  health: { label: "สุขภาพ", Icon: HeartPulse },
+  savings: { label: "เงินออม", Icon: PiggyBank },
   other: { label: "อื่น ๆ", Icon: Target },
 };
 const statusLabels: Record<string, string> = {
   active: "กำลังดำเนินการ",
   completed: "ครบเป้าหมาย",
   overdue: "เลยกำหนด",
-  not_started: "ยังไม่มีเงินจัดสรร",
+  not_started: "ยังไม่ได้เก็บเงิน",
 };
 const money = (v: string) =>
   new Intl.NumberFormat("th-TH", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Number(v));
-const dateLabel = (v: string | null) =>
+// Card figures: drop ".00" so large goal amounts stay readable.
+const baht = (v: string) =>
+  new Intl.NumberFormat("th-TH", { maximumFractionDigits: 2 }).format(Number(v));
+const dateLabel =(v: string | null) =>
   v
     ? new Intl.DateTimeFormat("th-TH", {
         dateStyle: "medium",
@@ -153,6 +176,7 @@ export default function Goals() {
 }
 function GoalsSession({ session }: { session: string | null }) {
   const owner = ownerFromToken(session);
+  const toast = useToast();
   const [intention, setIntention] = useState<string | null>(null);
   const [intentionError, setIntentionError] = useState(false),
     [intentionRetry, setIntentionRetry] = useState(0);
@@ -183,6 +207,7 @@ function GoalsSession({ session }: { session: string | null }) {
     [status, setStatus] = useState(""),
     [archived, setArchived] = useState("exclude");
   const [view, setView] = useState<"card" | "list">("card"),
+    [viewMoved, setViewMoved] = useState(false),
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [revision, setRevision] = useState(0);
@@ -207,6 +232,7 @@ function GoalsSession({ session }: { session: string | null }) {
     [entries, setEntries] = useState<Entry[]>([]);
   const [modalLoading, setModalLoading] = useState(false),
     [modalError, setModalError] = useState(""),
+    [inputError, setInputError] = useState(""),
     [busy, setBusy] = useState(false),
     [modalReload, setModalReload] = useState(0);
   const dialog = useRef<HTMLDialogElement>(null),
@@ -239,6 +265,7 @@ function GoalsSession({ session }: { session: string | null }) {
     }
   }, [session, owner]);
   function changeView(v: "card" | "list") {
+    if (v !== view) setViewMoved(true);
     setView(v);
     if (owner)
       try {
@@ -282,6 +309,7 @@ function GoalsSession({ session }: { session: string | null }) {
     if (!modal) return;
     const controller = new AbortController();
     setModalError("");
+    setInputError("");
     setModalLoading(true);
     setModalReady(false);
     setEntries([]);
@@ -342,9 +370,13 @@ function GoalsSession({ session }: { session: string | null }) {
       });
     return () => controller.abort();
   }, [modal, modalReload, session]);
+  // Live icon choice in the goal form, so the dialog header previews it before saving.
+  const [pickedIcon, setPickedIcon] = useState<string | null>(null);
   function open(mode: Mode, goal?: Goal, initialName?: string) {
+    setPickedIcon(null);
     pending.current = null;
     setModalError("");
+    setInputError("");
     setModalLoading(true);
     setModal(goal ? { mode, goal } : { mode, initialName });
   }
@@ -393,7 +425,14 @@ function GoalsSession({ session }: { session: string | null }) {
         `/goals/${goal.id}/${goal.archivedAt ? "restore" : "archive"}`,
         { method: "POST", body: "{}" },
       );
-      if (captured === epoch.current) setRevision((x) => x + 1);
+      if (captured === epoch.current) {
+        setRevision((x) => x + 1);
+        window.clearTimeout(undoTimer.current);
+        // Archiving offers a 6s undo (restore endpoint); restoring does not.
+        setUndoArchive(goal.archivedAt ? null : goal);
+        if (!goal.archivedAt)
+          undoTimer.current = window.setTimeout(() => setUndoArchive(null), 6000);
+      }
     } catch (e) {
       if (captured === epoch.current) setError((e as Error).message);
     } finally {
@@ -403,6 +442,9 @@ function GoalsSession({ session }: { session: string | null }) {
       }
     }
   }
+  const [undoArchive, setUndoArchive] = useState<Goal | null>(null);
+  const undoTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(undoTimer.current), []);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!modal || actionBusy.current) return;
@@ -439,6 +481,21 @@ function GoalsSession({ session }: { session: string | null }) {
       v("source") === "opening"
         ? { type: "OPENING_BALANCE" }
         : { type: "INCOME_TRANSACTION", transactionId: v("source") };
+    // Client-side ceilings mirror what the server will reject anyway; message names the limit.
+    const limit =
+      modal.mode === "release"
+        ? g?.savedAmount
+        : modal.mode === "allocate"
+          ? v("source") === "opening"
+            ? opening?.availableAmount
+            : incomes.find((i) => i.id === v("source"))?.availableAmount
+          : undefined;
+    if (limit !== undefined && Number(v("amount")) > Number(limit)) {
+      setInputError(
+        (modal.mode === "release" ? "คืนได้สูงสุด " : "แหล่งเงินนี้เหลือ ") + money(limit) + " ฿",
+      );
+      return;
+    }
     if (modal.mode === "allocate") {
       path = `/goals/${g!.id}/allocations`;
       body = { amount: v("amount"), source: source() };
@@ -463,6 +520,7 @@ function GoalsSession({ session }: { session: string | null }) {
     actionBusy.current = true;
     setBusy(true);
     setModalError("");
+    setInputError("");
     try {
       await request(path, {
         method,
@@ -473,6 +531,17 @@ function GoalsSession({ session }: { session: string | null }) {
         pending.current = null;
         setModal(null);
         setRevision((x) => x + 1);
+        const amount = money(v("amount") || "0");
+        toast(
+          modal.mode === "allocate"
+            ? `เก็บ ${amount} ฿ เข้า “${g!.name}” แล้ว`
+            : modal.mode === "release"
+              ? `คืน ${amount} ฿ จาก “${g!.name}” แล้ว`
+              : modal.mode === "correct"
+                ? "บันทึกการแก้รายการแล้ว"
+                : "บันทึกแล้ว",
+          "success",
+        );
       }
     } catch (e) {
       if (captured === epoch.current) setModalError((e as Error).message);
@@ -487,14 +556,38 @@ function GoalsSession({ session }: { session: string | null }) {
     create: "สร้างเป้าหมายใหม่",
     edit: "แก้ไขเป้าหมาย",
     opening: "เงินออมตั้งต้น",
-    allocate: "จัดสรรเงินเข้าเป้าหมาย",
+    allocate: "เก็บเงินเข้าเป้าหมาย",
     release: "คืนเงินจากเป้าหมาย",
-    history: "ประวัติการจัดสรร",
-    correct: "แก้ไขการจัดสรรด้วยรายการชดเชย",
+    history: "ประวัติการเก็บเงิน",
+    correct: "แก้รายการเก็บเงินที่บันทึกผิด",
   };
   const g = modal?.goal;
+  const isGoalForm = modal?.mode === "create" || modal?.mode === "edit";
+  const isMoneyForm = modal?.mode === "allocate" || modal?.mode === "release";
+  const styledForm = isGoalForm || isMoneyForm || modal?.mode === "history";
+  const headIconKey = (pickedIcon ?? g?.categoryKey ?? "other") as keyof typeof categories;
+  const HeadIcon = (categories[headIconKey] ?? categories.other).Icon;
   return (
     <div className="goals-page">
+      {undoArchive && (
+        <div className="local-toast-region goals-undo">
+          <div className="local-toast" role="status">
+            <span>จัดเก็บ “{undoArchive.name}” แล้ว</span>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                const goal = undoArchive;
+                window.clearTimeout(undoTimer.current);
+                setUndoArchive(null);
+                void archive({ ...goal, archivedAt: "pending-restore" });
+              }}
+            >
+              เลิกทำ
+            </button>
+          </div>
+        </div>
+      )}
       <header className="goals-header compact-page-toolbar">
         <h1 className="page-heading-accessible">เป้าหมายการออมเงิน</h1>
         <button className="goals-primary" onClick={() => open("create")}>
@@ -503,7 +596,7 @@ function GoalsSession({ session }: { session: string | null }) {
         </button>
         <UserHeader />
       </header>
-      {intention && (
+      {intention && !loading && !goals.length && (
         <aside
           className="goals-intention"
           aria-labelledby="goals-intention-title"
@@ -526,7 +619,7 @@ function GoalsSession({ session }: { session: string | null }) {
       )}
       {intentionError && (
         <div className="goals-error" role="status">
-          โหลดคำแนะนำจากความตั้งใจไม่สำเร็จ ยังใช้งาน Goals ได้ตามปกติ{" "}
+          โหลดคำแนะนำจากความตั้งใจไม่สำเร็จ ยังใช้งานหน้าเป้าหมายได้ตามปกติ{" "}
           <button type="button" onClick={() => setIntentionRetry((n) => n + 1)}>
             ลองโหลดคำแนะนำใหม่
           </button>
@@ -537,27 +630,33 @@ function GoalsSession({ session }: { session: string | null }) {
           <h2>เป้าหมายของคุณ</h2>
           <label>
             สถานะ{" "}
-            <select value={status} onChange={(e) => setStatus(e.target.value)}>
-              <option value="">ทั้งหมด</option>
-              {Object.entries(statusLabels).map(([k, label]) => (
-                <option key={k} value={k}>
-                  {label}
-                </option>
-              ))}
-            </select>
+            <Dropdown
+              value={status}
+              onChange={setStatus}
+              options={[
+                { value: "", label: "ทั้งหมด" },
+                ...Object.entries(statusLabels).map(([k, label]) => ({
+                  value: k,
+                  label,
+                })),
+              ]}
+            />
           </label>
           <label>
-            คลัง{" "}
-            <select
+            การจัดเก็บ{" "}
+            <Dropdown
               value={archived}
-              onChange={(e) => setArchived(e.target.value)}
-            >
-              <option value="exclude">ใช้งานอยู่</option>
-              <option value="only">จัดเก็บแล้ว</option>
-              <option value="include">ทั้งหมด</option>
-            </select>
+              onChange={setArchived}
+              options={[
+                { value: "exclude", label: "ใช้งานอยู่" },
+                { value: "only", label: "จัดเก็บแล้ว" },
+                { value: "include", label: "ทั้งหมด" },
+              ]}
+            />
           </label>
-          <div className="goals-view" role="group" aria-label="มุมมอง">
+          <div className={"goals-view" + (viewMoved ? " goals-view-moved" : "")} role="group" aria-label="มุมมอง" data-view={view}>
+            {/* Keyed so the droplet animation replays on every switch. */}
+            <span key={view} className="goals-view-drop" aria-hidden="true" />
             <button
               aria-pressed={view === "card"}
               onClick={() => changeView("card")}
@@ -578,10 +677,6 @@ function GoalsSession({ session }: { session: string | null }) {
           <button onClick={() => open("opening")}>
             ตั้งค่า / แก้ไขเงินออมตั้งต้น
           </button>
-          <span>
-            การจัดสรรเป็นการกันเงินไว้ ไม่เปลี่ยนรายรับ รายจ่าย หรืองบประมาณ
-            และไม่ใช่ยอดเงินสดคงเหลือ
-          </span>
         </div>
         {error && (
           <div role="alert" className="goals-error">
@@ -594,7 +689,7 @@ function GoalsSession({ session }: { session: string | null }) {
           <div className="goals-empty">
             <Target size={44} />
             <h3>ยังไม่มีเป้าหมายในรายการนี้</h3>
-            <p>สร้างเป้าหมาย แล้วเลือกแหล่งเงินจริงเพื่อเริ่มจัดสรร</p>
+            <p>สร้างเป้าหมาย แล้วเลือกแหล่งเงินจริงเพื่อเริ่มเก็บเงิน</p>
             <button onClick={() => open("create")}>สร้างเป้าหมายใหม่</button>
           </div>
         )}
@@ -606,7 +701,7 @@ function GoalsSession({ session }: { session: string | null }) {
               Icon = category.Icon;
             return (
               <article
-                className={"goal-card goal-" + goal.categoryKey}
+                className={"goal-card goal-" + goal.categoryKey + (goal.calculatedStatus === "completed" ? " goal-done" : "")}
                 key={goal.id}
               >
                 <div className="goal-heading">
@@ -621,7 +716,9 @@ function GoalsSession({ session }: { session: string | null }) {
                       <span className="goal-status">จัดเก็บแล้ว</span>
                     )}
                     <h3>{goal.name}</h3>
-                    <p>เป้าหมาย: {money(goal.targetAmount)} บาท</p>
+                    <p>
+                      เป้าหมาย <strong>{baht(goal.targetAmount)}</strong> ฿
+                    </p>
                   </div>
                   <button
                     className="goal-edit"
@@ -631,90 +728,134 @@ function GoalsSession({ session }: { session: string | null }) {
                     <Pencil size={18} />
                   </button>
                 </div>
-                <div className="goal-progress">
+                <div className="goal-progress-block">
+                  <div className="goal-saved">
+                    <p>
+                      <strong>{baht(goal.savedAmount)}</strong> ฿ ออมแล้ว
+                    </p>
+                    <strong className="goal-percent" aria-hidden="true">{goal.progressPercent}%</strong>
+                  </div>
                   <progress
+                    className="goal-bar"
                     max="100"
                     value={goal.progressBarPercent}
                     aria-label={"ความคืบหน้า " + goal.name}
+                    aria-valuetext={goal.progressPercent + "%"}
                   />
-                  <strong>{goal.progressPercent}%</strong>
                 </div>
-                <dl className="goal-figures">
+                <dl className="goal-stats">
                   <div>
-                    <dt>ออมแล้ว</dt>
-                    <dd>
-                      {money(goal.savedAmount)} <small>บาท</small>
-                    </dd>
+                    <dt><Flag size={16} aria-hidden="true" /> ต้องการอีก</dt>
+                    <dd>{baht(goal.remainingAmount)} <small>฿</small></dd>
                   </div>
                   <div>
-                    <dt>ต้องการอีก</dt>
-                    <dd>
-                      {money(goal.remainingAmount)} <small>บาท</small>
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>กำหนดเสร็จ</dt>
+                    <dt><CalendarDays size={16} aria-hidden="true" /> กำหนดเสร็จ</dt>
                     <dd>{dateLabel(goal.targetDate)}</dd>
+                    {goal.monthsRemaining !== null && goal.monthsRemaining > 0 && (
+                      <small className="goal-stats-note">อีก {goal.monthsRemaining} เดือน</small>
+                    )}
                   </div>
                 </dl>
-                <div
-                  className={
-                    "goal-plan " + (goal.warnings.length ? "goal-warning" : "")
-                  }
-                >
-                  {goal.requiredMonthlyAmount !== null ? (
-                    <>
-                      <strong>
-                        ต้องจัดสรรเฉลี่ยอีก {money(goal.requiredMonthlyAmount)}{" "}
-                        บาท/เดือน
-                      </strong>
-                      <span>
-                        {goal.monthsRemaining !== null
-                          ? `นับ ${goal.monthsRemaining} เดือนปฏิทิน รวมเดือนปัจจุบัน`
-                          : "ครบเป้าหมายแล้ว"}
-                      </span>
-                    </>
-                  ) : (
-                    <strong>
-                      {goal.calculatedStatus === "overdue"
-                        ? "เลยกำหนดแล้ว ยังขาด " +
-                          money(goal.remainingAmount) +
-                          " บาท"
-                        : "เพิ่มวันกำหนดเสร็จเพื่อคำนวณยอดต่อเดือน"}
-                    </strong>
-                  )}
-                  {goal.plannedMonthlyAmount && (
-                    <span>
-                      แผนปัจจุบัน {money(goal.plannedMonthlyAmount)} บาท/เดือน
-                    </span>
-                  )}
-                  {goal.warnings.includes("PLAN_INSUFFICIENT") && (
-                    <span>แผนรายเดือนยังไม่เพียงพอต่อเป้าหมาย</span>
-                  )}
-                  {goal.overfundedAmount !== "0.00" && (
-                    <span>
-                      เกินเป้าหมาย {money(goal.overfundedAmount)} บาท —
-                      เลือกคืนเงินได้
-                    </span>
-                  )}
-                </div>
-                <GoalFeasibility value={goal.feasibility} />
+                {(() => {
+                  const required = goal.requiredMonthlyAmount !== null ? Number(goal.requiredMonthlyAmount) : null;
+                  const planned = goal.plannedMonthlyAmount ? Number(goal.plannedMonthlyAmount) : null;
+                  const cash = goal.feasibility?.cashFlow;
+                  const net = cash && Number(cash.netCashFlow) > 0 ? Number(cash.netCashFlow) : null;
+                  const short = goal.warnings.includes("PLAN_INSUFFICIENT");
+                  const shortfall = required !== null && planned !== null && planned < required ? required - planned : null;
+                  const overNet = goal.feasibility?.status === "exceeds_observed_cash_flow";
+                  const rows = [
+                    { label: "ต้องออมต่อเดือน", value: required, tone: "required" },
+                    { label: "แผนปัจจุบัน", value: planned, tone: "planned" },
+                    { label: cash ? "เงินสุทธิเดือน " + thaiMonth(cash.period.month) : "", value: net, tone: "net" },
+                  ].filter((r): r is { label: string; value: number; tone: string } => r.value !== null);
+                  const scale = Math.max(1, ...rows.map((r) => r.value));
+                  return (
+                    <div className={"goal-plan" + (short || overNet ? " goal-warning" : "")}>
+                      {required !== null ? (
+                        <div className="goal-plan-head">
+                          <div>
+                            <span>ต้องออมเฉลี่ย</span>
+                            <p>
+                              <strong>{baht(goal.requiredMonthlyAmount!)}</strong> ฿/เดือน
+                            </p>
+                          </div>
+                          {(short || shortfall !== null || overNet) && (
+                            <span className="goal-plan-flag">
+                              <TriangleAlert size={18} aria-hidden="true" />
+                              {short || shortfall !== null ? "แผนยังไม่พอ" : "สูงกว่าเงินสุทธิ"}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <strong>
+                          {goal.calculatedStatus === "overdue"
+                            ? "เลยกำหนดแล้ว ยังขาด " + baht(goal.remainingAmount) + " ฿"
+                            : goal.calculatedStatus === "completed"
+                              ? <span className="goal-done-line"><CircleCheck size={20} aria-hidden="true" /> ครบเป้าหมายแล้ว ออมได้ตามที่ตั้งใจ</span>
+                              : "เพิ่มวันกำหนดเสร็จเพื่อคำนวณยอดต่อเดือน"}
+                        </strong>
+                      )}
+                      {required !== null && rows.length > 1 && (
+                        <ul className="goal-compare">
+                          {rows.map((r) => (
+                            <li key={r.tone}>
+                              <span>{r.label}</span>
+                              <strong>{baht(String(r.value))} ฿</strong>
+                              <i aria-hidden="true">
+                                <b className={"goal-compare-" + r.tone} style={{ width: (r.value / scale) * 100 + "%" }} />
+                              </i>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {required !== null && (planned === null || short || overNet || shortfall !== null) && (
+                        <button
+                          type="button"
+                          className="goal-plan-next"
+                          disabled={!!goal.archivedAt || busy}
+                          onClick={() => open("edit", goal)}
+                        >
+                          <ArrowRight size={16} aria-hidden="true" />
+                          <span>
+                            {planned === null
+                              ? "ยังไม่ได้ตั้งแผนออมรายเดือน — ตั้งแผน"
+                              : shortfall !== null
+                                ? <>ขาดอีก <strong>{baht(String(shortfall))} ฿</strong>/เดือน จากแผนปัจจุบัน
+                                    {overNet ? " และสูงกว่าเงินสุทธิเดือนที่แล้ว" : ""}</>
+                                : overNet
+                                  ? "ยอดที่ต้องออมสูงกว่าเงินสุทธิเดือนที่แล้ว"
+                                  : "เพิ่มแผนรายเดือนหรือเลื่อนวันกำหนดเสร็จ"}
+                          </span>
+                        </button>
+                      )}
+                      {goal.overfundedAmount !== "0.00" && (
+                        <span>
+                          เกินเป้าหมาย {baht(goal.overfundedAmount)} ฿ — เลือกคืนเงินได้
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
                 <div className="goal-actions">
                   <button
+                    className="goal-action-primary"
                     disabled={!!goal.archivedAt || busy}
                     onClick={() => open("allocate", goal)}
                   >
-                    จัดสรรเงิน
+                    <Plus size={18} aria-hidden="true" /> เก็บเงิน
                   </button>
                   <button
                     disabled={goal.savedAmount === "0.00" || busy}
                     onClick={() => open("release", goal)}
                   >
-                    คืนเงิน
+                    <Undo2 size={16} aria-hidden="true" /> คืนเงิน
                   </button>
-                  <button onClick={() => open("history", goal)}>ประวัติ</button>
-                  <button disabled={busy} onClick={() => void archive(goal)}>
-                    {goal.archivedAt ? "คืนจากคลัง" : "จัดเก็บ"}
+                  <button type="button" onClick={() => open("history", goal)}>
+                    <History size={16} aria-hidden="true" /> ประวัติ
+                  </button>
+                  <button type="button" disabled={busy} onClick={() => void archive(goal)}>
+                    <Archive size={16} aria-hidden="true" /> {goal.archivedAt ? "เลิกจัดเก็บ" : "จัดเก็บ"}
                   </button>
                 </div>
               </article>
@@ -733,7 +874,7 @@ function GoalsSession({ session }: { session: string | null }) {
       </section>
       <dialog
         ref={dialog}
-        className="goals-dialog"
+        className={"goals-dialog" + (styledForm ? " goals-dialog-goal" : "")}
         onCancel={(e) => {
           e.preventDefault();
           close();
@@ -746,11 +887,31 @@ function GoalsSession({ session }: { session: string | null }) {
         {modal && (
           <>
             <div className="goals-dialog-header">
-              <h2 id="goal-dialog-title">{titles[modal.mode]}</h2>
+              {styledForm ? (
+                <div className="goal-form-head">
+                  {/* Keyed by icon so a new pick replays the swap animation. */}
+                  <span key={headIconKey} className="goal-form-head-icon" aria-hidden="true">
+                    <HeadIcon size={24} />
+                  </span>
+                  <div>
+                    <small>{titles[modal.mode]}</small>
+                    <h2 id="goal-dialog-title">
+                      {g?.name || modal.initialName || "เป้าหมายใหม่"}
+                    </h2>
+                  </div>
+                </div>
+              ) : (
+                <h2 id="goal-dialog-title">{titles[modal.mode]}</h2>
+              )}
               <button aria-label="ปิด" disabled={busy} onClick={close}>
                 <X />
               </button>
             </div>
+            {inputError && (
+              <div className="goals-error" role="alert">
+                {inputError}
+              </div>
+            )}
             {modalError && (
               <div className="goals-error" role="alert">
                 {modalError}{" "}
@@ -767,17 +928,20 @@ function GoalsSession({ session }: { session: string | null }) {
             ) : !modalReady ? (
               <p role="status">ยังโหลดข้อมูลไม่สำเร็จ กรุณากดลองใหม่</p>
             ) : modal.mode === "history" ? (
-              <>
-                <p>ยอดนี้เป็นประวัติ ณ เวลาบันทึก</p>
+              <div className="goal-history-body">
+                <p className="goal-form-hint">ยอดนี้เป็นประวัติ ณ เวลาบันทึก</p>
                 {entries.length === 0 ? (
-                  <p>ยังไม่มีการจัดสรร</p>
+                  <p className="goal-history-empty">ยังไม่มีการเก็บเงิน</p>
                 ) : (
                   <ol className="goal-history">
                     {entries.map((e) => (
-                      <li key={e.id}>
+                      <li key={e.id} className={e.kind === "ALLOCATE" ? "in" : "out"}>
+                        <span className="goal-history-icon" aria-hidden="true">
+                          {e.kind === "ALLOCATE" ? <Plus size={16} /> : <Undo2 size={16} />}
+                        </span>
                         <strong>
-                          {e.kind === "ALLOCATE" ? "จัดสรรเข้า" : "คืนออก"}{" "}
-                          {money(e.amount)} บาท
+                          {e.kind === "ALLOCATE" ? "เก็บเข้า" : "คืนออก"}{" "}
+                          {money(e.amount)} ฿
                         </strong>
                         <span>
                           {new Intl.DateTimeFormat("th-TH", {
@@ -798,10 +962,16 @@ function GoalsSession({ session }: { session: string | null }) {
                     ))}
                   </ol>
                 )}
-                <button onClick={() => open("correct", g)}>
-                  แก้รายการผิดด้วยรายการชดเชย
-                </button>
-              </>
+                <div className="goal-history-fix">
+                  <p className="goal-form-hint">
+                    แก้รายการที่บันทึกผิดได้โดยไม่ลบของเดิม ระบบจะเพิ่มรายการชดเชยไว้
+                    ประวัติจึงตรวจสอบย้อนหลังได้
+                  </p>
+                  <button onClick={() => open("correct", g)}>
+                    แก้รายการที่บันทึกผิด
+                  </button>
+                </div>
+              </div>
             ) : (
               <form
                 key={modal.mode + (g?.id ?? "") + modalReload}
@@ -809,8 +979,8 @@ function GoalsSession({ session }: { session: string | null }) {
               >
                 {(modal.mode === "create" || modal.mode === "edit") && (
                   <>
-                    <label>
-                      ชื่อเป้าหมาย
+                    <label className="goal-form-half">
+                      <span className="goal-form-label">ชื่อเป้าหมาย</span>
                       <input
                         name="name"
                         required
@@ -819,48 +989,64 @@ function GoalsSession({ session }: { session: string | null }) {
                         autoFocus
                       />
                     </label>
-                    <label>
-                      ยอดเป้าหมาย (บาท)
-                      <input
-                        name="targetAmount"
-                        required
-                        inputMode="decimal"
-                        pattern="[0-9]{1,10}([.][0-9]{1,2})?"
-                        defaultValue={g?.targetAmount}
-                      />
+                    <label className="goal-form-half">
+                      <span className="goal-form-label">ยอดเป้าหมาย</span>
+                      <span className="goal-form-money">
+                        <input
+                          name="targetAmount"
+                          required
+                          inputMode="decimal"
+                          pattern="[0-9]{1,10}([.][0-9]{1,2})?"
+                          defaultValue={g?.targetAmount}
+                        />
+                        <i>฿</i>
+                      </span>
                     </label>
-                    <label>
-                      ประเภท
-                      <select
-                        name="categoryKey"
-                        defaultValue={g?.categoryKey ?? "other"}
-                      >
-                        {Object.entries(categories).map(([k, c]) => (
-                          <option value={k} key={k}>
-                            {c.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      กำหนดเสร็จ (ไม่บังคับ)
+                    <fieldset className="goal-icon-picker">
+                      <legend>ไอคอน</legend>
+                      {Object.entries(categories).map(([k, { label, Icon }]) => (
+                        <label key={k} title={label}>
+                          <input
+                            type="radio"
+                            name="categoryKey"
+                            value={k}
+                            defaultChecked={(g?.categoryKey ?? "other") === k}
+                            onChange={() => setPickedIcon(k)}
+                          />
+                          <Icon size={22} aria-hidden="true" />
+                          <span>{label}</span>
+                        </label>
+                      ))}
+                    </fieldset>
+                    <label className="goal-form-half">
+                      <span className="goal-form-label">
+                        กำหนดเสร็จ <em className="goal-form-optional">ไม่บังคับ</em>
+                      </span>
                       <input
                         type="date"
                         name="targetDate"
                         defaultValue={g?.targetDate ?? ""}
                       />
                     </label>
-                    <label>
-                      แผนจัดสรรต่อเดือน (ไม่บังคับ)
-                      <input
-                        name="plannedMonthlyAmount"
-                        inputMode="decimal"
-                        pattern="[0-9]{1,10}([.][0-9]{1,2})?"
-                        defaultValue={g?.plannedMonthlyAmount ?? ""}
-                      />
+                    <label className="goal-form-half">
+                      <span className="goal-form-label">
+                        แผนเก็บเงินต่อเดือน{" "}
+                        <em className="goal-form-optional">ไม่บังคับ</em>
+                      </span>
+                      <span className="goal-form-money">
+                        <input
+                          name="plannedMonthlyAmount"
+                          inputMode="decimal"
+                          pattern="[0-9]{1,10}([.][0-9]{1,2})?"
+                          defaultValue={g?.plannedMonthlyAmount ?? ""}
+                        />
+                        <i>฿</i>
+                      </span>
                     </label>
                     <label>
-                      หมายเหตุ
+                      <span className="goal-form-label">
+                        หมายเหตุ <em className="goal-form-optional">ไม่บังคับ</em>
+                      </span>
                       <textarea
                         name="note"
                         maxLength={1000}
@@ -873,10 +1059,10 @@ function GoalsSession({ session }: { session: string | null }) {
                   <>
                     <p>
                       ยอดเงินที่มีอยู่ ณ สิ้นวันตัดยอดตามเวลาไทย
-                      รายรับก่อนหรือเท่ากับวันนั้นจะใช้จัดสรรซ้ำไม่ได้
+                      รายรับก่อนหรือเท่ากับวันนั้นจะใช้เก็บเงินซ้ำไม่ได้
                     </p>
                     <label>
-                      จำนวนเงิน (บาท)
+                      จำนวนเงิน (฿)
                       <input
                         name="amount"
                         required
@@ -898,7 +1084,7 @@ function GoalsSession({ session }: { session: string | null }) {
                       />
                     </label>
                     {opening?.cutoffLocked && (
-                      <p>วันตัดยอดถูกล็อกเพราะมีประวัติการจัดสรรแล้ว</p>
+                      <p>วันตัดยอดถูกล็อกเพราะมีประวัติการเก็บเงินแล้ว</p>
                     )}
                     <label>
                       ที่มา / หมายเหตุ
@@ -919,79 +1105,92 @@ function GoalsSession({ session }: { session: string | null }) {
                 )}
                 {(modal.mode === "allocate" || modal.mode === "correct") && (
                   <label>
-                    แหล่งเงิน
-                    {modal.mode === "correct"
-                      ? "ทดแทน (ไม่เลือก = คืนเงินอย่างเดียว)"
-                      : ""}
-                    <select
+                    <span className="goal-form-label">
+                      แหล่งเงิน
+                      {modal.mode === "correct"
+                        ? "ทดแทน (ไม่เลือก = คืนเงินอย่างเดียว)"
+                        : ""}
+                    </span>
+                    <Dropdown
                       name="source"
                       required={modal.mode === "allocate"}
-                      defaultValue=""
-                    >
-                      <option value="">เลือกแหล่งเงิน</option>
-                      {opening && (
-                        <option value="opening">
-                          เงินตั้งต้น — เหลือ {money(opening.availableAmount)}{" "}
-                          บาท
-                        </option>
-                      )}
-                      {incomes.map((i) => (
-                        <option value={i.id} key={i.id}>
-                          {dateLabel(i.transactionDate)}{" "}
-                          {i.description || "รายรับ"} — เหลือ{" "}
-                          {money(i.availableAmount)} บาท
-                        </option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: "", label: "เลือกแหล่งเงิน" },
+                        ...(opening
+                          ? [{ value: "opening", label: `เงินตั้งต้น — เหลือ ${money(opening.availableAmount)} ฿` }]
+                          : []),
+                        ...incomes.map((i) => ({
+                          value: i.id,
+                          label: `${dateLabel(i.transactionDate)} ${i.description || "รายรับ"} — เหลือ ${money(i.availableAmount)} ฿`,
+                        })),
+                      ]}
+                    />
                   </label>
                 )}
                 {modal.mode === "correct" && (
                   <label>
-                    รายการจัดสรรที่ต้องการแก้
-                    <select name="allocationId" required>
-                      <option value="">เลือกรายการต้นทาง</option>
-                      {entries
-                        .filter((e) => e.kind === "ALLOCATE")
-                        .map((e) => (
-                          <option value={e.id} key={e.id}>
-                            {new Date(e.createdAt).toLocaleString("th-TH", {
-                              timeZone: "Asia/Bangkok",
-                            })}{" "}
-                            — {money(e.amount)} บาท
-                          </option>
-                        ))}
-                    </select>
+                    รายการเก็บเงินที่ต้องการแก้
+                    <Dropdown
+                      name="allocationId"
+                      required
+                      options={[
+                        { value: "", label: "เลือกรายการต้นทาง" },
+                        ...entries
+                          .filter((e) => e.kind === "ALLOCATE")
+                          .map((e) => ({
+                            value: e.id,
+                            label: `${new Date(e.createdAt).toLocaleString("th-TH", { timeZone: "Asia/Bangkok" })} — ${money(e.amount)} ฿ · ${e.sourceSnapshot.sourceType === "OPENING_BALANCE" ? "เงินตั้งต้น" : e.sourceSnapshot.description || "รายรับ"}`,
+                          })),
+                      ]}
+                    />
                   </label>
                 )}
                 {["allocate", "release", "correct"].includes(modal.mode) && (
                   <>
-                    <p>
-                      เป้าหมาย: {g?.name} · ออมแล้ว{" "}
-                      {money(g?.savedAmount ?? "0")} บาท
-                    </p>
+                    {g && (
+                      <dl className="goal-money-summary">
+                        <div>
+                          <dt>ออมแล้ว</dt>
+                          <dd>{money(g.savedAmount)} ฿</dd>
+                        </div>
+                        <div>
+                          <dt>เป้าหมาย</dt>
+                          <dd>{money(g.targetAmount)} ฿</dd>
+                        </div>
+                        <div>
+                          <dt>{modal.mode === "release" ? "คืนได้สูงสุด" : "ต้องการอีก"}</dt>
+                          <dd>{money(modal.mode === "release" ? g.savedAmount : g.remainingAmount)} ฿</dd>
+                        </div>
+                      </dl>
+                    )}
                     <label>
-                      จำนวนเงิน (บาท)
-                      <input
-                        name="amount"
-                        required
-                        inputMode="decimal"
-                        pattern="[0-9]{1,10}([.][0-9]{1,2})?"
-                        defaultValue={
-                          modal.mode === "release" &&
-                          g?.overfundedAmount !== "0.00"
-                            ? g?.overfundedAmount
-                            : undefined
-                        }
-                      />
+                      <span className="goal-form-label">จำนวนเงิน</span>
+                      <span className="goal-form-money">
+                        <input
+                          name="amount"
+                          required
+                          inputMode="decimal"
+                          pattern="[0-9]{1,10}([.][0-9]{1,2})?"
+                          defaultValue={
+                            modal.mode === "release" &&
+                            g?.overfundedAmount !== "0.00"
+                              ? g?.overfundedAmount
+                              : undefined
+                          }
+                        />
+                        <i>฿</i>
+                      </span>
                     </label>
                     {modal.mode !== "allocate" && (
                       <label>
-                        เหตุผล
+                        <span className="goal-form-label">เหตุผล</span>
                         <textarea name="reason" required maxLength={1000} />
                       </label>
                     )}
                     {modal.mode === "release" && (
-                      <p>ระบบคืนเงินจากรายการจัดสรรเก่าก่อน (FIFO)</p>
+                      <p className="goal-form-hint">
+                        ระบบคืนเงินจากรายการที่เก็บไว้ก่อนสุดก่อน
+                      </p>
                     )}
                   </>
                 )}
@@ -1000,11 +1199,12 @@ function GoalsSession({ session }: { session: string | null }) {
                     ยกเลิก
                   </button>
                   <button
-                    className="goals-primary"
+                    className={"goals-primary" + (styledForm ? " goal-form-save" : "")}
                     disabled={busy || modalLoading}
                     type="submit"
                   >
-                    {busy ? "กำลังบันทึก…" : "บันทึก"}
+                    {styledForm && !busy && <Check size={18} aria-hidden="true" />}
+                    {busy ? "กำลังบันทึก…" : modal.mode === "allocate" ? "เก็บเงิน" : modal.mode === "release" ? "คืนเงิน" : "บันทึก"}
                   </button>
                 </div>
               </form>

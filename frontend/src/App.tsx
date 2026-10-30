@@ -1,8 +1,9 @@
-import PageSkeleton from './components/PageSkeleton';
+import PageSkeleton from "./components/PageSkeleton";
 import { lazy, Suspense } from "react";
 import Guide from "./pages/Guide";
 const PublicHome = lazy(() => import("./pages/PublicHome"));
 const PasswordRecovery = lazy(() => import("./pages/PasswordRecovery"));
+const Privacy = lazy(() => import("./pages/Privacy"));
 import "./pageChrome.css";
 import "./components/Motion.css";
 const Admin = lazy(() => import("./pages/Admin"));
@@ -39,6 +40,7 @@ function App() {
           }
         />
         <Route path="/guide" element={<Guide />} />
+        <Route path="/privacy" element={<Privacy />} />
         <Route
           path="/password-recovery"
           element={<PasswordRecovery key="forgot" />}
@@ -68,6 +70,8 @@ function App() {
           element={
             <ProtectedRoute>
               <AppLayout>
+                {/* Inner boundary keeps the sidebar/tab bar mounted while a page chunk loads. */}
+                <Suspense fallback={<PageSkeleton />}>
                 <Routes>
                   <Route
                     path="/"
@@ -119,6 +123,7 @@ function App() {
                     }
                   />
                 </Routes>
+                </Suspense>
               </AppLayout>
             </ProtectedRoute>
           }

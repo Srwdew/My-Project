@@ -10,14 +10,11 @@
 
   padding: 30px;
 
-  background: #f6f8fc;
+  background: var(--color-surface-page);
 
-  color: #111827;
+  color: var(--color-ink);
 
-  font-family:
-    "Segoe UI",
-    "Noto Sans Thai",
-    sans-serif;
+  font-family: "Kanit", "Segoe UI", "Noto Sans Thai", sans-serif;
 }
 
 .login-container {
@@ -44,7 +41,7 @@
 
   border-radius: 13px;
 
-  background: #3548e8;
+  background: var(--color-brand-strong);
 
   color: #ffffff;
 
@@ -55,7 +52,7 @@
 .login-brand h1 {
   margin: 0;
 
-  color: #111827;
+  color: var(--color-ink);
 
   font-size: 22px;
   font-weight: 700;
@@ -81,8 +78,7 @@
 
   background: #ffffff;
 
-  box-shadow:
-    0 12px 35px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 12px 35px rgba(15, 23, 42, 0.06);
 }
 
 .login-card-header {
@@ -91,10 +87,11 @@
   text-align: center;
 }
 
+.login-card-header h1,
 .login-card-header h2 {
   margin: 0;
 
-  color: #111827;
+  color: var(--color-ink);
 
   font-size: 21px;
   font-weight: 700;
@@ -140,12 +137,9 @@
 
   background: #ffffff;
 
-  color: #111827;
+  color: var(--color-ink);
 
-  font-family:
-    "Segoe UI",
-    "Noto Sans Thai",
-    sans-serif;
+  font-family: "Kanit", "Segoe UI", "Noto Sans Thai", sans-serif;
 
   font-size: 12px;
 
@@ -159,8 +153,7 @@
 .login-field input:focus {
   border-color: #5264ef;
 
-  box-shadow:
-    0 0 0 3px rgba(82, 100, 239, 0.1);
+  box-shadow: 0 0 0 3px rgba(82, 100, 239, 0.1);
 }
 
 .login-error {
@@ -189,10 +182,7 @@
 
   color: #ffffff;
 
-  font-family:
-    "Segoe UI",
-    "Noto Sans Thai",
-    sans-serif;
+  font-family: "Kanit", "Segoe UI", "Noto Sans Thai", sans-serif;
 
   font-size: 12px;
   font-weight: 600;
@@ -237,13 +227,120 @@
 
   color: #4054e8;
 
-  font-family:
-    "Segoe UI",
-    "Noto Sans Thai",
-    sans-serif;
+  font-family: "Kanit", "Segoe UI", "Noto Sans Thai", sans-serif;
 
   font-size: 11px;
   font-weight: 600;
 
   cursor: pointer;
 }
+
+/* Mockup "Login socket": icon inputs, right-aligned forgot link, pill submit. */
+.login-card-header.is-start {
+  text-align: left;
+}
+.login-input {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.login-input > svg {
+  position: absolute;
+  left: 16px;
+  color: var(--color-ink-muted);
+  pointer-events: none;
+}
+.login-field .login-input input {
+  height: 52px;
+  padding-left: 48px;
+  border-radius: 14px;
+  font-size: 14px;
+  transition:
+    border-color 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.login-input:focus-within > svg {
+  color: var(--color-brand);
+}
+.login-field label {
+  font-size: 14px;
+  color: var(--color-ink);
+}
+.login-forgot {
+  justify-self: end;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--color-brand);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.login-forgot:hover {
+  color: var(--color-brand-strong);
+}
+.login-card .login-submit {
+  justify-self: center;
+  width: min(240px, 100%);
+  height: 52px;
+  margin-top: 12px;
+  border-radius: 999px;
+  background: var(--color-brand);
+  font-size: 15px;
+}
+.login-card .login-submit:hover:not(:disabled) {
+  background: var(--color-brand-strong);
+}
+.login-footer,
+.login-footer button {
+  font-size: 13px;
+}
+.login-footer button {
+  color: var(--color-brand);
+}
+.login-page :focus-visible {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 2px;
+}
+.login-page .login-message {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #c7d0fb;
+  border-radius: 10px;
+  background: #eef0fe;
+  color: var(--color-brand-strong);
+  font-size: 13px;
+}
+.login-links {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin: 20px 0 0;
+  font-size: 13px;
+}
+.login-links a {
+  color: var(--color-brand);
+}
+
+/* Register consent line (mockup: small muted text, underlined policy link) */
+.login-card .login-consent {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-ink-muted);
+}
+.login-card .login-consent a {
+  margin-left: 4px;
+  color: var(--color-ink-soft);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.login-card .login-consent a:hover {
+  color: var(--color-brand);
+}
+
+.login-logo:has(img) { background: none; }

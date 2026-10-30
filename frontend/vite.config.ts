@@ -5,6 +5,7 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    allowedHosts: ['.trycloudflare.com'], // Cloudflare quick tunnel for design reviews
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:4000',

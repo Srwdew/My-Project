@@ -1,3 +1,4 @@
+import { thaiDate, thaiMonth } from "../utils/thaiDate";
 import { moneyText } from '../utils/dashboard';
 export type Feasibility = {
   status: string;
@@ -20,9 +21,9 @@ export default function GoalFeasibility({ value }: { value?: Feasibility }) {
   const cash = value.cashFlow;
   return <div className="goal-plan" data-testid="goal-feasibility">
     <strong>ประเมินจากกระแสเงินสดจริง</strong>
-    <span>เดือนปฏิทินเต็มล่าสุด {cash.period.month} ({cash.period.startDate} ถึง {cash.period.endDate})</span>
+    <span>เดือนปฏิทินเต็มล่าสุด {thaiMonth(cash.period.month)} ({thaiDate(cash.period.startDate)} ถึง {thaiDate(cash.period.endDate)})</span>
     <span>รายรับ {moneyText(cash.incomeAmount)} − รายจ่าย {moneyText(cash.expenseAmount)} = สุทธิ {moneyText(cash.netCashFlow)} บาท</span>
     <span>{labels[value.status] ?? 'ยังประเมินไม่ได้'}</span>
-    <small>ใช้เฉพาะข้อมูลที่บันทึกในเดือนที่ผ่านมา ไม่รับประกันรายได้ในอนาคตหรือความครบถ้วนของข้อมูล ประเมินแยกแต่ละเป้าหมาย ไม่ใช่เงินพร้อมจัดสรรรวมทุกเป้าหมาย และไม่ถือว่าเงินสุทธิทั้งหมดต้องนำมาออม ไม่มีการจัดสรรเงินอัตโนมัติ</small>
+    <small>ใช้เฉพาะข้อมูลที่บันทึกในเดือนที่ผ่านมา ไม่รับประกันรายได้ในอนาคตหรือความครบถ้วนของข้อมูล ประเมินแยกแต่ละเป้าหมาย ไม่ใช่เงินที่พร้อมเก็บรวมทุกเป้าหมาย และไม่ถือว่าเงินสุทธิทั้งหมดต้องนำมาออม ไม่มีการเก็บเงินให้อัตโนมัติ</small>
   </div>;
 }

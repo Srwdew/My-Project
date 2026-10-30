@@ -46,7 +46,7 @@
   display: grid;
   gap: 5px;
   font-size: 12px;
-  color: #64748b;
+  color: var(--color-ink-muted);
 }
 
 .budget-month-picker input {
@@ -135,19 +135,25 @@
 
 .budget-kpis article > span {
   font-size: 13px;
-  color: #64748b;
+  color: var(--color-ink-muted);
 }
 
 .budget-kpis small {
   display: block;
   margin-top: 7px;
-  color: #64748b;
+  color: var(--color-ink-muted);
   font-size: 11px;
 }
 
-.budget-purple { color: #7561ff; }
-.budget-red { color: #ee4c61; }
-.budget-green { color: #16b981; }
+.budget-purple {
+  color: #7561ff;
+}
+.budget-red {
+  color: #ee4c61;
+}
+.budget-green {
+  color: #16b981;
+}
 
 .budget-table-card {
   background: #fff;
@@ -239,7 +245,7 @@
 }
 
 .budget-table small {
-  color: #64748b;
+  color: var(--color-ink-muted);
   font-size: 12px;
 }
 
@@ -268,7 +274,7 @@
 }
 
 .budget-badge.unset {
-  color: #64748b;
+  color: var(--color-ink-muted);
   background: #f0f3f7;
 }
 
@@ -329,7 +335,7 @@
 }
 
 .budget-time-card > p {
-  color: #64748b;
+  color: var(--color-ink-muted);
   font-size: 13px;
 }
 
@@ -355,7 +361,7 @@
 .budget-time-grid span,
 .budget-time-grid small {
   font-size: 12px;
-  color: #64748b;
+  color: var(--color-ink-muted);
 }
 
 .budget-time-grid strong {
@@ -431,7 +437,7 @@
 .budget-dialog small {
   display: block;
   margin-top: 8px;
-  color: #64748b;
+  color: var(--color-ink-muted);
 }
 
 .budget-dialog-footer {
@@ -617,6 +623,7 @@
 }
 
 .budget-kpi-title {
+  margin-top: 0;
   min-height: 30px;
   margin-bottom: 10px;
   font-size: 14px;
@@ -829,20 +836,944 @@
   }
 }
 /* Reuse the transaction datepicker, selecting a budget month rather than a day. */
-button.budget-month-picker { font-family: inherit; }
-button.budget-month-picker:disabled { opacity: .55; cursor: not-allowed; }
-.budget-datepicker-popper { z-index: 30; }
-.budget-datepicker-popper .react-datepicker { font-family: inherit; border: 1px solid #d8dee8; border-radius: 12px; box-shadow: 0 8px 24px #142d4e1a; }
-.budget-datepicker-popper .react-datepicker__header { border-radius: 12px 12px 0 0; background: #f3f6ff; border-bottom-color: #e3e9f3; }
-.budget-datepicker-popper .react-datepicker__month-text { padding: 8px 0; border-radius: 7px; }
-.budget-datepicker-popper .react-datepicker__month-text:focus-visible { outline: 3px solid #336fe2; outline-offset: 1px; }
+button.budget-month-picker {
+  font-family: inherit;
+}
+button.budget-month-picker:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.budget-datepicker-popper {
+  z-index: 30;
+}
+.budget-datepicker-popper .react-datepicker {
+  font-family: inherit;
+  border: 1px solid #d8dee8;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px #142d4e1a;
+}
+.budget-datepicker-popper .react-datepicker__header {
+  border-radius: 12px 12px 0 0;
+  background: #f3f6ff;
+  border-bottom-color: #e3e9f3;
+}
+.budget-datepicker-popper .react-datepicker__month-text {
+  padding: 8px 0;
+  border-radius: 7px;
+}
+.budget-datepicker-popper .react-datepicker__month-text:focus-visible {
+  outline: 3px solid #336fe2;
+  outline-offset: 1px;
+}
 
 /* Keep the two budget actions together on the same row. */
-.budget-toolbar { flex-wrap: wrap; }
-.budget-toolbar-actions { flex: 0 0 auto; flex-wrap: nowrap; align-items: stretch; }
-.budget-toolbar-actions .budget-btn { white-space: nowrap; }
+.budget-toolbar {
+  flex-wrap: wrap;
+}
+.budget-toolbar-actions {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: stretch;
+}
+.budget-toolbar-actions .budget-btn {
+  white-space: nowrap;
+}
 @media (max-width: 640px) {
-  .budget-toolbar-actions { display: grid; grid-template-columns: 1.25fr 1fr; width: 100%; }
-  .budget-toolbar-actions .budget-btn { min-width: 0; min-height: 46px; padding: 10px 8px; gap: 6px; white-space: normal; }
-  .budget-toolbar-actions .budget-btn > svg { flex-shrink: 0; }
+  .budget-toolbar-actions {
+    display: grid;
+    grid-template-columns: 1.25fr 1fr;
+    width: 100%;
+  }
+  .budget-toolbar-actions .budget-btn {
+    min-width: 0;
+    min-height: 46px;
+    padding: 10px 8px;
+    gap: 6px;
+    white-space: normal;
+  }
+  .budget-toolbar-actions .budget-btn > svg {
+    flex-shrink: 0;
+  }
+}
+
+/* Month picker + actions on one row; Addtransaction.css forces datepicker wrappers to 100% globally. */
+.budget-toolbar .react-datepicker-wrapper {
+  width: auto !important;
+  flex: 0 0 auto;
+}
+@media (min-width: 641px) {
+  .budget-toolbar {
+    flex-wrap: nowrap;
+  }
+}
+
+/* Budget alert settings (mockup "Budget alert settings"): solid colours only, no glow or gradients. */
+.budget-notice-dialog {
+  width: min(500px, calc(100vw - 32px));
+  border-radius: 24px;
+}
+.budget-notice-dialog .budget-dialog-heading h2 {
+  margin: 0;
+  font-size: 22px;
+}
+.budget-notice-dialog .budget-dialog-heading + p {
+  margin: 2px 0 18px;
+  color: var(--color-ink-muted);
+  font-size: 14px;
+}
+.notice-fieldset {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.notice-master,
+.notice-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  cursor: pointer;
+}
+.notice-master {
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: #f1f4f8;
+  transition: background-color 200ms ease;
+}
+.notice-master.is-on {
+  background: #e7f0ff;
+}
+.notice-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+.notice-text strong {
+  font-size: 15px;
+  color: var(--color-ink);
+}
+.notice-text small {
+  color: var(--color-ink-muted);
+  font-size: 13px;
+}
+.notice-bell {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: #fff;
+  color: #64748b;
+}
+.notice-master.is-on .notice-bell {
+  color: #1d4ed8;
+}
+/* Bell swings from its top like a real bell, then settles; replays whenever alerts switch on. */
+.notice-master.is-on .notice-bell svg {
+  transform-origin: 50% 8%;
+  animation: notice-bell-ring 900ms ease-in-out;
+}
+.notice-master.is-on:hover .notice-bell svg {
+  animation: notice-bell-ring 900ms ease-in-out;
+}
+@keyframes notice-bell-ring {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(16deg); }
+  30% { transform: rotate(-14deg); }
+  45% { transform: rotate(10deg); }
+  60% { transform: rotate(-7deg); }
+  75% { transform: rotate(3deg); }
+}
+.notice-group-title {
+  margin: 10px 0 0;
+  color: #52616d;
+  font-size: 13px;
+  font-weight: 600;
+}
+.notice-group {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid #e6ebf2;
+  border-radius: 18px;
+  background: #fff;
+}
+.notice-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+}
+.notice-icon-danger {
+  background: #fdecec;
+  color: #c81e1e;
+}
+/* Native checkbox restyled as a switch, so keyboard and form behaviour stay native. */
+.notice-switch {
+  appearance: none;
+  flex-shrink: 0;
+  position: relative;
+  width: 52px;
+  height: 30px;
+  margin: 0;
+  border-radius: 999px;
+  background: #cbd5e1;
+  cursor: pointer;
+  transition: background-color 200ms ease;
+}
+.notice-switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.notice-switch:checked {
+  background: #2563eb;
+}
+.notice-switch:checked::after {
+  transform: translateX(22px);
+}
+.notice-switch:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 2px;
+}
+.notice-threshold {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 14px;
+  background: #f3f7fd;
+  transition: opacity 200ms ease;
+}
+.notice-threshold.is-off {
+  opacity: 0.55;
+}
+.notice-threshold-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.notice-threshold-head label {
+  font-weight: 600;
+}
+.notice-stepper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.notice-stepper button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid #d8e0ec;
+  border-radius: 12px;
+  background: #fff;
+  color: #1d4ed8;
+  cursor: pointer;
+}
+.notice-stepper button:hover {
+  background: #eef3fb;
+}
+.notice-percent {
+  display: inline-flex;
+  align-items: baseline;
+  color: #1d4ed8;
+  font-size: 18px;
+  font-weight: 700;
+}
+.budget-dialog .notice-percent input {
+  width: 2.4em;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 32px;
+  font-weight: 700;
+  text-align: right;
+}
+.notice-range {
+  width: 100%;
+  height: 8px;
+  margin: 8px 0 0;
+  appearance: none;
+  border-radius: 999px;
+  background: linear-gradient(to right, #2563eb var(--fill), #dbe4f0 var(--fill));
+  cursor: pointer;
+}
+.notice-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  border: 3px solid #2563eb;
+  border-radius: 50%;
+  background: #fff;
+}
+.notice-range::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 3px solid #2563eb;
+  border-radius: 50%;
+  background: #fff;
+}
+.notice-range:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 4px;
+}
+.notice-range-scale {
+  display: flex;
+  justify-content: space-between;
+  color: #52616d;
+  font-size: 12px;
+}
+.notice-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.notice-presets button {
+  min-width: 64px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid #d8e0ec;
+  border-radius: 999px;
+  background: #fff;
+  color: #1d4ed8;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+.notice-presets button[aria-pressed="true"] {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+  color: #fff;
+}
+.budget-notice-dialog .budget-dialog-footer {
+  justify-content: flex-end;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #eef1f6;
+}
+.budget-notice-dialog .budget-dialog-footer .budget-btn {
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 14px;
+  box-shadow: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .notice-master .notice-bell svg {
+    animation: none !important;
+  }
+}
+/* Win over the generic .budget-dialog label/input/small rules above. */
+.budget-notice-dialog label.notice-master,
+.budget-notice-dialog label.notice-row {
+  display: flex;
+  margin: 0;
+}
+.budget-notice-dialog .notice-threshold-head label {
+  margin: 0;
+}
+.budget-notice-dialog .notice-text small {
+  display: block;
+  margin: 0;
+  color: #52616d;
+}
+.budget-notice-dialog input.notice-switch {
+  width: 52px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+.budget-notice-dialog input.notice-switch:checked {
+  background: #2563eb;
+}
+.budget-notice-dialog input.notice-range {
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(to right, #2563eb var(--fill), #dbe4f0 var(--fill));
+}
+
+/* Type scale for the alert dialog: 4 steps, each with one job.
+   22 title · 16 setting names · 14 controls & supporting text · 13 meta. Display number 28.
+   Thai needs taller lines than Latin, so body text sits at 1.5. */
+.budget-notice-dialog {
+  line-height: 1.5;
+}
+.budget-notice-dialog .budget-dialog-heading h2 {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+.budget-notice-dialog .budget-dialog-heading + p {
+  font-size: 14px;
+}
+.budget-notice-dialog .notice-text strong {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.budget-notice-dialog .notice-text small,
+.budget-notice-dialog .notice-range-scale {
+  font-size: 13px;
+}
+.budget-notice-dialog .notice-threshold-head label {
+  font-size: 14px;
+  font-weight: 600;
+}
+.budget-notice-dialog .notice-percent {
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+.budget-dialog .notice-percent input {
+  font-size: 28px;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+.budget-notice-dialog .notice-presets button,
+.budget-notice-dialog .budget-dialog-footer .budget-btn,
+.budget-notice-dialog [role="alert"],
+.budget-notice-dialog [role="status"] {
+  font-size: 14px;
+}
+.budget-notice-dialog .notice-presets button {
+  font-variant-numeric: tabular-nums;
+}
+.budget-notice-dialog .budget-dialog-footer .budget-btn {
+  font-weight: 600;
+}
+
+/* Page-wide type scale (was 17 sizes). Same steps as the alert dialog:
+   26 page title · 20 section title / large figures · 14 body & controls · 13 meta.
+   Nothing below 13px: Thai stacked vowels and tone marks blur at 11–12px. */
+.budget-page {
+  line-height: 1.5;
+}
+.budget-page .budget-header h1 {
+  font-size: 26px;
+  line-height: 1.35;
+}
+.budget-page :is(.budget-header p, .budget-month-picker input, .budget-btn,
+  .budget-toolbar-actions .budget-btn, .budget-kpi-title, .budget-table, .budget-dialog label) {
+  font-size: 14px;
+}
+.budget-page :is(.budget-month-picker, .budget-kpis article > span, .budget-kpis small,
+  .budget-table small, .budget-badge, .budget-remove-btn, .budget-table-note,
+  .budget-time-card > p, .budget-time-grid small, .budget-category-content > span, .budget-dialog small) {
+  font-size: 13px;
+}
+.budget-page .budget-table th {
+  font-size: 13px;
+  font-weight: 600;
+}
+.budget-page :is(.budget-time-card h2, .budget-dialog h2:not(#budget-notice-title)) {
+  font-size: 20px;
+  line-height: 1.4;
+}
+.budget-page .budget-kpis strong {
+  font-size: clamp(20px, 1.8vw, 26px);
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+.budget-page .budget-time-grid strong {
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+.budget-page .budget-table td {
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 640px) {
+  .budget-page .budget-header h1 {
+    font-size: 22px;
+  }
+  .budget-page .budget-toolbar-actions .budget-btn {
+    font-size: 13px;
+  }
+}
+
+/* Alert dialog header: bell tile with thin sound-wave rings, staggered title, live status chip.
+   Solid fills and strokes only — no glow, no gradient. */
+.budget-notice-dialog .notice-head {
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #eef1f6;
+}
+.notice-head-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: #1d4ed8;
+  color: #fff;
+  animation: notice-head-pop 520ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.notice-head-icon svg {
+  position: relative;
+  z-index: 1;
+  transform-origin: 50% 8%;
+  animation: notice-bell-ring 900ms 300ms ease-in-out backwards;
+}
+.notice-head-icon i {
+  position: absolute;
+  inset: 0;
+  border: 2px solid #1d4ed8;
+  border-radius: 16px;
+  opacity: 0;
+  pointer-events: none;
+  animation: notice-wave 1100ms 380ms ease-out;
+}
+.notice-head-icon i + i {
+  animation-delay: 620ms;
+}
+.notice-head-icon.is-off {
+  background: #e2e8f0;
+  color: #52616d;
+}
+.notice-head-icon.is-off svg,
+.notice-head-icon.is-off i {
+  animation: none;
+}
+.notice-head-text {
+  flex: 1;
+  min-width: 0;
+}
+.notice-head-text > * {
+  animation: notice-head-slide 420ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.notice-head-text > :nth-child(2) { animation-delay: 70ms; }
+.notice-head-text > :nth-child(3) { animation-delay: 140ms; }
+.budget-notice-dialog .notice-head-text p {
+  margin: 2px 0 0;
+  color: var(--color-ink-muted);
+  font-size: 14px;
+}
+.notice-head-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #e7f0ff;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+.notice-head-chip::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.notice-head-chip.is-off {
+  background: #eef1f6;
+  color: #52616d;
+}
+.notice-head-close {
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), background-color 160ms ease;
+}
+.notice-head-close:hover:not(:disabled) {
+  transform: rotate(90deg);
+  background: #f1f4f8;
+}
+@keyframes notice-head-pop {
+  0% { opacity: 0; transform: scale(0.6) rotate(-10deg); }
+  60% { opacity: 1; transform: scale(1.06) rotate(3deg); }
+  100% { transform: none; }
+}
+@keyframes notice-wave {
+  0% { opacity: 0.55; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.55); }
+}
+@keyframes notice-head-slide {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .notice-head-icon,
+  .notice-head-icon svg,
+  .notice-head-icon i,
+  .notice-head-text > *,
+  .notice-head-close {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Create / edit budget dialog: target icon header, big amount, live spent-vs-budget preview.
+   Solid colours only; motion explains the change (icon swap, bar fill, staggered fields). */
+.budget-editor-dialog {
+  width: min(500px, calc(100vw - 32px));
+  border-radius: 24px;
+}
+.budget-editor {
+  display: grid;
+  gap: 18px;
+}
+.budget-editor > * {
+  animation: budget-editor-rise 400ms cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+.budget-editor > :nth-child(2) { animation-delay: 60ms; }
+.budget-editor > :nth-child(3) { animation-delay: 120ms; }
+.budget-editor > :nth-child(4) { animation-delay: 180ms; }
+.budget-editor > :nth-child(n + 5) { animation-delay: 220ms; }
+.budget-editor-dialog .budget-editor-head {
+  align-items: flex-start;
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #eef1f6;
+}
+.budget-editor-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: #1d4ed8;
+  color: #fff;
+  animation: budget-editor-swap 480ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.budget-editor-icon svg {
+  width: 24px;
+  height: 24px;
+}
+.budget-editor-head-text {
+  flex: 1;
+  min-width: 0;
+}
+.budget-editor-dialog .budget-editor-head-text small {
+  display: block;
+  margin: 0;
+  color: var(--color-ink-muted);
+  font-size: 13px;
+}
+.budget-editor-dialog .budget-editor-head-text h2 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.budget-editor-period {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #eef1f6;
+  color: #52616d;
+  font-size: 13px;
+}
+.budget-editor-close {
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1), background-color 160ms ease;
+}
+.budget-editor-close:hover:not(:disabled) {
+  transform: rotate(90deg);
+  background: #f1f4f8;
+}
+.budget-editor-field {
+  display: grid;
+  gap: 8px;
+}
+.budget-editor-dialog .budget-editor-field label {
+  margin: 0;
+  font-weight: 600;
+}
+.budget-editor-dialog .budget-editor-field small {
+  margin: 0;
+}
+.budget-editor-dialog .budget-editor-field .dropdown .dropdown-button {
+  min-height: 48px;
+  border-color: #dfe5ee;
+  border-radius: 14px;
+  font-size: 16px;
+}
+.budget-editor-dialog .budget-editor-field :is(select, input) {
+  min-height: 48px;
+  border: 1px solid #dfe5ee;
+  border-radius: 14px;
+  font-size: 16px;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.budget-editor-dialog .budget-editor-field :is(select, input):focus {
+  outline: none;
+  border-color: #1d4ed8;
+  box-shadow: 0 0 0 4px #dbe6fb;
+}
+.budget-editor-money {
+  position: relative;
+  display: block;
+}
+.budget-editor-dialog .budget-editor-money input {
+  padding-right: 40px;
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.budget-editor-money i {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  color: #52616d;
+  font-size: 18px;
+  font-style: normal;
+  font-weight: 600;
+  pointer-events: none;
+}
+.budget-editor-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.budget-editor-presets button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid #d8e0ec;
+  border-radius: 999px;
+  background: #fff;
+  color: #1d4ed8;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+.budget-editor-presets button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #eef3fb;
+}
+.budget-editor-presets button[aria-pressed="true"] {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+  color: #fff;
+}
+.budget-editor-preview {
+  --tone: #1d4ed8;
+  --tone-bg: #f3f7fd;
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--tone-bg);
+  transition: background-color 240ms ease;
+}
+.budget-editor-preview.is-ok { --tone: #15803d; --tone-bg: #effaf3; }
+.budget-editor-preview.is-near { --tone: #b45309; --tone-bg: #fff7e8; }
+.budget-editor-preview.is-over { --tone: #c81e1e; --tone-bg: #fdeeee; }
+.budget-editor-preview-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+.budget-editor-preview-row strong {
+  font-variant-numeric: tabular-nums;
+}
+.budget-editor-bar {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+.budget-editor-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--tone);
+  transition: width 420ms cubic-bezier(0.22, 1, 0.36, 1), background-color 240ms ease;
+}
+.budget-editor-dialog .budget-editor-preview p {
+  margin: 0;
+  color: var(--tone);
+  font-size: 14px;
+  font-weight: 600;
+}
+.budget-editor-preview.is-empty p {
+  color: #52616d;
+  font-weight: 400;
+}
+.budget-editor-dialog .budget-dialog-footer {
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid #eef1f6;
+}
+.budget-editor-dialog .budget-dialog-footer .budget-btn {
+  min-height: 48px;
+  padding: 0 22px;
+  border-radius: 14px;
+  font-weight: 600;
+}
+@keyframes budget-editor-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes budget-editor-swap {
+  0% { opacity: 0; transform: scale(0.6) rotate(-12deg); }
+  60% { opacity: 1; transform: scale(1.08) rotate(3deg); }
+  100% { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .budget-editor > *,
+  .budget-editor-icon,
+  .budget-editor-bar span,
+  .budget-editor-close,
+  .budget-editor-presets button {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Mobile header layout (from the reference screenshot; layout only, existing colours):
+   eyebrow + title + subtitle + short rule on the left, bell + avatar on the right, divider,
+   then month picker, "แก้ไขงบประมาณ" and "ตั้งค่าการแจ้งเตือนงบ" stacked full width. */
+@media (max-width: 767px) {
+  .budget-page .budget-header {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0 16px;
+    margin: 0 0 16px;
+    border-bottom: 1px solid #e6eaf0;
+  }
+  .budget-page .budget-header > div:first-child { flex: 1; min-width: 0; }
+  .budget-page .budget-header > div:first-child::after {
+    content: "";
+    display: block;
+    width: 32px;
+    height: 3px;
+    margin-top: 12px;
+    border-radius: 2px;
+    background: #c5ccd6;
+  }
+  .budget-page .budget-header h1 { margin: 0; font-size: 24px; line-height: 1.25; }
+  .budget-page .budget-header h1::before {
+    content: "งบประมาณ";
+    display: block;
+    margin-bottom: 2px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #737b88;
+  }
+  .budget-page .budget-header p { margin: 4px 0 0; font-size: 13px; }
+  .budget-page .budget-header .user-header { flex: 0 0 auto; min-width: 0; gap: 8px; }
+  .budget-page .budget-header .user-header-info { display: none; }
+  .budget-page .budget-header .user-header .user-header-profile {
+    width: auto;
+    min-width: 0;
+    padding: 4px;
+    border-radius: 999px;
+  }
+  .budget-page .budget-toolbar {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin-top: 0;
+  }
+  .budget-page .budget-toolbar .react-datepicker-wrapper,
+  .budget-page .budget-toolbar .react-datepicker__input-container { display: block; width: 100%; }
+  .budget-page .budget-toolbar button.budget-month-picker { width: 100%; }
+  /* DOM order is notify, edit; show edit first like the reference. */
+  .budget-page .budget-toolbar-actions {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 10px;
+    width: 100%;
+  }
+  .budget-page .budget-toolbar-actions .budget-btn { width: 100%; justify-content: center; }
+}
+/* Phones: each category is its own card, spaced apart.
+   Layout: icon | name + status | actions, then "spent / budget", full-width bar, remaining. */
+@media (max-width: 640px) {
+  .budget-page .budget-table-card { border: 0; border-radius: 0; background: none; overflow: visible; }
+  .budget-page .budget-table-scroll { overflow: visible; }
+  .budget-page .budget-table { display: block; width: 100%; min-width: 0; }
+  .budget-page .budget-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .budget-page .budget-table tbody { display: grid; gap: 12px; }
+  .budget-page .budget-table tbody tr {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-areas:
+      "icon name name act"
+      "icon stat stat act"
+      "used used bud  bud"
+      "bar  bar  bar  bar"
+      "rem  rem  rem  rem";
+    column-gap: 12px;
+    padding: 16px;
+    border: 1px solid #e6eaf0;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+    animation: budget-card-in 0.35s ease-out both;
+  }
+  /* Let the category cell's parts (icon, name, bar) sit directly on the card grid. */
+  .budget-page .budget-table tbody td:first-child,
+  .budget-page .budget-table .budget-category,
+  .budget-page .budget-table .budget-category-content { display: contents; }
+  .budget-page .budget-table tbody td {
+    display: block;
+    min-width: 0;
+    height: auto;
+    padding: 0;
+    border: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
+  }
+  .budget-page .budget-table .budget-category-icon { grid-area: icon; align-self: start; }
+  .budget-page .budget-table .budget-category-content > span { grid-area: name; align-self: end; font-size: 15px; font-weight: 700; color: var(--color-ink); }
+  .budget-page .budget-table td.budget-cell-status { grid-area: stat; align-self: start; margin-top: 4px; }
+  .budget-page .budget-table td.budget-cell-actions { grid-area: act; align-self: start; }
+  .budget-page .budget-table td[data-label="ใช้ไป"] { grid-area: used; margin-top: 14px; font-size: 18px; font-weight: 700; color: var(--color-ink); }
+  .budget-page .budget-table td[data-label="ใช้ไป"] small { display: inline; margin-left: 4px; font-size: 13px; font-weight: 600; color: #737b88; }
+  .budget-page .budget-table td[data-label="งบประมาณ"] { grid-area: bud; align-self: end; margin-top: 14px; text-align: right; font-size: 13px; font-weight: 600; color: #737b88; }
+  .budget-page .budget-table td[data-label="งบประมาณ"]::before { content: "จากงบ "; }
+  .budget-page .budget-table .budget-bar { grid-area: bar; height: 8px; margin-top: 10px; }
+  .budget-page .budget-table td[data-label="คงเหลือ"] { grid-area: rem; margin-top: 10px; font-size: 13px; font-weight: 600; color: #3f4a59; }
+  .budget-page .budget-table td[data-label="คงเหลือ"]::before { content: "คงเหลือ "; font-weight: 500; color: #737b88; }
+  .budget-page .budget-table td[data-label="คงเหลือ"].budget-red { color: #e23b52; }
+  .budget-page .budget-table tbody td[colspan] { grid-column: 1 / -1; }
+  .budget-page .budget-table-note { padding: 14px 4px 0; }
+}
+@keyframes budget-card-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .budget-page .budget-table tbody tr { animation: none; }
 }

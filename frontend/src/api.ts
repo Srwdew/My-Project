@@ -1,7 +1,9 @@
 import { getToken, removeToken } from "./auth";
 
 // Development requests use the forwarded frontend origin via Vite proxy.
-const API_URL = (import.meta.env.DEV ? "/api" : (import.meta.env.VITE_API_URL || "/api"))
+const API_URL = (
+  import.meta.env.DEV ? "/api" : import.meta.env.VITE_API_URL || "/api"
+)
   .trim()
   .replace(/\/+$/, "");
 

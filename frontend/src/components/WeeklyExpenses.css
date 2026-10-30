@@ -1,1 +1,83 @@
-.weekly-expenses{margin:20px 0;min-width:0;overflow-wrap:anywhere}.weekly-controls{display:flex;flex-wrap:wrap;gap:14px;margin:16px 0}.weekly-controls label{display:grid;gap:6px;min-width:0;flex:1 1 170px}.weekly-controls input,.weekly-controls select{width:100%;min-width:0;box-sizing:border-box;padding:9px;border:1px solid #b7c5d3;border-radius:8px;background:white;color:#20364c}.weekly-scroll{overflow-x:auto;max-width:100%}.weekly-chart{width:100%;display:block;height:260px}.weekly-chart text{font-size:11px;fill:#34465b}.weekly-total strong{font-size:1.15rem}.weekly-empty{padding:20px;background:#f3f6fa;border-radius:8px}.weekly-expenses :focus-visible{outline:3px solid #916400;outline-offset:3px}@media(max-width:600px){.weekly-controls{display:grid;grid-template-columns:minmax(0,1fr)}}
+.dashboard-panel.weekly-expenses{margin:20px 0;min-width:0;overflow-wrap:anywhere;padding:0;overflow:hidden}
+.weekly-expenses>*{margin-left:24px;margin-right:24px}
+.weekly-head{padding-top:16px}.weekly-head h2{display:flex;align-items:baseline;gap:8px;margin:0;font-size:1.3rem}.weekly-eyebrow{color:#1e3a5f}
+.weekly-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.weekly-controls{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;margin-bottom:12px}
+.weekly-range{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}.weekly-arrow{color:var(--color-ink-muted)}
+.weekly-summary{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;margin:0;padding:10px 24px;border-top:1px solid #edf1f6;border-bottom:1px solid #edf1f6;margin-left:0;margin-right:0}
+.weekly-total{display:grid;gap:2px;margin:0}.weekly-total span{font-size:13px;color:var(--color-ink-muted)}.weekly-total strong{font-size:2rem;line-height:1.1;color:var(--color-ink);font-variant-numeric:tabular-nums}.weekly-total small,.weekly-stats small{font-size:.45em;color:var(--color-ink-muted)}
+.weekly-stats{display:flex;gap:28px;margin:0}.weekly-stats div{display:flex;flex-direction:column-reverse;align-items:center}.weekly-stats dt{font-size:13px;color:var(--color-ink-muted)}.weekly-stats dd{margin:0;font-size:1.5rem;font-weight:700;color:var(--color-ink);font-variant-numeric:tabular-nums}
+.weekly-detail{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px 20px;align-items:center;margin:0;padding:8px 24px;border-bottom:1px solid #edf1f6;margin-left:0;margin-right:0;font-size:14px}
+.weekly-detail p{margin:0;color:var(--color-ink-muted)}.weekly-detail p strong{color:var(--color-ink);margin-right:6px}.weekly-detail b{color:var(--color-ink)}
+.weekly-detail ul,.weekly-legend{display:flex;flex-wrap:wrap;gap:8px 16px;margin:0;padding:0;list-style:none}.weekly-detail li,.weekly-legend li{display:inline-flex;align-items:center;gap:6px;color:#34465b}
+.weekly-detail i,.weekly-legend i{width:11px;height:11px;border-radius:3px;flex-shrink:0}
+.weekly-scroll{overflow-x:auto;max-width:100%;margin-top:8px}.weekly-chart{width:100%;display:block;height:200px}
+.weekly-grid{stroke:#e3e9f1;stroke-dasharray:3 4}.weekly-base{stroke:#cfd8e3}
+.weekly-tick{font-size:11px;fill:var(--color-ink-muted)}.weekly-value{font-size:13px;font-weight:700;fill:var(--color-ink-soft)}.weekly-label{font-size:12px;fill:var(--color-ink-muted)}
+.weekly-bar{cursor:pointer}.weekly-bar.is-active .weekly-value{fill:var(--color-ink)}.weekly-bar.is-active .weekly-label{fill:var(--color-ink);font-weight:700}
+.weekly-none{fill:none;stroke:#c3cede;stroke-width:2;stroke-dasharray:4 3}
+/* Keyboard path to pick a week; shown only while focused so the chart stays clean. */
+.weekly-weeks{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.weekly-weeks:focus-within{position:static;width:auto;height:auto;clip:auto;display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.weekly-weeks button{padding:4px 10px;border:1px solid #dbe3ee;border-radius:999px;background:#fff;font:inherit;font-size:13px}.weekly-weeks button[aria-pressed=true]{border-color:var(--color-brand);color:var(--color-brand)}
+.weekly-expenses .weekly-legend{margin:6px 24px 10px}.weekly-legend li{padding:4px 12px;border:1px solid #dbe3ee;border-radius:999px;font-size:13px;font-weight:600}
+.weekly-empty{padding:20px;background:#f3f6fa;border-radius:8px;margin-top:16px;margin-bottom:16px}
+.weekly-expenses [role=alert],.weekly-expenses [role=status]{margin-bottom:16px}
+.weekly-expenses :focus-visible{outline:3px solid #916400;outline-offset:3px;border-radius:8px}
+.weekly-weeks button,.weekly-table summary{border-radius:999px}
+.weekly-bar>g,.weekly-bar>.weekly-none{transform-box:fill-box;transform-origin:50% 100%;animation:weekly-grow .6s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i)*70ms)}
+.weekly-bar>.weekly-value{animation:weekly-fade .4s ease-out both;animation-delay:calc(var(--i)*70ms + .35s)}
+.weekly-bar>g{transition:opacity .2s}.weekly-bar:hover>g{opacity:.85}
+.weekly-pop{animation:weekly-fade .35s ease-out both}
+.dashboard-panel.weekly-expenses{animation:weekly-rise .45s cubic-bezier(.2,.8,.2,1) both}
+.weekly-legend li{transition:transform .15s}.weekly-legend li:hover{transform:translateY(-1px)}
+@keyframes weekly-grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+@keyframes weekly-fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes weekly-rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.weekly-expenses *,.dashboard-panel.weekly-expenses{animation:none!important;transition:none!important}}
+@media(max-width:600px){.weekly-expenses>*,.weekly-expenses .weekly-legend{margin-left:16px;margin-right:16px}.weekly-summary,.weekly-detail,.weekly-table{padding-left:16px;padding-right:16px}.weekly-controls{display:grid;grid-template-columns:minmax(0,1fr)}.weekly-range{display:grid;grid-template-columns:minmax(0,1fr)}.weekly-arrow{display:none}.weekly-total strong{font-size:2rem}}
+.weekly-dropdown.dropdown .dropdown-list{left:auto;right:0;transform-origin:top right}
+.weekly-meta,.weekly-chart-title,.weekly-month{display:none}
+.weekly-column{fill:rgba(30,58,95,.06)}
+.weekly-chart rect.is-dimmed{opacity:.22;transition:opacity .25s ease}
+.weekly-chart rect{transition:opacity .25s ease}
+/* Phone layout (mockup "Weekly spending — mobile"): stacked header, 2-up dates, inline stats,
+   chart fitted to width, then the selected week and whole-range totals as lists. Colours unchanged. */
+@media(max-width:600px){
+  .weekly-head h2{display:block;font-size:1.5rem;line-height:1.25}
+  .weekly-head h2 .weekly-eyebrow{display:block;font-size:13px;margin-bottom:2px}
+  .weekly-head h2::after{content:"";display:block;width:28px;height:3px;margin-top:10px;border-radius:2px;background:#1e3a5f}
+  .weekly-expenses .weekly-controls{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+  .weekly-expenses .weekly-range{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .weekly-range .react-datepicker-wrapper,.weekly-range .react-datepicker__input-container{display:block;width:100%}
+  .weekly-range .react-datepicker__input-container button.date-pill{width:100%;justify-content:center;padding:9px 10px}
+  .weekly-expenses .weekly-arrow{display:none}
+  .weekly-expenses .weekly-dropdown.dropdown{width:100%}
+  .weekly-expenses .weekly-dropdown.dropdown .dropdown-button{padding:9px 14px}
+  .weekly-expenses .weekly-summary{display:block;margin:0;border:0;padding:6px 16px 0}
+  .weekly-expenses .weekly-stats{display:none}
+  .weekly-meta{display:block;margin:4px 0 0;font-size:14px;color:var(--color-ink-muted)}
+  .weekly-meta b{color:var(--color-ink)}
+  .weekly-total strong{font-size:2.6rem}
+  .weekly-chart-title{display:block;margin:18px 16px 0;font-size:15px;font-weight:700;color:var(--color-ink)}
+  .weekly-expenses .weekly-scroll{margin-top:4px}
+  .weekly-chart{min-width:0!important;height:auto}
+  .weekly-label{font-size:12px}
+  .weekly-month{display:block;margin:-4px 16px 0;text-align:center;font-size:12px;color:var(--color-ink-muted)}
+  .weekly-week{margin:14px 16px 0;padding-top:14px;border-top:1px solid #edf1f6;animation:weekly-fade .35s ease-out both}
+  .weekly-week p{display:flex;justify-content:space-between;align-items:baseline;margin:0 0 8px;font-size:16px}
+  .weekly-week p b{font-size:16px}
+  .weekly-week ul,.weekly-totals ul{margin:0;padding:0;list-style:none}
+  .weekly-week li{display:flex;align-items:center;gap:10px;padding:6px 0;font-size:14px;color:#34465b}
+  .weekly-week li span,.weekly-totals li span{flex:1;min-width:0}
+  .weekly-week li b{color:var(--color-ink)}
+  .weekly-week i,.weekly-totals i{width:12px;height:12px;border-radius:3px;flex-shrink:0}
+  .weekly-totals{margin:14px 16px 16px;padding-top:14px;border-top:1px solid #edf1f6}
+  .weekly-totals>p{margin:0 0 4px;font-size:13px;font-weight:700;color:var(--color-ink-muted)}
+  .weekly-totals li+li{border-top:1px solid #edf1f6}
+  .weekly-expenses .weekly-totals button{display:flex;align-items:center;gap:10px;width:100%;min-height:52px;margin:0;padding:0 10px;border:0;border-radius:12px;background:none;box-shadow:none;color:var(--color-ink);font:inherit;font-size:14px;font-weight:600;text-align:left;cursor:pointer;transition:background-color .2s ease,transform .15s ease}
+  .weekly-expenses .weekly-totals button:active{transform:scale(.98)}
+  .weekly-expenses .weekly-totals button[aria-pressed=true]{background:rgba(30,58,95,.07)}
+  .weekly-totals button b{font-size:15px}
+  .weekly-totals button small{width:40px;text-align:right;font-size:13px;font-weight:500;color:var(--color-ink-muted)}
+}

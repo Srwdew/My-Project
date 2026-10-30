@@ -10,14 +10,11 @@
 
   padding: 30px;
 
-  background: #f6f8fc;
+  background: var(--color-surface-page);
 
-  color: #111827;
+  color: var(--color-ink);
 
-  font-family:
-    "Segoe UI",
-    "Noto Sans Thai",
-    sans-serif;
+  font-family: "Kanit", "Segoe UI", "Noto Sans Thai", sans-serif;
 }
 
 .register-container {
@@ -44,7 +41,7 @@
 
   border-radius: 13px;
 
-  background: #3548e8;
+  background: var(--color-brand-strong);
 
   color: #ffffff;
 
@@ -55,7 +52,7 @@
 .register-brand h1 {
   margin: 0;
 
-  color: #111827;
+  color: var(--color-ink);
 
   font-size: 22px;
   font-weight: 700;
@@ -81,8 +78,7 @@
 
   background: #ffffff;
 
-  box-shadow:
-    0 12px 35px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 12px 35px rgba(15, 23, 42, 0.06);
 }
 
 .register-card-header {
@@ -94,7 +90,7 @@
 .register-card-header h2 {
   margin: 0;
 
-  color: #111827;
+  color: var(--color-ink);
 
   font-size: 21px;
   font-weight: 700;
@@ -140,12 +136,9 @@
 
   background: #ffffff;
 
-  color: #111827;
+  color: var(--color-ink);
 
-  font-family:
-    "Segoe UI",
-    "Noto Sans Thai",
-    sans-serif;
+  font-family: "Kanit", "Segoe UI", "Noto Sans Thai", sans-serif;
 
   font-size: 12px;
 
@@ -159,8 +152,7 @@
 .register-field input:focus {
   border-color: #5264ef;
 
-  box-shadow:
-    0 0 0 3px rgba(82, 100, 239, 0.1);
+  box-shadow: 0 0 0 3px rgba(82, 100, 239, 0.1);
 }
 
 .register-error {
@@ -202,10 +194,7 @@
 
   color: #ffffff;
 
-  font-family:
-    "Segoe UI",
-    "Noto Sans Thai",
-    sans-serif;
+  font-family: "Kanit", "Segoe UI", "Noto Sans Thai", sans-serif;
 
   font-size: 12px;
   font-weight: 600;
@@ -245,10 +234,7 @@
 
   color: #4054e8;
 
-  font-family:
-    "Segoe UI",
-    "Noto Sans Thai",
-    sans-serif;
+  font-family: "Kanit", "Segoe UI", "Noto Sans Thai", sans-serif;
 
   font-size: 11px;
   font-weight: 600;

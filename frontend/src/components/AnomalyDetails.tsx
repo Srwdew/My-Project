@@ -1,3 +1,4 @@
+import { thaiDate } from "../utils/thaiDate";
 import AnomalyBaselineSummary from './AnomalyBaselineSummary';
 import { amountFormula } from '../utils/anomalyPresentation';
 import AnomalyReviewPanel from './AnomalyReviewPanel';
@@ -13,10 +14,10 @@ const status:Record<string,string>={not_evaluated:'ยังประเมิ�
 function Snapshot({value,title,onDone,refresh}:{value:Evaluation|null;title:string;onDone:()=>void;refresh:number}){
  if(!value)return <section><h4>{title}</h4><p>ยังไม่มีผลตรวจ</p></section>;
  const s=value.snapshot,b=s.baseline,r=s.rules,formula=amountFormula(value);
- return <section><h3>{title} · revision {value.revision}</h3><p><strong>{s.transaction.amount} บาท</strong> · {s.transaction.categoryName}</p><p>{s.transaction.date} · {s.transaction.time??'ไม่ระบุเวลา'} · {s.transaction.timeConfirmed?'ยืนยันเวลาแล้ว':'ไม่ได้ยืนยันเวลา'}</p>
+ return <section><h3>{title} · revision {value.revision}</h3><p><strong>{s.transaction.amount} บาท</strong> · {s.transaction.categoryName}</p><p>{thaiDate(s.transaction.date)} · {s.transaction.time??'ไม่ระบุเวลา'} · {s.transaction.timeConfirmed?'ยืนยันเวลาแล้ว':'ไม่ได้ยืนยันเวลา'}</p>
  <AnomalyBaselineSummary snapshot={s}/>
  <p>จำนวนเงิน: <strong>{status[s.assessment.amount.status]}</strong> — {reasons[s.assessment.amount.reasonCode]}</p><p>เวลา: <strong>{status[s.assessment.time.status]}</strong> — {reasons[s.assessment.time.reasonCode]}</p>
- <details><summary>วิธีตรวจ สูตร และจำนวนประวัติ</summary><p>ช่วงอ้างอิง {s.window.startDate} ถึงก่อน {s.window.endExclusive}</p><p>จำนวนเงิน {b.n} รายการ / {b.days} วัน / ระยะห่าง {b.span} วัน; ขั้นต่ำ {r.amountMin} / {r.amountDays} / {r.amountSpan}</p>
+ <details><summary>วิธีตรวจ สูตร และจำนวนประวัติ</summary><p>ช่วงอ้างอิง {thaiDate(s.window.startDate)} ถึงก่อน {thaiDate(s.window.endExclusive)}</p><p>จำนวนเงิน {b.n} รายการ / {b.days} วัน / ระยะห่าง {b.span} วัน; ขั้นต่ำ {r.amountMin} / {r.amountDays} / {r.amountSpan}</p>
  {formula&&<><p className="anomaly-formula">{formula}</p><p>Median {b.median??'—'} · MAD {b.mad??'—'} · Q1 {b.q1??'—'} · Q3 {b.q3??'—'}</p></>}
  <p>เวลายืนยัน {b.timeN} รายการ / {b.timeDays} วัน / ระยะห่าง {b.timeSpan} วัน; ขั้นต่ำ {r.timeMin} / {r.timeDays} / {r.timeSpan} และ coverage {Number(r.timeCoverage)*100}%</p>
  {s.assessment.time.reasonCode==='time_rare_frequency'&&<p>ความถี่ช่วงเวลา {b.bucketCount}/{b.timeN} และรอบเวลา {b.nearbyCount}/{b.timeN}; ต้องต่ำกว่า {Number(r.rareFrequency)*100}% ทั้งสองส่วน</p>}<p>{value.ruleVersion} · {new Date(value.evaluatedAt).toLocaleString('th-TH',{timeZone:'Asia/Bangkok'})}</p></details>
@@ -29,7 +30,7 @@ function QueueSnapshot({value,onDone,refresh}:{value:Evaluation|null;onDone:()=>
  return <section className="anomaly-inspector">
  <header><p className="anomaly-eyebrow">รายจ่าย · revision {value.revision}</p>
  <h2>{s.transaction.categoryName}</h2><p className="anomaly-detail-amount">{format(s.transaction.amount)} <span>บาท</span></p>
- <p className="anomaly-detail-date">{s.transaction.date} · {s.transaction.time??'ไม่ระบุเวลา'}{s.transaction.timeConfirmed?' น. (ยืนยันเวลาแล้ว)':' · ไม่ได้ยืนยันเวลา'}</p></header>
+ <p className="anomaly-detail-date">{thaiDate(s.transaction.date)} · {s.transaction.time??'ไม่ระบุเวลา'}{s.transaction.timeConfirmed?' น. (ยืนยันเวลาแล้ว)':' · ไม่ได้ยืนยันเวลา'}</p></header>
  <div className="anomaly-context-note">รายการนี้มีสัญญาณต่างจากประวัติที่ใช้เปรียบเทียบ โปรดตรวจสอบก่อนยืนยัน ไม่ใช่ข้อสรุปว่ารายการผิดหรือทุจริต</div>
  <h3>สาเหตุที่ระบบตรวจพบ</h3><ul className="anomaly-reason-list">{(['amount','time'] as const).map(dimension=><li key={dimension} className={s.assessment[dimension].status==='flagged'?'is-flagged':''}><strong>{dimension==='amount'?'จำนวนเงิน':'เวลา'}: {status[s.assessment[dimension].status]??'ยังประเมินไม่ได้'}</strong><span>{reasons[s.assessment[dimension].reasonCode]??'ไม่มีคำอธิบายเพิ่มเติมสำหรับกฎนี้'}</span></li>)}</ul>
  <h3>เปรียบเทียบกับพฤติกรรมเดิม</h3><dl className="anomaly-comparison">
@@ -38,7 +39,7 @@ function QueueSnapshot({value,onDone,refresh}:{value:Evaluation|null;onDone:()=>
  <div><dt>ยอดของรายการนี้</dt><dd>{format(s.transaction.amount)} บาท</dd></div>
  {s.assessment.time.reasonCode==='time_rare_frequency'&&<div><dt>รายการที่อยู่ในช่วงเวลาเดียวกัน</dt><dd>{b.bucketCount} / {b.timeN} รายการ</dd></div>}
  </dl>
- <details className="anomaly-evidence"><summary>วิธีตรวจ สูตร และข้อมูลอ้างอิง</summary><AnomalyBaselineSummary snapshot={s}/><p>ช่วงอ้างอิง {s.window.startDate} ถึงก่อน {s.window.endExclusive}</p><p>จำนวนเงิน: {b.n} รายการ / {b.days} วัน · เวลา: {b.timeN} รายการ / {b.timeDays} วัน</p>{amountFormula(value)&&<p className="anomaly-formula">{amountFormula(value)}</p>}<p>Rule version: {value.ruleVersion}</p></details>
+ <details className="anomaly-evidence"><summary>วิธีตรวจ สูตร และข้อมูลอ้างอิง</summary><AnomalyBaselineSummary snapshot={s}/><p>ช่วงอ้างอิง {thaiDate(s.window.startDate)} ถึงก่อน {thaiDate(s.window.endExclusive)}</p><p>จำนวนเงิน: {b.n} รายการ / {b.days} วัน · เวลา: {b.timeN} รายการ / {b.timeDays} วัน</p>{amountFormula(value)&&<p className="anomaly-formula">{amountFormula(value)}</p>}<p>Rule version: {value.ruleVersion}</p></details>
  {s.gate?.ready===false?<p>ยังไม่ผ่านเกณฑ์เริ่มตรวจ จึงยังไม่ขอคำตัดสิน</p>:<AnomalyReviewPanel dimensions={(['amount','time'] as const).filter(d=>s.assessment[d].status==='flagged')} key={value.id+':'+refresh} evaluationId={value.id} revision={value.revision} onDone={onDone}/>}
  </section>;
 }

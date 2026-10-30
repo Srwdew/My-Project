@@ -1,6 +1,6 @@
 import { AnomalyReconcileButton } from './AnomalyDetails';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { Bell } from 'lucide-react';
+import { useCallback, useEffect, useId, useRef, useState, type CSSProperties } from 'react';
+import { Bell, BellRing, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { getToken } from '../auth';
@@ -151,25 +151,28 @@ function SessionBell({ session }: { session: string }) {
   }
 
   return <div ref={root} className="notification-root">
-    <button ref={trigger} type="button" className="user-header-notification" aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? popoverId : undefined}
+    <button ref={trigger} type="button" className={'user-header-notification' + (data.unreadCount > 0 ? ' has-unread' : '') + (open ? ' is-open' : '')} aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? popoverId : undefined}
       aria-label={`การแจ้งเตือน ยังไม่อ่าน ${data.unreadCount} รายการ`}
       onClick={() => { if (open) close(); else { setOpen(true); void load(true); } }}>
-      <Bell size={18} strokeWidth={1.8} />
-      {data.unreadCount > 0 && <span className="notification-badge">{data.unreadCount > 99 ? '99+' : data.unreadCount}</span>}
+      <Bell className="notification-bell-icon" size={18} strokeWidth={1.8} />
+      {data.unreadCount > 0 && <span key={data.unreadCount} className="notification-badge">{data.unreadCount > 99 ? '99+' : data.unreadCount}</span>}
     </button>
     {open && <div ref={dialog} id={popoverId} role="dialog" className="notification-dialog" aria-label="การแจ้งเตือนล่าสุด 30 รายการ">
-      <div className="notification-heading"><h2>การแจ้งเตือนล่าสุด 30 รายการ</h2><button type="button" onClick={close} aria-label="ปิดการแจ้งเตือน">×</button></div>
-      <p aria-live="polite">ยังไม่อ่านทั้งหมด {data.unreadCount} รายการ</p>
+      <div className="notification-heading">
+        <span className="notification-heading-icon" aria-hidden="true"><BellRing size={18} strokeWidth={2} /></span>
+        <div className="notification-heading-text"><h2>การแจ้งเตือนล่าสุด 30 รายการ</h2>
+          <p aria-live="polite" className="notification-summary">ยังไม่อ่านทั้งหมด {data.unreadCount} รายการ</p></div>
+        <button type="button" className="notification-close" onClick={close} aria-label="ปิดการแจ้งเตือน"><X size={18} strokeWidth={2.2} /></button>
+      </div>
       <div className="notification-actions"><AnomalyReconcileButton onDone={()=>void load()} />
         <button type="button" disabled={busy || loading || data.unreadCount === 0} onClick={() => void read()}>อ่านทั้งหมด</button>
-        <button type="button" disabled={busy || loading} onClick={() => void load(true)}>ตรวจงบและโหลดใหม่</button>
       </div>
       {loading && <p role="status">กำลังโหลด...</p>}
       {error && <p role="alert">{error}</p>}
-      {retryCheck && <p role="alert">ตรวจงบซ้ำไม่สำเร็จ รายการด้านล่างเป็นประวัติที่โหลดได้ กรุณากดตรวจงบและโหลดใหม่</p>}
-      {!loading && !error && data.items.length === 0 && <p>ยังไม่มีการแจ้งเตือน</p>}
+      {retryCheck && <p role="alert">ตรวจงบซ้ำไม่สำเร็จ รายการด้านล่างเป็นประวัติที่โหลดได้ กรุณาปิดแล้วเปิดการแจ้งเตือนอีกครั้ง</p>}
+      {!loading && !error && data.items.length === 0 && <div className="notification-empty"><span aria-hidden="true"><Bell size={26} strokeWidth={1.6} /></span><p>ยังไม่มีการแจ้งเตือน</p></div>}
 
-      <ul className="notification-list">{data.items.map(item => <li key={item.id}>
+      <ul className="notification-list">{data.items.map((item, i) => <li key={item.id} style={{ '--i': Math.min(i, 10) } as CSSProperties}>
         <button type="button" disabled={busy} aria-busy={busy} className={item.readAt ? 'notification-item' : 'notification-item unread'} onClick={() => void read(item)}>
           <strong>{!item.readAt && <span className="notification-unread">ยังไม่อ่าน · </span>}{item.title}</strong>
           <span>{item.message}</span>

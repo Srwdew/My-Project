@@ -17,5 +17,17 @@ export function categoryAppearance(name: string) {
   if (/ศึกษา|เรียน/.test(name)) {
     return { icon: 'study', color: '#7946ef', background: '#eee7ff' };
   }
+  if (/เงินเดือน/.test(name)) {
+    return { icon: 'salary', color: '#16a34a', background: '#dcfce7' };
+  }
+  if (/ธุรกิจ|ฟรีแลนซ์/.test(name)) {
+    return { icon: 'briefcase', color: '#0284c7', background: '#e0f2fe' };
+  }
+  if (/โบนัส|คอมมิชชัน/.test(name)) {
+    return { icon: 'star', color: '#d97706', background: '#fef3c7' };
+  }
+  if (/ของขวัญ|ได้รับ/.test(name)) {
+    return { icon: 'gift', color: '#db2777', background: '#fce7f3' };
+  }
   return { icon: 'more', color: '#979797', background: '#eeeeee' };
 }

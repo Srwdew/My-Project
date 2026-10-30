@@ -1,0 +1,22 @@
+.dropdown{position:relative;display:block;min-width:0;width:100%}
+.dropdown .dropdown-button{display:flex;align-items:center;gap:8px;width:100%;min-height:42px;box-sizing:border-box;padding:8px 14px;border:1px solid #d5dee9;border-radius:12px;background:#fff;color:var(--color-ink);font:inherit;font-weight:500;text-align:left;cursor:pointer;box-shadow:none;transition:border-color .2s,box-shadow .2s,background-color .2s,transform .15s}
+.dropdown .dropdown-button:hover:not(:disabled){border-color:#b8c2cf;background:#f8fafc}
+.dropdown .dropdown-button:active:not(:disabled){transform:scale(.99)}
+.dropdown .dropdown-button:focus-visible,.dropdown.is-open .dropdown-button{outline:none;border-color:#1e3a5f;box-shadow:0 0 0 4px rgba(30,58,95,.14)}
+.dropdown .dropdown-button:disabled{cursor:not-allowed;opacity:.6;background:#f5f7fa}
+.dropdown-value{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dropdown-value.is-placeholder{color:var(--color-ink-muted)}
+.dropdown-chevron,.dropdown-check{width:16px;height:16px;flex-shrink:0;fill:none;stroke:var(--color-ink-muted);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s}
+.dropdown.is-open .dropdown-chevron{transform:rotate(180deg)}
+.dropdown-native{position:absolute;left:0;bottom:0;width:100%;height:1px;opacity:0;pointer-events:none;border:0;padding:0}
+.dropdown-list{position:absolute;left:0;top:calc(100% + 8px);z-index:40;min-width:100%;width:max-content;max-width:min(360px,90vw);max-height:300px;overflow:auto;margin:0;padding:6px;list-style:none;box-sizing:border-box;background:#fff;border:1px solid #e3e9f1;border-radius:16px;box-shadow:0 12px 32px rgba(17,24,39,.12);transform-origin:top left;animation:dropdown-in .18s cubic-bezier(.2,.8,.2,1)}
+.dropdown-list li{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:10px;cursor:pointer;font-size:14px;color:var(--color-ink);transition:background-color .15s}
+.dropdown-list li span{flex:1;min-width:0}
+.dropdown-list li.is-active{background:#e8eef5}.dropdown-list li[aria-selected=true]{font-weight:700;color:#1e3a5f}
+.dropdown-list li.is-disabled{color:#b4bfcc;cursor:not-allowed}
+.dropdown-list i{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+.dropdown-check{margin-left:auto;stroke:#1e3a5f}
+/* Pill variant for filter bars (Overview weekly, Behavior). */
+.dropdown.dropdown-pill{width:auto;min-width:160px}.dropdown.dropdown-pill .dropdown-button{border-radius:999px;font-weight:600;min-height:0;padding:6px 14px;border-color:#dbe3ee;background:#fff;color:var(--color-ink);font-size:inherit}
+.dropdown-icon{width:18px;height:18px;flex-shrink:0;fill:none;stroke:#1e3a5f;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+@keyframes dropdown-in{from{opacity:0;transform:translateY(-4px) scale(.97)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.dropdown-list{animation:none}.dropdown .dropdown-button,.dropdown-chevron{transition:none}}

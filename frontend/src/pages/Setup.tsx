@@ -1,3 +1,4 @@
+import { thaiMonth } from "../utils/thaiDate";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiFetch } from "../api";
@@ -10,6 +11,7 @@ import {
   type SetupDraft,
 } from "../utils/setupChecklist";
 import "./Login.css";
+import Dropdown from "../components/Dropdown";
 import "./Setup.css";
 
 export default function Setup() {
@@ -19,10 +21,10 @@ export default function Setup() {
       <div className="login-container setup-container">
         <div className="login-brand">
           <div className="login-logo" aria-hidden="true">
-            S
+            <img src="/logo.svg" alt="" width="100%" height="100%" />
           </div>
           <div>
-            <strong>SpendSense</strong>
+            <strong>KebTang</strong>
             <p>จัดการการเงินของคุณอย่างเป็นระบบ</p>
           </div>
         </div>
@@ -169,21 +171,21 @@ function SetupForm({ session }: { session: string | null }) {
         </label>
         <label htmlFor="setup-payday">
           รูปแบบวันที่ได้รับรายได้
-          <select
+          <Dropdown
             id="setup-payday"
-            value={draft.paydayDay}
-            onChange={(e) => change("paydayDay", e.target.value)}
-          >
-            <option value="">ไม่แน่นอน</option>
-            {Array.from({ length: 31 }, (_, i) => (
-              <option key={i + 1} value={i + 1}>
-                วันที่ {i + 1} ของเดือน
-              </option>
-            ))}
-          </select>
+            value={String(draft.paydayDay)}
+            onChange={(value) => change("paydayDay", value)}
+            options={[
+              { value: "", label: "ไม่แน่นอน" },
+              ...Array.from({ length: 31 }, (_, i) => ({
+                value: String(i + 1),
+                label: `วันที่ ${i + 1} ของเดือน`,
+              })),
+            ]}
+          />
         </label>
         <label htmlFor="setup-budget">
-          งบประมาณเดือนปัจจุบัน <small>({data.budgetMonth})</small>
+          งบประมาณเดือนปัจจุบัน <small>({thaiMonth(data.budgetMonth)})</small>
           <span className="setup-money">
             <span aria-hidden="true">฿</span>
             <input

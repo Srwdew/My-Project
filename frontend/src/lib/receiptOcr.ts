@@ -117,3 +117,18 @@ export function readReceipt(file: File, progress: (value: string, percent?:numbe
   })();
   return {promise,cancel:()=>{cancelled=true;if(worker)void worker.terminate();}};
 }
+/** Detailed read: shrink to ≤1600px JPEG (measured as the smallest size that kept every summary line). */
+export async function detailedReadImage(file: File, maxSide=1600): Promise<Blob> {
+  await validateReceipt(file);
+  const bitmap=await createImageBitmap(file);
+  const scale=Math.min(1,maxSide/Math.max(bitmap.width,bitmap.height));
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.round(bitmap.width*scale);canvas.height=Math.round(bitmap.height*scale);
+  const context=canvas.getContext('2d');if(!context){bitmap.close();throw Error('Canvas unavailable');}
+  context.fillStyle='white';context.fillRect(0,0,canvas.width,canvas.height);
+  context.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();
+  try{
+    const blob=await new Promise<Blob|null>(r=>canvas.toBlob(r,'image/jpeg',0.9));
+    if(!blob)throw Error('ย่อภาพไม่สำเร็จ');return blob;
+  }finally{canvas.width=0;canvas.height=0;}
+}

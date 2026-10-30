@@ -1,14 +1,51 @@
 /* Keep a page heading for assistive navigation without a visible title block. */
 .page-heading-accessible.page-heading-accessible {
- position:absolute; width:1px; height:1px; padding:0; margin:-1px;
- overflow:hidden; clip-path:inset(50%); white-space:nowrap; border:0;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
 header.compact-page-toolbar {
- display:flex; align-items:center; justify-content:space-between;
- flex-wrap:wrap; gap:12px; min-height:0; margin:0 0 20px; padding:0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-height: 0;
+  margin: 0 0 20px;
+  padding: 0;
 }
-header.compact-page-toolbar > .user-header { margin-left:auto; }
-.anomaly-queue > header.compact-page-toolbar { margin:0; height:0; }
-@media(max-width:600px) {
- header.compact-page-toolbar { margin-bottom:16px; gap:10px; }
+header.compact-page-toolbar > .user-header {
+  margin-left: auto;
+}
+.anomaly-queue > header.compact-page-toolbar {
+  margin: 0;
+  height: 0;
+}
+@media (max-width: 600px) {
+  header.compact-page-toolbar {
+    margin-bottom: 16px;
+    gap: 10px;
+  }
+}
+/* Mobile: no page title (pages keep their visually hidden h1); user header right, page actions full width below. */
+@media (max-width: 767px) {
+  header.compact-page-toolbar.compact-page-toolbar {
+    flex-direction: row;
+    align-items: center;
+    padding-top: 8px;
+  }
+  header.compact-page-toolbar > .user-header {
+    order: 1;
+  }
+  /* Page actions (e.g. create goal) drop to their own full-width row. */
+  header.compact-page-toolbar > :not(h1):not(.user-header) {
+    order: 2;
+    flex-basis: 100%;
+  }
 }

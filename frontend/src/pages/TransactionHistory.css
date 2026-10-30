@@ -12,7 +12,7 @@
     sans-serif;
 
   font-size: 13px;
-  color: #111827;
+  color: var(--color-ink);
 }
 
 .history-page h1,
@@ -47,7 +47,7 @@
   margin: 0;
   font-size: 22px;
   font-weight: 700;
-  color: #111827;
+  color: var(--color-ink);
 }
 
 .history-header-left p {
@@ -146,7 +146,7 @@
 }
 
 .history-tab.active {
-  color: #356df3;
+  color: var(--color-brand);
   font-weight: 600;
 }
 
@@ -159,7 +159,7 @@
   max-width: 100%;
   height: 3px;
   border-radius: 999px;
-  background: #356df3;
+  background: var(--color-brand);
 }
 
 .history-add-button {
@@ -167,7 +167,7 @@
   height: 44px;
   border: none;
   border-radius: 8px;
-  background: #356df3;
+  background: var(--color-brand);
   color: #ffffff;
   font-family: inherit;
   font-size: 13px;
@@ -205,7 +205,7 @@
 
   background: #ffffff;
 
-  color: #111827;
+  color: var(--color-ink);
 
   padding: 0 38px 0 12px;
 
@@ -257,7 +257,7 @@
 }
 
 .history-page .react-datepicker__current-month {
-  color: #111827;
+  color: var(--color-ink);
   font-size: 13px;
   font-weight: 600;
 }
@@ -269,7 +269,7 @@
 
 .history-page .react-datepicker__day {
   border-radius: 5px;
-  color: #111827;
+  color: var(--color-ink);
   font-size: 11px;
 }
 
@@ -279,7 +279,7 @@
 
 .history-page .react-datepicker__day--selected,
 .history-page .react-datepicker__day--keyboard-selected {
-  background: #2563eb;
+  background: var(--color-brand-strong);
   color: #ffffff;
 }
 
@@ -290,7 +290,7 @@
 .history-page .react-datepicker__today-button {
   background: #ffffff;
   border-top: 1px solid #e5e7eb;
-  color: #2563eb;
+  color: var(--color-brand-strong);
   font-size: 11px;
   padding: 8px;
 }
@@ -339,7 +339,7 @@
   outline: none;
   font-family: inherit;
   font-size: 13px;
-  color: #111827;
+  color: var(--color-ink);
 }
 
 .history-filter-box select {
@@ -349,7 +349,7 @@
   border: 1px solid #d1d8e2;
   border-radius: 10px;
   background: #ffffff;
-  color: #111827;
+  color: var(--color-ink);
   font-family: inherit;
   font-size: 13px;
   padding: 0 12px;
@@ -401,20 +401,20 @@
 .history-calendar-button:hover {
   background: #f8faff;
   border-color: #aeb9ca;
-  color: #356df3;
+  color: var(--color-brand);
 }
 
 .history-calendar-button:focus-visible {
   outline: none;
-  border-color: #356df3;
+  border-color: var(--color-brand);
   box-shadow:
     0 0 0 3px rgba(53, 109, 243, 0.12);
 }
 
 .history-calendar-button.active {
-  border-color: #356df3;
+  border-color: var(--color-brand);
   background: #eef4ff;
-  color: #356df3;
+  color: var(--color-brand);
 }
 
 /* =========================
@@ -449,7 +449,7 @@
   border-radius: 14px 14px 0 0;
   font-size: 13px;
   font-weight: 700;
-  color: #111827;
+  color: var(--color-ink);
 }
 
 .history-group-body {
@@ -499,7 +499,7 @@
 .history-row-info strong {
   font-size: 12px;
   font-weight: 600;
-  color: #111827;
+  color: var(--color-ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -623,7 +623,7 @@
 .history-footer-link button {
   border: none;
   background: transparent;
-  color: #356df3;
+  color: var(--color-brand);
   font-family: inherit;
   font-size: 13px;
   cursor: pointer;
@@ -645,7 +645,7 @@
   margin: 0;
   font-size: 14px;
   font-weight: 700;
-  color: #111827;
+  color: var(--color-ink);
 }
 
 .history-side-title p {
@@ -710,13 +710,13 @@
 .history-summary-top strong {
   font-size: 12px;
   font-weight: 600;
-  color: #111827;
+  color: var(--color-ink);
 }
 
 .history-summary-top span:last-child {
   text-align: right;
   font-size: 12px;
-  color: #111827;
+  color: var(--color-ink);
 }
 
 .history-summary-progress {
@@ -775,7 +775,8 @@
 
 @media (max-width: 1000px) {
   .history-layout {
-    grid-template-columns: 1fr;
+    /* minmax(0, …) so wide rows can't stretch the page past the phone width. */
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -827,4 +828,486 @@
   .history-filter-box {
     grid-template-columns: 1fr;
   }
+}
+/* ≤820px hides category + time; keep icon, info, badge, amount, menu on one line. */
+@media (max-width: 820px) {
+  .history-row {
+    grid-template-columns: 42px minmax(0, 1fr) auto auto 28px;
+  }
+}
+/* Phones: the +/− colour of the amount already shows the type, so drop the badge to give the description room. */
+@media (max-width: 480px) {
+  .history-row {
+    grid-template-columns: 42px minmax(0, 1fr) auto 28px;
+  }
+  .history-row-badge-wrap {
+    display: none;
+  }
+}
+
+/* Category icons shared with Budget (categoryAppearance + BudgetIcon). */
+.history-row-icon,
+.history-summary-icon {
+  background: none;
+}
+.history-category-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+.history-category-icon svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.4;
+}
+.history-summary-icon[class] {
+  background: none;
+}
+.history-summary-icon .history-category-icon {
+  width: 30px;
+  height: 30px;
+}
+.history-summary-icon .history-category-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+/* Income / expense / net totals */
+.history-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.history-total {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid #dde3ec;
+  border-radius: 12px;
+}
+.history-total > div {
+  display: grid;
+  min-width: 0;
+}
+.history-total > div > span {
+  font-size: 11px;
+  color: #6b7280;
+}
+.history-total strong {
+  font-size: 17px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.history-total-icon {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #ffffff;
+}
+.history-total.income {
+  background: #effbf4;
+  border-color: #cdeedb;
+}
+.history-total.income .history-total-icon,
+.history-total.income strong {
+  color: #1eb970;
+}
+.history-total.expense {
+  background: #fff4f4;
+  border-color: #fbd5d5;
+}
+.history-total.expense .history-total-icon,
+.history-total.expense strong {
+  color: #ff5a5a;
+}
+.history-total.net {
+  background: #f3f6ff;
+  border-color: #d9e2f7;
+}
+.history-total.net .history-total-icon {
+  color: var(--color-brand);
+}
+
+/* Search + type + period filter bar */
+.history-filter-box {
+  grid-template-columns: minmax(200px, 1fr) auto auto;
+  align-items: center;
+}
+.history-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+}
+.history-search-box input {
+  flex: 1;
+  min-width: 0;
+}
+.history-segment {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 10px;
+  background: #f1f4f9;
+}
+.history-segment button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: #4b5563;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.18s, color 0.18s;
+}
+.history-segment button:hover {
+  color: var(--color-brand);
+}
+.history-segment button.active {
+  background: var(--color-brand);
+  color: #ffffff;
+}
+.history-segment .history-calendar-button {
+  width: 34px;
+  height: 32px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+}
+.history-segment .react-datepicker-wrapper {
+  display: block;
+  width: auto;
+}
+.history-segment button:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 2px;
+}
+@media (max-width: 1000px) {
+  .history-filter-box {
+    grid-template-columns: 1fr 1fr;
+  }
+  .history-search-box {
+    grid-column: 1 / -1;
+  }
+  .history-segment button {
+    flex: 1;
+  }
+}
+@media (max-width: 640px) {
+  .history-totals,
+  .history-filter-box {
+    grid-template-columns: 1fr;
+  }
+}
+.history-segment .history-calendar-button {
+  border: 0;
+  background: none;
+}
+.history-segment .history-calendar-button.active {
+  background: var(--color-brand);
+  color: #ffffff;
+}
+
+/* Tab underline follows the label width */
+.history-tab.active::after {
+  width: 100%;
+  transform-origin: left;
+  animation: history-underline 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+/* Animations (transform/opacity only; fill backwards leaves no lingering transform) */
+@keyframes history-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@keyframes history-underline {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes history-grow {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes history-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+}
+.history-tab.active {
+  animation: history-rise 0.35s ease backwards;
+}
+.history-total {
+  animation: history-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.history-total:nth-child(2) {
+  animation-delay: 80ms;
+}
+.history-total:nth-child(3) {
+  animation-delay: 160ms;
+}
+.history-total:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+}
+.history-total-icon {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.history-total:hover .history-total-icon {
+  transform: scale(1.12) rotate(-8deg);
+}
+.history-filter-box {
+  animation: history-rise 0.5s 0.22s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.history-group-card {
+  animation: history-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.history-group-card:nth-child(1) { animation-delay: 0.3s; }
+.history-group-card:nth-child(2) { animation-delay: 0.38s; }
+.history-group-card:nth-child(3) { animation-delay: 0.46s; }
+.history-group-card:nth-child(n + 4) { animation-delay: 0.54s; }
+.history-row {
+  transition: background-color 0.18s;
+}
+.history-row:hover {
+  background: #f8faff;
+}
+.history-category-icon {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.history-row:hover .history-category-icon {
+  transform: scale(1.1);
+}
+.history-segment button {
+  transition: background-color 0.2s, color 0.2s, transform 0.15s;
+}
+.history-segment button:active {
+  transform: scale(0.95);
+}
+.history-menu-dropdown {
+  animation: history-pop 0.18s ease-out backwards;
+}
+.history-side-card {
+  animation: history-rise 0.5s 0.25s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.history-summary-item {
+  animation: history-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.history-summary-item:nth-child(1) { animation-delay: 0.35s; }
+.history-summary-item:nth-child(2) { animation-delay: 0.42s; }
+.history-summary-item:nth-child(3) { animation-delay: 0.49s; }
+.history-summary-item:nth-child(4) { animation-delay: 0.56s; }
+.history-summary-item:nth-child(5) { animation-delay: 0.63s; }
+.history-summary-progress-value {
+  transform-origin: left;
+  animation: history-grow 0.9s 0.6s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .history-page *,
+  .history-page *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Filter change: list remounts (keyed by filters) and replays a quick stagger; totals pop. */
+@keyframes history-value-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.history-total strong {
+  animation: history-value-pop 0.35s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.history-groups .history-group-card:nth-child(1) { animation-delay: 0s; }
+.history-groups .history-group-card:nth-child(2) { animation-delay: 0.06s; }
+.history-groups .history-group-card:nth-child(3) { animation-delay: 0.12s; }
+.history-groups .history-group-card:nth-child(n + 4) { animation-delay: 0.18s; }
+.history-groups .history-group-card {
+  animation-duration: 0.4s;
+}
+.history-empty-state {
+  animation: history-rise 0.35s ease backwards;
+}
+
+/* Segment "water drop" indicator (transform/opacity only for smooth motion) */
+.history-segment-track {
+  position: relative;
+  display: grid;
+  gap: 0;
+  isolation: isolate;
+}
+.history-segment .history-segment-track button.active {
+  background: none;
+  color: #ffffff;
+}
+.history-segment .history-segment-track button:active {
+  transform: none;
+}
+.history-segment-drop {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: calc(100% / var(--count));
+  z-index: -1;
+  transform: translateX(calc(var(--at) * 100%));
+  transition:
+    transform 0.42s cubic-bezier(0.65, 0, 0.35, 1),
+    opacity 0.2s;
+  will-change: transform;
+}
+.history-segment-drop i {
+  position: absolute;
+  inset: 0;
+  border-radius: 8px;
+  background: var(--color-brand);
+}
+.history-segment-drop .stretch-a {
+  animation: history-drop-a 0.42s cubic-bezier(0.65, 0, 0.35, 1);
+}
+.history-segment-drop .stretch-b {
+  animation: history-drop-b 0.42s cubic-bezier(0.65, 0, 0.35, 1);
+}
+@keyframes history-drop-a {
+  50% { transform: scaleX(1.25) scaleY(0.88); }
+}
+@keyframes history-drop-b {
+  50% { transform: scaleX(1.25) scaleY(0.88); }
+}
+.history-segment-drop[data-on="false"] {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .history-segment-drop,
+  .history-segment-drop i {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+@media (max-width: 1000px) {
+  .history-segment-track {
+    flex: 1;
+  }
+}
+
+/* Totals cards: fixed size regardless of label/amount length */
+.history-totals {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.history-total {
+  height: 66px;
+  box-sizing: border-box;
+  overflow: hidden;
+  contain: layout inline-size;
+}
+.history-total > div {
+  flex: 1;
+  width: 0;
+}
+.history-total strong,
+.history-total > div > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 640px) {
+  .history-totals {
+    grid-template-columns: 1fr;
+  }
+}
+
+.history-undo .local-toast button {
+  width: auto;
+  padding: 0 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.history-category-chips {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-bottom: 4px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.history-category-chips button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid #e3e8f1;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #4b5563;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.18s, color 0.18s, border-color 0.18s;
+}
+.history-category-chips button span {
+  color: var(--color-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+.history-category-chips button:hover {
+  border-color: var(--color-brand);
+  color: var(--color-brand-strong);
+}
+.history-category-chips button.active {
+  border-color: var(--color-brand);
+  background: var(--color-brand);
+  color: #ffffff;
+}
+.history-category-chips button.active span {
+  color: inherit;
+  opacity: 0.85;
+}
+.history-category-chips button:focus-visible {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+/* Category chips (Transactions page@1x mockup) */
+.history-category-chips button i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.history-category-chips button.active {
+  border-color: var(--color-brand);
+  background: #eef2ff;
+  color: var(--color-brand-strong);
+  font-weight: 600;
+}
+.history-category-chips button.active span {
+  color: var(--color-brand-strong);
+  opacity: 1;
+  font-weight: 400;
 }
