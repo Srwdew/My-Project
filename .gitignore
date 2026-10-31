@@ -14,5 +14,7 @@ frontend/public/ocr/
 logo-concepts/
 .impeccable/
 scripts/forecast-experiment/output/
+# Third-party raw datasets (MoneyData, Berka): downloaded by the experiment scripts, never committed
+scripts/forecast-experiment/data/
 backend/prisma/seed.ts
 docs/mockups/
