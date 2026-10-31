@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import { buildForecast, forecastInput } from "./expenseForecast";
 import { goalCashFlow } from "./goalFeasibility";
 import { forecastGoalSignal } from "./goalForecastSignal";
-import { getCurrentCycle } from "./cycle";
+import { getCurrentCycle, loadCycleContext, type CycleContext } from "./cycle";
 import { z } from "zod";
 import {
   D,
@@ -45,7 +45,7 @@ type PlanGoal = {
   archivedAt: unknown;
 };
 export function calculateSavingsPlan(
-  userId: string,
+  ctx: CycleContext,
   goals: PlanGoal[],
   income: string | null,
   budgetAmount: string | null,
@@ -119,7 +119,7 @@ export function calculateSavingsPlan(
   return {
     policy: "constant-monthly-income-total-budget-v1",
     asOfDate: today,
-    month: getCurrentCycle(userId, today).key,
+    month: getCurrentCycle(ctx, today).key,
     income: assumedIncome,
     budgetAmount: assumedBudget,
     activeGoalCount: items.length,
@@ -152,6 +152,7 @@ export async function savingsPlanInput(
   tx: Prisma.TransactionClient,
   userId: string,
   today: string,
+  ctx: CycleContext,
 ) {
   const profile = await tx.profile.findUnique({
     where: { userId },
@@ -161,8 +162,8 @@ export async function savingsPlanInput(
     where: {
       userId_year_month: {
         userId,
-        year: getCurrentCycle(userId, today).year,
-        month: getCurrentCycle(userId, today).month,
+        year: getCurrentCycle(ctx, today).year,
+        month: getCurrentCycle(ctx, today).month,
       },
     },
     select: { amount: true },
@@ -196,11 +197,12 @@ export async function assessSavingsPlan(
   rawAssumptions: unknown = {},
 ) {
   const assumptions = planPreviewSchema.parse(rawAssumptions);
-  const input = await savingsPlanInput(tx, userId, today);
+  const ctx = await loadCycleContext(tx, userId);
+  const input = await savingsPlanInput(tx, userId, today, ctx);
   const forecast = buildForecast(await forecastInput(tx, userId, today));
   return {
     plan: calculateSavingsPlan(
-      userId,
+      ctx,
       input.goals,
       input.income,
       input.budgetAmount,
@@ -210,9 +212,9 @@ export async function assessSavingsPlan(
     cashFlow: await goalCashFlow(tx, userId, today),
     // Compare to the real current budget, never to a hypothetical override.
     forecastSignal: forecastGoalSignal(
-      userId,
+      ctx,
       forecast,
-      getCurrentCycle(userId, today).key,
+      getCurrentCycle(ctx, today).key,
       input.budgetAmount,
       today,
     ),

@@ -18,14 +18,21 @@ export function savingRate(
     reason: null,
   };
 }
-import { addDays, cycleByKey, getCurrentCycle, previousCycle } from "./cycle";
+import {
+  addDays,
+  cycleByKey,
+  getCurrentCycle,
+  loadCycleContext,
+  previousCycle,
+  type CycleContext,
+} from "./cycle";
 export class DashboardInputError extends Error {}
 export function dashboardPeriod(
-  userId: string,
+  ctx: CycleContext,
   input: unknown,
   asOfDate: string,
 ) {
-  const current = getCurrentCycle(userId, asOfDate).key;
+  const current = getCurrentCycle(ctx, asOfDate).key;
   const month = input === undefined ? current : input;
   if (
     typeof month !== "string" ||
@@ -35,9 +42,9 @@ export function dashboardPeriod(
     throw new DashboardInputError(
       "กรุณาเลือกเดือนที่ถูกต้องและไม่เป็นเดือนอนาคต",
     );
-  const cycle = cycleByKey(userId, month);
+  const cycle = cycleByKey(ctx, month);
   const { startDate, endDate: calendarEndDate } = cycle;
-  const next = getCurrentCycle(userId, addDays(calendarEndDate, 1)).key;
+  const next = getCurrentCycle(ctx, addDays(calendarEndDate, 1)).key;
   const effectiveEndDate =
     calendarEndDate < asOfDate ? calendarEndDate : asOfDate;
   return {
@@ -48,7 +55,7 @@ export function dashboardPeriod(
     isCurrentMonth: month === current,
     // Navigation keys come from the backend so the frontend never does cycle arithmetic.
     currentMonth: current,
-    previousMonth: month === "0001-01" ? null : previousCycle(userId, cycle).key,
+    previousMonth: month === "0001-01" ? null : previousCycle(ctx, cycle).key,
     nextMonth: next > current ? null : next,
   };
 }
@@ -58,7 +65,8 @@ export async function dashboardView(
   input: unknown,
   asOfDate: string,
 ) {
-  const period = dashboardPeriod(userId, input, asOfDate);
+  const ctx = await loadCycleContext(tx, userId);
+  const period = dashboardPeriod(ctx, input, asOfDate);
   const where = {
     userId,
     transactionDate: {
@@ -108,8 +116,8 @@ export async function dashboardView(
     where: {
       userId_year_month: {
         userId,
-        year: cycleByKey(userId, period.month).year,
-        month: cycleByKey(userId, period.month).month,
+        year: cycleByKey(ctx, period.month).year,
+        month: cycleByKey(ctx, period.month).month,
       },
     },
     select: { amount: true },

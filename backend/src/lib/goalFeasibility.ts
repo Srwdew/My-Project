@@ -1,9 +1,14 @@
 import { Prisma } from "@prisma/client";
 import { calculateGoal } from "./goalCalculations";
-import { getCurrentCycle, previousCycle } from "./cycle";
+import {
+  getCurrentCycle,
+  loadCycleContext,
+  previousCycle,
+  type CycleContext,
+} from "./cycle";
 
-export function lastCompletedMonth(userId: string, today: string) {
-  const c = previousCycle(userId, getCurrentCycle(userId, today));
+export function lastCompletedMonth(ctx: CycleContext, today: string) {
+  const c = previousCycle(ctx, getCurrentCycle(ctx, today));
   return { month: c.key, startDate: c.startDate, endDate: c.endDate };
 }
 export async function goalCashFlow(
@@ -11,7 +16,7 @@ export async function goalCashFlow(
   userId: string,
   today: string,
 ) {
-  const period = lastCompletedMonth(userId, today);
+  const period = lastCompletedMonth(await loadCycleContext(tx, userId), today);
   const rows = await tx.transaction.groupBy({
     by: ["type"],
     where: {

@@ -7,6 +7,7 @@ import { Prisma } from '@prisma/client';
 import { app } from '../src/index';
 import { prisma } from '../src/lib/prisma';
 import { currentBudgetPeriod, noticeType } from '../src/lib/budgetNotifications';
+import { loadCycleContext } from '../src/lib/cycle';
 import { paydayDate, settingsInput } from '../src/routes/settings';
 const db = new URL(process.env.DATABASE_URL!).pathname.slice(1);
 if (!db.startsWith('spendsense_goals_test_') || process.env.GOALS_TEST_DATABASE !== db)
@@ -34,7 +35,7 @@ test('Settings real HTTP, atomic saves, avatars and session revocation', async (
     t.after(async () => { await new Promise<void>(r => server.close(() => r())); await prisma.$disconnect(); });
     async function req(route: string, method = 'GET', body?: unknown, status = 200, token = a.token) { const r = await fetch(base + route, { method, headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json', 'Idempotency-Key': randomUUID() }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }); assert.equal(r.status, status, method + ' ' + route); return r.json() as Promise<any>; }
     const initial = await req('/settings');
-    const period = currentBudgetPeriod(a.id);
+    const period = currentBudgetPeriod(await loadCycleContext(prisma, a.id));
     let draft = { displayName: 'ชื่อสำหรับทดสอบ', income: '0.08', paydayDay: 31, primaryGoalId: null as string | null, budgetMonth: initial.budgetMonth, budgetAmount: '100.00' as string | null, notifyNearLimit: false, notifyExceeded: true };
     const localGoal = await prisma.goal.create({ data: { userId: a.id, name: 'Goal', categoryKey: 'home', targetAmount: '100' } });
     const foreignGoal = await prisma.goal.create({ data: { userId: b.id, name: 'Foreign', categoryKey: 'home', targetAmount: '100' } });

@@ -1,18 +1,21 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
 import { bangkokToday } from "./goalCalculations";
-import { cycleBounds, cycleByPeriod, getCurrentCycle } from "./cycle";
+import {
+  cycleBounds,
+  cycleByPeriod,
+  getCurrentCycle,
+  loadCycleContext,
+  type CycleContext,
+} from "./cycle";
 
 export type Period = { year: number; month: number };
-export function currentBudgetPeriod(userId: string, now = new Date()): Period {
-  const { year, month } = getCurrentCycle(userId, bangkokToday(now));
+export function currentBudgetPeriod(ctx: CycleContext, now = new Date()): Period {
+  const { year, month } = getCurrentCycle(ctx, bangkokToday(now));
   return { year, month };
 }
-export function transactionPeriod(userId: string, date: Date): Period {
-  const { year, month } = getCurrentCycle(
-    userId,
-    date.toISOString().slice(0, 10),
-  );
+export function transactionPeriod(ctx: CycleContext, date: Date): Period {
+  const { year, month } = getCurrentCycle(ctx, date.toISOString().slice(0, 10));
   return { year, month };
 }
 export function noticeType(
@@ -50,10 +53,11 @@ export async function checkBudgetMonth(
     where: { userId },
   });
   if (!setting?.enabled) return;
-  const current = currentBudgetPeriod(userId);
+  const ctx = await loadCycleContext(tx, userId);
+  const current = currentBudgetPeriod(ctx);
   if (period.year * 12 + period.month > current.year * 12 + current.month)
     return;
-  const { start, end } = cycleBounds(cycleByPeriod(userId, period.year, period.month));
+  const { start, end } = cycleBounds(cycleByPeriod(ctx, period.year, period.month));
   const where = { userId, ...period };
   const total = setting.totalBudget
     ? await tx.budget.findUnique({ where: { userId_year_month: where } })
@@ -179,6 +183,6 @@ export async function reconcileBudgetNotifications(userId: string) {
   return checkBudgetNotifications(userId, [
     ...totals,
     ...categories,
-    currentBudgetPeriod(userId),
+    currentBudgetPeriod(await loadCycleContext(prisma, userId)),
   ]);
 }

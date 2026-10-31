@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { Prisma } from '@prisma/client';
 import { checkBudgetMonth, checkBudgetNotifications, currentBudgetPeriod, eventKey, noticeType, transactionPeriod } from '../src/lib/budgetNotifications';
 import { prisma } from '../src/lib/prisma';
+import { cycleContextFromProfile } from '../src/lib/cycle';
+const ctx = cycleContextFromProfile('u', null);
 const D = (n: string | number) => new Prisma.Decimal(n);
 const period = { year: 2020, month: 9 };
 
@@ -24,9 +26,9 @@ for (const [spent, percent, exceeded, prior, expected] of [
 test('decimal precision, zero budget and Bangkok month boundary', () => {
   assert.equal(noticeType(D('0.07').plus('0.01'), D('0.10'), 80, true, false), 'budget_near_limit');
   assert.equal(noticeType(D(100), D(0), 80, true, false), null);
-  assert.deepEqual(currentBudgetPeriod('u',new Date('2026-09-30T16:59:59Z')), { year: 2026, month: 9 });
-  assert.deepEqual(currentBudgetPeriod('u',new Date('2026-09-30T17:00:00Z')), { year: 2026, month: 10 });
-  assert.deepEqual(transactionPeriod('u',new Date('2026-09-30T00:00:00Z')), { year: 2026, month: 9 });
+  assert.deepEqual(currentBudgetPeriod(ctx,new Date('2026-09-30T16:59:59Z')), { year: 2026, month: 9 });
+  assert.deepEqual(currentBudgetPeriod(ctx,new Date('2026-09-30T17:00:00Z')), { year: 2026, month: 10 });
+  assert.deepEqual(transactionPeriod(ctx,new Date('2026-09-30T00:00:00Z')), { year: 2026, month: 9 });
 });
 
 function fixture() {
@@ -44,6 +46,8 @@ function fixture() {
   const tx = {
     $executeRaw: async () => { lockCount++; },
     budgetNotificationSetting: { findUnique: async () => settings },
+    profile: { findUnique: async () => null }, // read by loadCycleContext: no payday set
+
     budget: { findUnique: async ({ where }: any) => budgets.find(b => Object.entries(where.userId_year_month).every(([k, v]) => (b as any)[k] === v)) ?? null },
     categoryBudget: { findMany: async ({ where }: any) => categories.filter(b => Object.entries(where).every(([k, v]) => (b as any)[k] === v)) },
     transaction: { groupBy: async ({ where }: any) => {

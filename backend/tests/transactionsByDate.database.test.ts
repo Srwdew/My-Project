@@ -7,6 +7,7 @@ import { prisma } from '../src/lib/prisma';
 import { app } from '../src/index';
 import { ensureDefaultCategories } from '../src/lib/defaultCategories';
 import { duplicateCheckDates, duplicateCheckPath, findDuplicates } from '../../frontend/src/lib/receiptBatch';
+import { cycleProbe } from '../src/lib/cycle';
 const db=new URL(process.env.DATABASE_URL!).pathname.slice(1);
 if(!db.startsWith('spendsense_goals_')||process.env.GOALS_TEST_DATABASE!==db)throw Error('Explicit isolated test DB required');
 test('/transactions?date= returns only the requested days, for the owner, and validates input',async t=>{
@@ -24,6 +25,10 @@ test('/transactions?date= returns only the requested days, for the owner, and va
  await add(a,'2026-10-24','120.00','09:30');await add(a,'2026-10-25','999.00');await add(a,'2026-10-26','80.00');await add(a,'2026-11-03','5.00');
  await add(b,'2026-10-24','120.00','09:30');
 
+ // Phase 2 blocker, test 3 part 1: from here on any use of cycle.ts or loadCycleContext throws (and is counted),
+ // so the ?date= route, its validation and the frontend helpers must work without ever touching cycle logic.
+ let cycleUses=0;cycleProbe.onUse=()=>{cycleUses++;throw Error('CYCLE_TOUCHED_BY_DATE_PATH');};
+ t.after(()=>{cycleProbe.onUse=null;});
  const both=await get('/transactions?date=2026-10-24&date=2026-10-26',a);
  assert.deepEqual(both.map((x:any)=>[x.transactionDate.slice(0,10),x.amount]).sort(),[['2026-10-24','120'],['2026-10-26','80']].sort());
  assert.ok(both.every((x:any)=>x.userId===a.id),'never another user\'s rows');
@@ -42,4 +47,9 @@ test('/transactions?date= returns only the requested days, for the owner, and va
   Array.from({length:11},(_,i)=>'date=2026-10-'+String(i+1).padStart(2,'0')).join('&')])
   await get('/transactions?'+bad,a,400);
  assert.equal((await get('/transactions?'+Array.from({length:10},(_,i)=>'date=2026-10-'+String(i+20).padStart(2,'0')).join('&'),a)).length,3);
+ assert.equal(cycleUses,0,'the duplicate-check path must never touch cycle.ts');
+ // Control: the trap is live, so a cycle-based request in the same window does fail.
+ await get('/transactions?month=2026-10',a,500);
+ assert.ok(cycleUses>0,'trap must catch real cycle use');
+ cycleProbe.onUse=null;
 });

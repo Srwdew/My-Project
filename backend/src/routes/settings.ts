@@ -15,7 +15,9 @@ import {
 import {
   checkBudgetNotifications,
   currentBudgetPeriod,
+  type Period,
 } from "../lib/budgetNotifications";
+import { loadCycleContext } from "../lib/cycle";
 export const settingsRouter = express.Router();
 const money = z
   .string()
@@ -55,11 +57,9 @@ const defaults = {
   totalBudget: true,
   categoryBudgets: true,
 };
-async function view(
-  tx: GoalTx,
-  userId: string,
-  period = currentBudgetPeriod(userId),
-) {
+async function view(tx: GoalTx, userId: string, requested?: Period) {
+  const period =
+    requested ?? currentBudgetPeriod(await loadCycleContext(tx, userId));
   const user = await tx.user.findUniqueOrThrow({
     where: { id: userId },
     select: { email: true, setupCompletedAt: true },
@@ -176,7 +176,7 @@ settingsRouter.put(
     const input = settingsInput.parse(req.body),
       userId = req.user!.userId;
     const result = await write(req, async (tx) => {
-      const period = currentBudgetPeriod(userId);
+      const period = currentBudgetPeriod(await loadCycleContext(tx, userId));
       if (
         input.budgetMonth !==
         `${period.year}-${String(period.month).padStart(2, "0")}`
@@ -265,9 +265,11 @@ settingsRouter.put(
       return view(tx, userId, period);
     });
     // Producer contains failures; a successful transaction must never be reported as failed.
-    await checkBudgetNotifications(userId, [currentBudgetPeriod(userId)]).catch(
-      () => undefined,
-    );
+    await loadCycleContext(prisma, userId)
+      .then((cycle) =>
+        checkBudgetNotifications(userId, [currentBudgetPeriod(cycle)]),
+      )
+      .catch(() => undefined);
     res.json(result);
   }),
 );

@@ -9,6 +9,7 @@ import { goalsRouter } from '../src/routes/goals';
 import { forecastRouter } from '../src/routes/forecast';
 import { bangkokToday } from '../src/lib/goalCalculations';
 import { lastCompletedMonth } from '../src/lib/goalFeasibility';
+import { loadCycleContext } from '../src/lib/cycle';
 const db=new URL(process.env.DATABASE_URL!).pathname.slice(1);
 if(!db.startsWith('spendsense_goals_plan_test_') || process.env.GOALS_TEST_DATABASE!==db) throw Error('Explicit isolated test database required');
 test('Existing Goals HTTP endpoints include read-only backend assessment',async t=>{
@@ -18,7 +19,7 @@ test('Existing Goals HTTP endpoints include read-only backend assessment',async 
  t.after(async()=>{await new Promise<void>(r=>server.close(()=>r()));await prisma.$disconnect();});
  const address=server.address();assert.ok(address&&typeof address!=='string');
  const account=async()=>{const u=await prisma.user.create({data:{email:randomUUID()+'@example.invalid',passwordHash:'synthetic-no-login'}});return {...u,token:jwt.sign({userId:u.id,email:u.email},process.env.JWT_SECRET!)};};
- const a=await account(),b=await account(),today=bangkokToday(),month=today.slice(0,7),period=lastCompletedMonth(a.id,today);
+ const a=await account(),b=await account(),today=bangkokToday(),month=today.slice(0,7),period=lastCompletedMonth(await loadCycleContext(prisma,a.id),today);
  const call=async(path:string,body?:unknown,who=a,status=200)=>{const response=await fetch('http://127.0.0.1:'+address.port+path,{method:body===undefined?'GET':'POST',headers:{Authorization:'Bearer '+who.token,'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)})});assert.equal(response.status,status,path);if(status===200)assert.match(response.headers.get('cache-control')??'',/private, no-store/);return response.json() as Promise<any>;};
  const assess=(who=a,assumptions:unknown={})=>prisma.$transaction(tx=>assessSavingsPlan(tx,who.id,today,assumptions),{isolationLevel:'RepeatableRead'});
  await t.test('unauthenticated rejected; empty amounts are null',async()=>{

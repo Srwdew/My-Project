@@ -6,6 +6,7 @@ import { prisma } from '../src/lib/prisma';
 import { app } from '../src/index';
 import { bangkokToday } from '../src/lib/goalCalculations';
 import { lastCompletedMonth, goalCashFlow } from '../src/lib/goalFeasibility';
+import { loadCycleContext } from '../src/lib/cycle';
 const db=new URL(process.env.DATABASE_URL!).pathname.slice(1);
 if(!db.startsWith('spendsense_goals_test_overview_')||process.env.GOALS_TEST_DATABASE!==db)throw Error('Explicit isolated test DB required');
 test('real HTTP/PostgreSQL overview and feasibility ownership and read-only behavior',async t=>{
@@ -14,7 +15,7 @@ test('real HTTP/PostgreSQL overview and feasibility ownership and read-only beha
  const address=server.address();assert.ok(address&&typeof address!=='string');
  t.after(async()=>{await new Promise<void>(r=>server.close(()=>r()));await prisma.$disconnect();});
  const account=async()=>{const u=await prisma.user.create({data:{email:randomUUID()+'@example.invalid',passwordHash:'synthetic-no-login'}});return {...u,token:jwt.sign({userId:u.id,email:u.email},process.env.JWT_SECRET!)};};
- const a=await account(),b=await account(),today=bangkokToday(),period=lastCompletedMonth(a.id,today);
+ const a=await account(),b=await account(),today=bangkokToday(),period=lastCompletedMonth(await loadCycleContext(prisma,a.id),today);
  const inc=await prisma.category.create({data:{name:randomUUID(),type:'income'}}),exp=await prisma.category.create({data:{name:randomUUID(),type:'expense'}});
  const add=(owner:string,type:'income'|'expense',amount:string,date:string)=>prisma.transaction.create({data:{userId:owner,type,amount,categoryId:type==='income'?inc.id:exp.id,transactionDate:new Date(date+'T00:00:00Z')}});
  async function get(path:string,who=a,status=200){const r=await fetch('http://127.0.0.1:'+address.port+path,{headers:{Authorization:'Bearer '+who.token}});assert.equal(r.status,status,path);if(status===200)assert.match(r.headers.get('cache-control')??'',/private, no-store/);return r.json() as Promise<any>;}

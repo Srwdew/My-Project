@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authMiddleware, type AuthRequest } from "../middleware/auth";
 import { prisma } from "../lib/prisma";
 import { bangkokToday } from "../lib/goalCalculations";
+import { loadCycleContext } from "../lib/cycle";
 import {
   DashboardInputError,
   dashboardPeriod,
@@ -17,7 +18,11 @@ dashboardRouter.get(
       if (Object.keys(req.query).some((k) => k !== "month"))
         throw new DashboardInputError("รับเฉพาะ month ไม่รับ userId");
       const asOfDate = bangkokToday();
-      dashboardPeriod(req.user!.userId, req.query.month, asOfDate);
+      dashboardPeriod(
+        await loadCycleContext(prisma, req.user!.userId),
+        req.query.month,
+        asOfDate,
+      );
       return res.json(
         await prisma.$transaction(
           (tx) =>

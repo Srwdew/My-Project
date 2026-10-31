@@ -1,4 +1,4 @@
-import { getCurrentCycle } from "./cycle";
+import { getCurrentCycle, type CycleContext } from "./cycle";
 /** Uses the existing Forecast comparison; never adds forecast amounts to actuals or plan. */
 export type GoalForecast = {
   status: "available" | "unavailable";
@@ -18,7 +18,7 @@ export type GoalForecast = {
   };
 };
 export function forecastGoalSignal(
-  userId: string,
+  ctx: CycleContext,
   f: GoalForecast,
   month: string,
   budget: string | null,
@@ -35,14 +35,14 @@ export function forecastGoalSignal(
     f.asOfDate !== today ||
     f.forecastStartDate !== today ||
     b.month !== month ||
-    month !== getCurrentCycle(userId, today).key ||
+    month !== getCurrentCycle(ctx, today).key ||
     b.budgetAmount !== budget
   )
     return { reason: "period_mismatch", amount: null, endDate: null };
   const start = new Date(today + "T00:00:00Z");
   const horizonEnd = new Date(start);
   horizonEnd.setUTCDate(horizonEnd.getUTCDate() + 6);
-  const cycleEnd = getCurrentCycle(userId, today).endDate;
+  const cycleEnd = getCurrentCycle(ctx, today).endDate;
   if (
     f.forecastEndDate !== horizonEnd.toISOString().slice(0, 10) ||
     b.comparedDays !==

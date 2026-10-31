@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { getCurrentCycle } from "./cycle";
+import { getCurrentCycle, loadCycleContext, type CycleContext } from "./cycle";
 import {
   D,
   FORECAST_RULE as R,
@@ -26,7 +26,7 @@ export type ForecastHistory = {
   lastDate: string | null;
 };
 export type ForecastInput = {
-  userId: string;
+  cycle: CycleContext;
   asOfDate: string;
   rows: ForecastRow[];
   history: ForecastHistory;
@@ -137,7 +137,7 @@ export function buildForecast(input: ForecastInput) {
     };
   });
   const previousActual = money(sum(previousDaily.map((d) => d.amount)));
-  const cycle = getCurrentCycle(input.userId, asOfDate),
+  const cycle = getCurrentCycle(input.cycle, asOfDate),
     month = cycle.key,
     actualMonth = sum(
       rows
@@ -276,18 +276,19 @@ export async function forecastInput(
     _count: { _all: true },
     orderBy: { transactionDate: "asc" },
   });
+  const cycle = await loadCycleContext(tx, userId);
   const budget = await tx.budget.findUnique({
     where: {
       userId_year_month: {
         userId,
-        year: getCurrentCycle(userId, asOfDate).year,
-        month: getCurrentCycle(userId, asOfDate).month,
+        year: getCurrentCycle(cycle, asOfDate).year,
+        month: getCurrentCycle(cycle, asOfDate).month,
       },
     },
     select: { amount: true },
   });
   return {
-    userId,
+    cycle,
     asOfDate,
     rows: grouped.map((r) => ({
       date: r.transactionDate.toISOString().slice(0, 10),

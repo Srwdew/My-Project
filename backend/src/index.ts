@@ -30,6 +30,7 @@ import {
   cycleByPeriod,
   getBudgetTimeline,
   getCurrentCycle,
+  loadCycleContext,
   utcDate,
 } from "./lib/cycle";
 import { saveProfile } from "./lib/profile";
@@ -292,7 +293,10 @@ app.post("/transactions", authMiddleware, async (req: AuthRequest, res) => {
       return {
         body,
         id: transaction.id,
-        period: transactionPeriod(userId, transaction.transactionDate),
+        period: transactionPeriod(
+          await loadCycleContext(tx, userId),
+          transaction.transactionDate,
+        ),
       };
     });
     if (result.id && result.period) {
@@ -335,11 +339,8 @@ app.get("/transactions", authMiddleware, async (req: AuthRequest, res) => {
         .json({ error: "limit must be an integer from 1 to 100" });
     }
     const limit = rawLimit === undefined ? undefined : Number(rawLimit);
-    const monthPeriod =
-      req.query.month === undefined
-        ? null
-        : dashboardPeriod(userId, req.query.month, bangkokToday());
-    // Exact calendar days for the receipt duplicate check; deliberately never goes through cycle.ts.
+    // Exact calendar days for the receipt duplicate check; deliberately never goes through cycle.ts,
+    // so it is validated (and rejected with month) before any cycle context is loaded.
     const rawDates = req.query.date;
     const dates =
       rawDates === undefined ? null : Array.isArray(rawDates) ? rawDates : [rawDates];
@@ -360,6 +361,14 @@ app.get("/transactions", authMiddleware, async (req: AuthRequest, res) => {
         error: "date must be 1 to 10 distinct YYYY-MM-DD values and cannot be combined with month",
       });
     }
+    const monthPeriod =
+      req.query.month === undefined
+        ? null
+        : dashboardPeriod(
+            await loadCycleContext(prisma, userId),
+            req.query.month,
+            bangkokToday(),
+          );
 
     const transactions = await prisma.transaction.findMany({
       ...(limit === undefined ? {} : { take: limit }),
@@ -713,9 +722,10 @@ app.put("/transactions/:id", authMiddleware, async (req: AuthRequest, res) => {
         return { transaction, previousDate: current.transactionDate };
       },
     );
+    const cycle = await loadCycleContext(prisma, userId);
     await checkBudgetNotifications(userId, [
-      transactionPeriod(userId, previousDate),
-      transactionPeriod(userId, transaction.transactionDate),
+      transactionPeriod(cycle, previousDate),
+      transactionPeriod(cycle, transaction.transactionDate),
     ]);
     await checkTransactionAnomaly(req.user!, transaction.id);
     return res.json(transaction);
@@ -772,7 +782,10 @@ app.delete(
       });
 
       await checkBudgetNotifications(userId, [
-        transactionPeriod(userId, transaction.transactionDate),
+        transactionPeriod(
+          await loadCycleContext(prisma, userId),
+          transaction.transactionDate,
+        ),
       ]);
       return res.json({
         message: "Transaction deleted successfully",
@@ -1138,9 +1151,10 @@ app.get("/budget/categories", authMiddleware, async (req: AuthRequest, res) => {
     const yearInput = req.query.year;
     const monthInput = req.query.month;
     // No year/month means "the current cycle", decided only by the backend.
+    const cycleCtx = await loadCycleContext(prisma, userId);
     const current =
       yearInput === undefined && monthInput === undefined
-        ? getCurrentCycle(userId, bangkokToday())
+        ? getCurrentCycle(cycleCtx, bangkokToday())
         : null;
 
     if (
@@ -1166,7 +1180,7 @@ app.get("/budget/categories", authMiddleware, async (req: AuthRequest, res) => {
 
     // transactionDate เป็นวันที่แบบ UTC ตามระบบธุรกรรมเดิม
     const { start: startDate, end: endDate } = cycleBounds(
-      cycleByPeriod(userId, year, month),
+      cycleByPeriod(cycleCtx, year, month),
     );
 
     const [allCategories, budgets, expenses] = await Promise.all([
@@ -1682,7 +1696,9 @@ app.put(
         },
       });
 
-      await checkBudgetNotifications(userId, [currentBudgetPeriod(userId)]);
+      await checkBudgetNotifications(userId, [
+        currentBudgetPeriod(await loadCycleContext(prisma, userId)),
+      ]);
       return res.json(setting);
     } catch (error) {
       console.error("PUT notification settings error:", error);
@@ -1714,9 +1730,10 @@ app.get("/budget", authMiddleware, async (req: AuthRequest, res) => {
   try {
     const yearQuery = req.query.year;
     const monthQuery = req.query.month;
+    const cycleCtx = await loadCycleContext(prisma, req.user!.userId);
     const current =
       yearQuery === undefined && monthQuery === undefined
-        ? getCurrentCycle(req.user!.userId, bangkokToday())
+        ? getCurrentCycle(cycleCtx, bangkokToday())
         : null;
 
     if (
@@ -1756,7 +1773,7 @@ app.get("/budget", authMiddleware, async (req: AuthRequest, res) => {
       });
     }
 
-    const timeline = getBudgetTimeline(userId, year, month);
+    const timeline = getBudgetTimeline(cycleCtx, year, month);
     const { start: startDate, end: nextMonth } = cycleBounds(timeline.cycle);
 
     const [budget, monthlyExpenses, expensesToDate] = await Promise.all([
@@ -2050,7 +2067,11 @@ app.get("/overview/weekly", authMiddleware, async (req: AuthRequest, res) => {
         });
       }
 
-      const cycle = cycleByPeriod(req.user!.userId, year, month);
+      const cycle = cycleByPeriod(
+        await loadCycleContext(prisma, req.user!.userId),
+        year,
+        month,
+      );
       startDate = utcDate(cycle.startDate);
       endDate = utcDate(cycle.endDate);
     }
