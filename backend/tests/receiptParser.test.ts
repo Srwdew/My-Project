@@ -230,3 +230,14 @@ test('Any line naming a total is the amount and outranks other amount labels',()
  for(const text of ['Sub Total 100.00','SUBTOTAL 100.00','TOTAL PAID 200.00','TOTAL 100.00\nGrand Total 120.00'])
   assert.equal(parseReceipt(text).fields.amount,null,text);
 });
+// ISSUE-OCR-1 (docs/FINANCIAL_PROFILE_DESIGN.md): real Tesseract output for a synthetic slip, captured 2026-10-30.
+// Characters are verbatim from OCR (including "ต.ุค." with a stray U+0E38 and "สําเร็จ"); the capture collapsed
+// whitespace, so line breaks follow the slip's printed lines.
+const OCR_ISSUE_1 = 'โอนเงินสําเร็จ\n24 ต.ุค. 69 09:30 น.\nจํานวนเงิน\n120.00 บาท\nค่าธรรมเนียม 0.00 บาท';
+test('ISSUE-OCR-1 control: the same slip without the stray vowel parses the date',()=>{
+ const r=parseReceipt(OCR_ISSUE_1.replace('ต.ุค.','ต.ค.'));
+ assert.deepEqual([r.fields.transactionDate,r.fields.transactionTime,r.fields.amount],['2026-10-24','09:30','120.00']);
+});
+test('ISSUE-OCR-1: stray vowel inside "ต.ค." should still yield the date',{todo:'ISSUE-OCR-1: main parser drops the date; template-layout read it but is discarded for non-7-Eleven slips'},()=>{
+ assert.equal(parseReceipt(OCR_ISSUE_1).fields.transactionDate,'2026-10-24');
+});
