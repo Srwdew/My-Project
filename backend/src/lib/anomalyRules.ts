@@ -8,9 +8,10 @@ export const ANOMALY_RULE = Object.freeze({
   globalGateInclusiveDays: 30,
   fallback: "same-account-per-dimension",
   windowDays: 180,
-  amountMin: 30,
-  amountDays: 10,
-  amountSpan: 28,
+  // ISSUE-ANOM-1 stage 2 (was 30/10/28): evidence in scripts/forecast-experiment/category-minimum.ts.
+  amountMin: 10,
+  amountDays: 5,
+  amountSpan: 14,
   timeMin: 60,
   timeDays: 20,
   timeSpan: 42,

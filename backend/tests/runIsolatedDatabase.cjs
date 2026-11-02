@@ -1,6 +1,8 @@
 // Disposable PostgreSQL for database tests. Starts a fresh postgres:16 container bound to 127.0.0.1, applies every
 // migration, checks schema.prisma against the migrated DB, runs the tests, and always removes the container.
 // Never loads .env and never connects to an existing database: the main database cannot be touched from here.
+// ⚠️ NOT every database test: only DEFAULT_TESTS (10 suites). The other 15 need their own DB-name prefix or env and
+// have their own tests/run*.cjs (docs/DECISIONS.md ISSUE-TEST-2). Report results as "N/N of the 10 suites covered".
 // Usage (from backend/): node tests/runIsolatedDatabase.cjs                      -> DEFAULT_TESTS
 //                        TESTS=tests/a.database.test.ts,tests/b.database.test.ts node tests/runIsolatedDatabase.cjs
 const fs = require('fs'), os = require('os'), path = require('path'), cp = require('child_process'), crypto = require('crypto'), assert = require('assert/strict');

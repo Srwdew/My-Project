@@ -71,7 +71,7 @@ export async function detectShift(tx: GoalTx, userId: string, row: { id: string;
   if (d === "up")
     await tx.notification.createMany({
       skipDuplicates: true,
-      data: [{ userId, type: "transaction_anomaly", eventKey: "anomaly-level-shift:" + shift.id, sourceId: shift.id, title: "ค่าใช้จ่ายขยับเป็นระดับใหม่", message: `ค่าใช้จ่ายหมวด${categoryName.slice(0, 180)} สูงกว่าเดิมติดกันหลายรายการตั้งแต่ ${thDate(startDate)} ระบบรวมไว้เป็นเรื่องเดียวแทนการถามทีละรายการ เปิดหน้า "รายการที่ควรตรวจสอบ" เพื่อตอบว่าเป็นระดับใหม่หรือไม่`, link: null }],
+      data: [{ userId, type: "transaction_anomaly", eventKey: "anomaly-level-shift:" + shift.id, sourceId: shift.id, title: "ค่าใช้จ่ายขยับเป็นระดับใหม่", message: `ค่าใช้จ่ายหมวด${categoryName.slice(0, 180)} สูงกว่าเดิมติดกันหลายรายการตั้งแต่ ${thDate(startDate)} ระบบรวมไว้เป็นเรื่องเดียวแทนการถามทีละรายการ เปิดหน้า "รายการที่ควรตรวจสอบ" เพื่อตอบว่าเป็นระดับใหม่หรือไม่`, link: "/anomaly" }],
     });
   return shift;
 }

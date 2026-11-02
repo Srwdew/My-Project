@@ -10,7 +10,9 @@ import type {Sample} from './forecast.fixture';
 
 const days=(a:string,b:string)=>Math.round((Date.parse(b)-Date.parse(a))/864e5);
 export type Mode='off'|'confirm'|'ignore';
-type Shift={category:string;direction:Direction;start:string;detectedAt:string;state:'pending'|'confirmed';actedOn:string|null};
+// resumedAfter: days from the shift's start until the category's amount is evaluated again after confirmation
+// (the "silent period": post-shift history below the per-category minimum, so nothing is screened).
+type Shift={category:string;direction:Direction;start:string;detectedAt:string;state:'pending'|'confirmed';actedOn:string|null;resumedAfter?:number};
 
 /** One fixture under one user behaviour. 'off' = today's system (no detector), the 390 reference. */
 export function simulate(rows:Sample[],mode:Mode){
@@ -30,6 +32,7 @@ export function simulate(rows:Sample[],mode:Mode){
   const status=screenExpense(r.amount,false,b).amount.status;
   if(status==='not_evaluated')continue;
   medians.push({date:r.date,median:Number(b.median)});
+  for(const s of mine)if(s.state==='confirmed'&&s.resumedAfter===undefined&&r.date>s.actedOn!)s.resumedAfter=days(s.start,r.date);
   const dir=amountDirection(r.amount,b);
   if(status==='flagged'){flagged.add(r.i);flagsByCategory.set(r.categoryId,(flagsByCategory.get(r.categoryId)??0)+1);}
   // Detect before notifying (detectShift runs before the notice in evaluatePending).
@@ -55,7 +58,7 @@ export function simulate(rows:Sample[],mode:Mode){
  const pending=shifts.filter(s=>s.state==='pending');
  const covered=(i:number)=>{const o=order.find(x=>x.i===i)!;return pending.some(s=>s.direction==='up'&&s.category===o.categoryId&&o.date>=s.start);};
  const queue=[...flagged].filter(i=>!normal.has(i)&&!covered(i)).length+pending.length;
- return {flags:flagged.size,queue,notifications,shifts:shifts.map(s=>`${s.category}:${s.direction}:${s.start}`),flagsByCategory:Object.fromEntries(flagsByCategory),medians};
+ return {flags:flagged.size,queue,notifications,shifts:shifts.map(s=>`${s.category}:${s.direction}:${s.start}`),flagsByCategory:Object.fromEntries(flagsByCategory),medians,silent:shifts.filter(s=>s.state==='confirmed').map(s=>s.resumedAfter??null)};
 }
 
 /** Not in the locked forecast fixture: a permanent drop (e.g. a cancelled subscription), 400 → 150 baht from day 150. */
@@ -71,12 +74,12 @@ export function daysToFollow(medians:{date:string;median:number}[]){
 }
 
 export function run(){
- const out:{scenario:string;mode:Mode;flags:number;queue:number;notifications:number;shifts:string[];flagsByCategory:Record<string,number>}[]=[];
+ const out:{scenario:string;mode:Mode;flags:number;queue:number;notifications:number;shifts:string[];flagsByCategory:Record<string,number>;silent:(number|null)[]}[]=[];
  for(const scenario of PROTOCOL.scenarios)for(const mode of ['off','confirm','ignore'] as const){
-  const t={scenario,mode,flags:0,queue:0,notifications:0,shifts:[] as string[],flagsByCategory:{} as Record<string,number>};
+  const t={scenario,mode,flags:0,queue:0,notifications:0,shifts:[] as string[],flagsByCategory:{} as Record<string,number>,silent:[] as (number|null)[]};
   for(const seed of PROTOCOL.seeds){
    const s=simulate(fixture(scenario,seed),mode);
-   t.flags+=s.flags;t.queue+=s.queue;t.notifications+=s.notifications;t.shifts.push(...s.shifts.map(x=>seed+':'+x));
+   t.flags+=s.flags;t.queue+=s.queue;t.notifications+=s.notifications;t.shifts.push(...s.shifts.map(x=>seed+':'+x));t.silent.push(...s.silent);
    for(const [k,v] of Object.entries(s.flagsByCategory))t.flagsByCategory[k]=(t.flagsByCategory[k]??0)+v;
   }
   out.push(t);
@@ -89,9 +92,9 @@ if(require.main===module){
  const r=run(),ref=r.find(x=>x.scenario==='level-change'&&x.mode==='off')!;
  assert.equal(ref.flags,390,'reference reproduces ISSUE-ANOM-1');
  const label={off:'ระบบเดิม (ไม่มีตัวตรวจ)',confirm:'A: ยืนยันทันที',ignore:'B: ไม่ตอบเลย'};
- console.log('| scenario | โหมด | flag | เห็นในคิว (วันสุดท้าย) | แจ้งเตือน | ตรวจพบการขยับ (seed:หมวด:ทิศ:วันเริ่ม) | flag ต่อหมวด |\n|---|---|---|---|---|---|---|');
- for(const x of r)console.log(`| ${x.scenario} | ${label[x.mode]} | ${x.flags} | ${x.queue} | ${x.notifications} | ${x.shifts.length?x.shifts.length+' — '+x.shifts.join(', '):'0'} | ${JSON.stringify(x.flagsByCategory)} |`);
+ console.log('| scenario | โหมด | flag | เห็นในคิว (วันสุดท้าย) | แจ้งเตือน | ตรวจพบการขยับ (seed:หมวด:ทิศ:วันเริ่ม) | flag ต่อหมวด | ช่วงเงียบหลังยืนยัน (วันจากวันเริ่ม) |\n|---|---|---|---|---|---|---|---|');
+ for(const x of r)console.log(`| ${x.scenario} | ${label[x.mode]} | ${x.flags} | ${x.queue} | ${x.notifications} | ${x.shifts.length?x.shifts.length+' — '+x.shifts.join(', '):'0'} | ${JSON.stringify(x.flagsByCategory)} | ${x.silent.length?x.silent.map(v=>v??'ไม่กลับมาประเมินภายในข้อมูล').join(', '):'—'} |`);
  for(const mode of ['off','confirm','ignore'] as const){const s=r.filter(x=>x.mode===mode);console.log(`| **รวม** | ${label[mode]} | ${s.reduce((a,x)=>a+x.flags,0)} | ${s.reduce((a,x)=>a+x.queue,0)} | ${s.reduce((a,x)=>a+x.notifications,0)} | ${s.reduce((a,x)=>a+x.shifts.length,0)} | |`);}
- console.log('\n### ขาลง (400 → 150 บาท จากวันที่ 150)\n| seed | โหมด | flag | เห็นในคิว | แจ้งเตือน | ตรวจพบ | วันที่ baseline ตามระดับใหม่ (มัธยฐาน < 275) |\n|---|---|---|---|---|---|---|');
- for(const seed of PROTOCOL.seeds)for(const mode of ['off','confirm','ignore'] as const){const s=simulate(levelDown(seed),mode);console.log(`| ${seed} | ${label[mode]} | ${s.flags} | ${s.queue} | ${s.notifications} | ${s.shifts.join(', ')||'0'} | ${daysToFollow(s.medians)??'ไม่ตามภายในข้อมูล'} |`);}
+ console.log('\n### ขาลง (400 → 150 บาท จากวันที่ 150)\n| seed | โหมด | flag | เห็นในคิว | แจ้งเตือน | ตรวจพบ | วันที่ baseline ตามระดับใหม่ (มัธยฐาน < 275) | ช่วงเงียบหลังยืนยัน |\n|---|---|---|---|---|---|---|---|');
+ for(const seed of PROTOCOL.seeds)for(const mode of ['off','confirm','ignore'] as const){const s=simulate(levelDown(seed),mode);console.log(`| ${seed} | ${label[mode]} | ${s.flags} | ${s.queue} | ${s.notifications} | ${s.shifts.join(', ')||'0'} | ${daysToFollow(s.medians)??'ไม่ตามภายในข้อมูล'} | ${s.silent.map(v=>v??'—').join(', ')||'—'} |`);}
 }

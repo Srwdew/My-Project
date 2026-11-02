@@ -27,7 +27,7 @@ test('level shift: one notice, one queue entry, confirm writes per-item decision
   assert.equal(await prisma.anomalyEvaluation.count({where:{userId:a.id,outcome:'flagged'}}),10,'every high item is still flagged');
   const n=await prisma.notification.findFirstOrThrow({where:{userId:a.id,eventKey:{startsWith:'anomaly-level-shift:'}}});
   console.log('LEVEL_SHIFT_NOTICE',JSON.stringify({title:n.title,message:n.message}));
-  assert.match(n.message,/รายการที่ควรตรวจสอบ/,'says where to answer');assert.doesNotMatch(n.message,/MAD|z-score|\d{4}-\d{2}-\d{2}/,'no statistics, no ISO date');
+  assert.match(n.message,/รายการที่ควรตรวจสอบ/,'says where to answer');assert.equal(n.link,'/anomaly','opens the queue');assert.doesNotMatch(n.message,/MAD|z-score|\d{4}-\d{2}-\d{2}/,'no statistics, no ISO date');
  });
  let shiftId='';
  await t.test('queue shows the shift once instead of 10 items',async()=>{
