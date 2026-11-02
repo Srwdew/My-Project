@@ -61,15 +61,14 @@ function readMoneyData() {
   return { header: cols.map(([, n]) => n), rows, descriptions };
 }
 
-function exploreMoneyData() {
+/** Parsed MoneyData rows (empty rows dropped, Excel serial dates swapped back to dd/mm). Shared with the backtest. */
+export function loadMoneyData() {
   const { header, rows, descriptions } = readMoneyData();
   const filled = rows.filter((r) => r["Transaction Number"]);
-  const out: string[] = ["# MoneyData", "Columns: " + header.join(", "), `Rows: ${rows.length} (${rows.length - filled.length} completely empty rows skipped)`];
   const isSerial = (s: string) => /^\d{5}$/.test(s);
   const serialRows = filled.filter((r) => isSerial(r["Transaction Date"]!));
   const serialDayMax = Math.max(...serialRows.map((r) => new Date(Date.UTC(1899, 11, 30) + Number(r["Transaction Date"]) * DAY).getUTCDate()));
-  out.push(`Date cells: ${filled.length - serialRows.length} text dd/mm/yyyy, ${serialRows.length} Excel serial numbers (largest day-of-month among serials: ${serialDayMax})`);
-  out.push("Serial dates are dd/mm dates Excel read as mm/dd (only day<=12 can be misread, and none exceed 12); they are converted back by swapping day and month. No time-of-day anywhere: dates only.");
+  // Serial dates are dd/mm dates Excel read as mm/dd: only day<=12 can be misread, and none exceed 12.
   const date = (s: string) => {
     const m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     if (m) return `${m[3]}-${m[2]}-${m[1]}`;
@@ -78,6 +77,14 @@ function exploreMoneyData() {
     return `${y}-${dd}-${mm}`; // swap back
   };
   const parsed = filled.map((r) => ({ ...r, date: date(r["Transaction Date"]!) ?? "", debit: Number(r["Debit Amount"] || 0), credit: Number(r["Credit Amount"] || 0), balance: Number(r["Balance"]) }));
+  if (parsed.some((r) => !r.date)) throw Error("MoneyData: unparseable date");
+  return { header, rows, descriptions, filled, serialRows: serialRows.length, serialDayMax, parsed };
+}
+function exploreMoneyData() {
+  const { header, rows, descriptions, filled, serialRows, serialDayMax, parsed } = loadMoneyData();
+  const out: string[] = ["# MoneyData", "Columns: " + header.join(", "), `Rows: ${rows.length} (${rows.length - filled.length} completely empty rows skipped)`];
+  out.push(`Date cells: ${filled.length - serialRows} text dd/mm/yyyy, ${serialRows} Excel serial numbers (largest day-of-month among serials: ${serialDayMax})`);
+  out.push("Serial dates are dd/mm dates Excel read as mm/dd (only day<=12 can be misread, and none exceed 12); they are converted back by swapping day and month. No time-of-day anywhere: dates only.");
   const ordered = [...parsed].sort((a, b) => Number(b["Transaction Number"]) - Number(a["Transaction Number"]));
   out.push("Unparseable dates: " + parsed.filter((r) => !r.date).length + "; date goes backwards in transaction order (after the swap): " + ordered.filter((r, i) => i && r.date < ordered[i - 1]!.date).length);
   const dates = parsed.map((r) => r.date).filter(Boolean).sort(), first = dates[0]!, last = dates.at(-1)!;
@@ -138,14 +145,19 @@ function group<T extends { debit: number; credit: number }>(rows: T[], key: (r: 
 }
 
 // ---------- Berka (semicolon CSV; dates YYMMDD in 1993-1998) ----------
-function exploreBerka() {
-  const out: string[] = ["# Berka"];
+/** Parsed Berka transactions. Shared with the backtest. */
+export function loadBerka() {
   const lines = readFileSync(join(DATA, "berka", "trans.asc"), "utf8").split(/\r?\n/).filter(Boolean);
   const head = lines[0]!.split(";").map((h) => h.replace(/"/g, ""));
   const idx = (n: string) => head.indexOf(n);
   const [iAcc, iDate, iType, iOp, iAmt, iK] = ["account_id", "date", "type", "operation", "amount", "k_symbol"].map(idx) as number[];
   const tx = lines.slice(1).map((l) => { const c = l.split(";").map((x) => x.replace(/"/g, "")); const d = c[iDate!]!;
     return { account: c[iAcc!]!, date: `19${d.slice(0, 2)}-${d.slice(2, 4)}-${d.slice(4, 6)}`, type: c[iType!]!, op: c[iOp!] || "(blank)", k: c[iK!]?.trim() || "(blank)", amount: Number(c[iAmt!]) }; });
+  return { head, tx };
+}
+function exploreBerka() {
+  const out: string[] = ["# Berka"];
+  const { head, tx } = loadBerka();
   const accounts = new Set(tx.map((t) => t.account)), ds = tx.map((t) => t.date).sort();
   out.push(`Transactions: ${tx.length}; accounts: ${accounts.size}; range ${ds[0]} .. ${ds.at(-1)}`);
   out.push("Columns: " + head.join(", "));
@@ -170,5 +182,7 @@ function exploreBerka() {
   return out.join("\n");
 }
 
-console.log(exploreMoneyData());
-console.log("\n\n" + exploreBerka());
+if (require.main === module) {
+  console.log(exploreMoneyData());
+  console.log("\n\n" + exploreBerka());
+}
