@@ -3,7 +3,9 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));const origin=process.env.SETTIN
 const {buildForecast,shiftDay}=require('../dist/lib/expenseForecast');
 const {bangkokToday}=require('../dist/lib/goalCalculations');
 const today=bangkokToday(),rows=Array.from({length:30},(_,i)=>({date:shiftDay(today,i-30),amount:'100.00',count:1}));
-const input={asOfDate:today,rows,history:{transactionCount:30,firstDate:rows[0].date,lastDate:rows[29].date},budgetAmount:null};
+// cycle added after b95cf22 (31 Oct 2026) made CycleContext required; this test was broken from then, not by the Theta switch.
+const {cycleContextFromProfile}=require('../dist/lib/cycle');
+const input={cycle:cycleContextFromProfile('browser-fixture',null),asOfDate:today,rows,history:{transactionCount:30,firstDate:rows[0].date,lastDate:rows[29].date},budgetAmount:null};
 const payloads={available:buildForecast(input),empty:buildForecast({...input,rows:[],history:{transactionCount:0,firstDate:null,lastDate:null}}),budget:buildForecast({...input,budgetAmount:'9999999999999999.99'})};
 const mock=(payloads)=>{
  localStorage.setItem('spendsense_token','session-a');window.__mode='budget';window.__payloads=payloads;window.__requests=[];window.__gates=[];window.__release=()=>window.__gates.splice(0).forEach(r=>r());
@@ -15,6 +17,7 @@ const mock=(payloads)=>{
   if(route==='/settings')data={setupCompletedAt:'2026-01-01',setupPromptedAt:'2026-01-01'};
   if(route==='/profile')data={userId:session,email:session+'@example.invalid',displayName:session,hasAvatar:false};
   if(route==='/notifications')data={items:[],unreadCount:0};
+  if(route==='/auth/me')data={role:'USER',showSetup:false}; // ProtectedRoute checks this; missing mock was a pre-existing break, as in other browser tests
   if(route==='/transactions'||route==='/categories')data=[];
   if(route==='/forecast'){
    const record={session,held:false,aborted:false,consumed:false};window.__requests.push(record);
