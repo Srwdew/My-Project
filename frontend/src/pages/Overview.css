@@ -380,6 +380,24 @@
 .dashboard-page .dashboard-behavior-panel .dashboard-text-link {
   margin-top: 0;
 }
+/* Recommendation Engine list inside the guidance box */
+.dashboard-page .rec-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 10px; }
+.dashboard-page .rec-item { background: #fff; border: 1px solid #dce7fa; border-radius: 10px; padding: 12px 14px; }
+.dashboard-page .rec-item p { margin: 0 0 6px; line-height: 1.7; }
+.dashboard-page .rec-what { color: #1f2a3a; font-size: 14px; }
+.dashboard-page .rec-action { color: #3b4a5e; font-size: 14px; }
+.dashboard-page .rec-action strong { color: #1f2a3a; font-weight: 650; }
+.dashboard-page .rec-note { color: #5d6e83; font-size: 13px; }
+.dashboard-page .rec-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.dashboard-page .rec-buttons button { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 8px; border: 1px solid #dce7fa; background: #f7faff; color: #1f2a3a; cursor: pointer; }
+.dashboard-page .rec-buttons button:hover { background: #eaf1ff; }
+.dashboard-page .rec-link { font: inherit; font-size: 13px; font-weight: 650; background: none; border: 0; padding: 6px 0; color: var(--color-brand-strong, #3548e8); cursor: pointer; }
+.dashboard-page .rec-buttons .rec-link { border: 0; background: none; }
+.dashboard-page .dashboard-guidance > .rec-link { display: block; }
+.dashboard-page .rec-source { margin-top: 8px; padding: 10px 12px; border-radius: 8px; background: #f6f8fb; color: #3b4a5e; font-size: 13px; }
+.dashboard-page .rec-source p { margin: 0 0 4px; }
+.dashboard-page .rec-invite { background: #e6eeff; border: 1px solid #b9cdf3; border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
+.dashboard-page .rec-invite p { margin: 4px 0 0; font-size: 14px; line-height: 1.7; }
 .dashboard-page .dashboard-state,
 .dashboard-page .dashboard-empty {
   padding: 22px;

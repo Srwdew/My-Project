@@ -41,22 +41,83 @@ export function AnomalyOverview({ session }: { session: string | null }) {
     <Link className="dashboard-text-link" to="/anomaly?filter=waiting">เปิดคิวรอตรวจสอบ</Link>
   </div>;
 }
-type BehaviorSummary = {
-  periods: { current: { startDate: string; endDate: string }; previous: { startDate: string; endDate: string } };
-  readiness: { current: { ready: boolean; expenseCount: number; observedSpanDays: number }; previous: { ready: boolean }; comparisonReady: boolean };
-  findings: { ruleId: string; title: string; recommendation: string }[];
+type RecText = { what: string; action: string; outcome: string };
+type Rec = { id: string; ruleId: string; subject: string | null; text: RecText; supersededBy: { ruleId: string; subject: string | null } | null };
+type Gate = { moreExpensesNeeded: number; moreDaysNeeded: number };
+type Recommendations = {
+  shown: Rec[]; more: Rec[]; silencedByNoFlags: string[];
+  closedRules: { ruleId: string; closedSources: ('behavior' | 'forecast' | 'goals')[] }[];
+  readiness: { behavior: Gate; forecast: Gate; goals: { activeGoals: number; hasIncomeThisCycle: boolean } };
 };
-export function BehaviorOverview({ session, today }: { session: string | null; today: string }) {
-  const { data, loading, error, retry } = useReadOnlySummary<BehaviorSummary>('/behavior', session, today);
-  const ready = data?.readiness.current.ready && data.readiness.comparisonReady;
-  const finding = ready ? data?.findings[0] : undefined;
-  return <div className="dashboard-guidance" data-testid="overview-behavior">
-    {loading && <p role="status">กำลังโหลดสรุปพฤติกรรม...</p>}
-    {error && <div role="alert"><p>โหลดพฤติกรรมไม่สำเร็จ</p><button onClick={retry}>ลองโหลดพฤติกรรมอีกครั้ง</button></div>}
+type Provenance = { text: RecText; shownAt: string; dataRange: { kind: 'window' | 'cycle' | 'month' | 'forecast'; startDate: string; endDate: string } | null; citationTier: number };
+// The dates each rule was computed from, labelled so a 30-day window is never mistaken for the cycle.
+const rangeLabel: Record<NonNullable<Provenance['dataRange']>['kind'], string> = {
+  window: 'ข้อมูล 30 วันที่ผ่านมา', cycle: 'ข้อมูลรอบนี้', month: 'ข้อมูลเดือนที่จบแล้ว', forecast: 'ช่วงที่คาดการณ์',
+};
+
+function RecommendationSource({ id }: { id: string }) {
+  const [data, setData] = useState<Provenance | null>(null), [error, setError] = useState(false);
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try { const r = await apiFetch('/recommendations/' + id); if (!r.ok) throw Error(); const v = await r.json() as Provenance; if (active) setData(v); }
+      catch { if (active) setError(true); }
+    })();
+    return () => { active = false; };
+  }, [id]);
+  if (error) return <p role="alert" className="rec-source">โหลดที่มาไม่สำเร็จ</p>;
+  if (!data) return <p role="status" className="rec-source">กำลังโหลดที่มา...</p>;
+  // Everything here comes from the saved record of this recommendation, not from today's data.
+  return <div className="rec-source">
+    {data.dataRange && <p><strong>{rangeLabel[data.dataRange.kind]}</strong> {thaiDate(data.dataRange.startDate)} ถึง {thaiDate(data.dataRange.endDate)}</p>}
+    <p>{data.citationTier === 1 ? 'คำนวณจากรายการที่คุณบันทึกไว้เองทั้งหมด ไม่ได้เทียบกับคนอื่น' : ''}</p>
+    <p>ตัวเลขนี้คำนวณไว้เมื่อ {thaiDate(data.shownAt.slice(0, 10))} และจะไม่เปลี่ยนตามข้อมูลที่แก้ภายหลัง</p>
+  </div>;
+}
+
+function RecommendationItem({ rec, onAction }: { rec: Rec; onAction: (id: string, action: 'followed' | 'dismissed') => void }) {
+  const [open, setOpen] = useState(false);
+  return <li className="rec-item">
+    <p className="rec-what">{rec.text.what}</p>
+    <p className="rec-action">{rec.text.action} <strong>{rec.text.outcome}</strong></p>
+    {rec.supersededBy && <p className="rec-note">เรื่องเดียวกับคำแนะนำอีกข้อของหมวดนี้ ตัวเลขเป็นก้อนเดียวกัน ไม่ควรบวกรวม</p>}
+    <div className="rec-buttons">
+      <button type="button" onClick={() => onAction(rec.id, 'followed')}>จะลองทำ</button>
+      <button type="button" onClick={() => onAction(rec.id, 'dismissed')}>ไม่ต้องแนะนำข้อนี้</button>
+      <button type="button" className="rec-link" aria-expanded={open} onClick={() => setOpen(!open)}>{open ? 'ซ่อนที่มา' : 'ดูที่มา'}</button>
+    </div>
+    {open && <RecommendationSource id={rec.id} />}
+  </li>;
+}
+
+export function RecommendationsOverview({ session, today }: { session: string | null; today: string }) {
+  const { data, loading, error, retry } = useReadOnlySummary<Recommendations>('/recommendations', session, today);
+  const [showAll, setShowAll] = useState(false), [failed, setFailed] = useState(false);
+  const act = async (id: string, action: 'followed' | 'dismissed') => {
+    setFailed(false);
+    try { const r = await apiFetch('/recommendations/' + id + '/action', { method: 'POST', body: JSON.stringify({ action }) }); if (!r.ok) throw Error(); retry(); }
+    catch { setFailed(true); }
+  };
+  const gates = data ? [...new Set(data.closedRules.flatMap((r) => r.closedSources))] : [];
+  return <div className="dashboard-guidance" data-testid="overview-recommendations">
+    {loading && <p role="status">กำลังโหลดคำแนะนำ...</p>}
+    {error && <div role="alert"><p>โหลดคำแนะนำไม่สำเร็จ</p><button onClick={retry}>ลองโหลดอีกครั้ง</button></div>}
+    {failed && <p role="alert">บันทึกไม่สำเร็จ กรุณาลองใหม่</p>}
     {data && <>
-      <p className="dashboard-section-note">ช่วงพฤติกรรม {thaiDate(data.periods.current.startDate)} ถึง {thaiDate(data.periods.current.endDate)} เทียบ {thaiDate(data.periods.previous.startDate)} ถึง {thaiDate(data.periods.previous.endDate)} · ใช้ช่วงเดิม 30 วันถึงเมื่อวาน ไม่ใช่เดือนที่เลือกด้านบน</p>
-      {!ready ? <><p role="status">ข้อมูลยังไม่พร้อมสรุปการเปลี่ยนแปลง</p><p>ช่วงปัจจุบัน {data.readiness.current.expenseCount} รายการ ครอบคลุม {data.readiness.current.observedSpanDays} วัน · ต้องผ่านเกณฑ์ทั้งช่วงปัจจุบันและช่วงก่อนหน้า ดูเหตุผลเพิ่มเติมในหน้าพฤติกรรม</p></> :
-        finding ? <><strong>{finding.title}</strong><p>{finding.recommendation}</p></> : <p>ข้อมูลผ่านเกณฑ์ แต่ยังไม่มีข้อค้นพบตามกติกาปัจจุบัน</p>}
+      {/* Comes first: without flags the most urgent rule (running short in the next 7 days) cannot speak. */}
+      {data.silencedByNoFlags.length > 0 && <div className="rec-invite">
+        <strong>บอกเราก่อนว่าหมวดไหนลดได้</strong>
+        <p>คำแนะนำบางข้อ เช่น การเตือนเมื่อเงินอาจไม่พอใน 7 วันข้างหน้า ต้องรู้ก่อนว่าหมวดไหนลดได้ เราจะไม่เสนอให้ลดค่าใช้จ่ายจำเป็นอย่างค่าเช่า ตอนนี้ยังไม่มีหมวดที่ถูกเลือกไว้</p>
+      </div>}
+      {data.shown.length > 0 ? <ul className="rec-list">{data.shown.map((r) => <RecommendationItem key={r.id} rec={r} onAction={act} />)}</ul>
+        : !data.silencedByNoFlags.length && <p>{gates.length ? 'ยังมีข้อมูลไม่พอสำหรับคำแนะนำบางส่วน' : 'ตอนนี้ยังไม่มีคำแนะนำ'}</p>}
+      {gates.includes('behavior') && <p className="dashboard-section-note">คำแนะนำจากพฤติกรรม: บันทึกรายจ่ายอีก {data.readiness.behavior.moreExpensesNeeded} รายการ และใช้งานอีก {data.readiness.behavior.moreDaysNeeded} วัน</p>}
+      {gates.includes('forecast') && <p className="dashboard-section-note">คำแนะนำจากการพยากรณ์: บันทึกรายจ่ายอีก {data.readiness.forecast.moreExpensesNeeded} รายการ และใช้งานอีก {data.readiness.forecast.moreDaysNeeded} วัน</p>}
+      {gates.includes('goals') && <p className="dashboard-section-note">คำแนะนำเรื่องเป้าหมาย: {data.readiness.goals.activeGoals ? 'ยังไม่มีรายได้ในรอบนี้' : 'ตั้งเป้าหมายอย่างน้อย 1 รายการ'}</p>}
+      {data.more.length > 0 && <>
+        <button type="button" className="rec-link" aria-expanded={showAll} onClick={() => setShowAll(!showAll)}>{showAll ? 'ซ่อนคำแนะนำอื่น' : `ดูคำแนะนำอื่นอีก ${data.more.length} ข้อ`}</button>
+        {showAll && <ul className="rec-list">{data.more.map((r) => <RecommendationItem key={r.id} rec={r} onAction={act} />)}</ul>}
+      </>}
     </>}
     <Link className="dashboard-text-link" to="/behavior">ดูรายละเอียดและหลักฐานพฤติกรรม</Link>
   </div>;

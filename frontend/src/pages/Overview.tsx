@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import {
   AnomalyOverview,
-  BehaviorOverview,
+  RecommendationsOverview,
 } from "../components/OverviewInsights";
 import WeeklyExpenses from "../components/WeeklyExpenses";
 import { useEffect, useState } from "react";
@@ -459,12 +459,12 @@ function OverviewMonth({
           {data && (
             <section className="dashboard-panel dashboard-behavior-panel">
               <div className="dashboard-panel-heading">
-                <h2>พฤติกรรมที่เปลี่ยนไป</h2>
+                <h2>คำแนะนำ</h2>
                 <span className="dashboard-icon">
                   <ChartNoAxesCombined aria-hidden="true" size={20} />
                 </span>
               </div>
-              <BehaviorOverview session={session} today={today} />
+              <RecommendationsOverview session={session} today={today} />
             </section>
           )}
           {data && (
