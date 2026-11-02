@@ -49,6 +49,8 @@ model User {
   categoryBudgets           CategoryBudget[]
   notifications             Notification[]
   budgetNotificationSetting BudgetNotificationSetting?
+  recommendationLogs        RecommendationLog[]
+  categoryFlags             UserCategoryFlag[]
 }
 
 model Profile {
@@ -59,6 +61,8 @@ model Profile {
   occupation    String?
   income        Decimal? @db.Decimal(12, 2)
   paydayDay     Int?
+  // R8: saving-rate floor the user sets (percent). Null = not set, R8 then fires only on a negative rate.
+  savingRateFloorPercent Decimal? @db.Decimal(5, 2)
   primaryGoalId String?
   primaryGoal   Goal?    @relation("PrimaryGoal", fields: [userId, primaryGoalId], references: [userId, id], onDelete: Restrict, onUpdate: Restrict)
   avatarData    Bytes?
@@ -69,12 +73,55 @@ model Profile {
   @@index([userId, primaryGoalId])
 }
 
+enum RecommendationAction {
+  followed
+  dismissed
+  ignored
+}
+
+// Provenance of every recommendation shown, so "how was this calculated" can be answered later.
+model RecommendationLog {
+  id              String                @id @default(uuid())
+  userId          String
+  user            User                  @relation(fields: [userId], references: [id])
+  ruleId          String                @db.VarChar(8)
+  ruleVersion     Int
+  cycleId         String                @db.VarChar(16) // Cycle.key from cycle.ts
+  inputs          Json
+  computed        Json
+  score           Json
+  citationTier    Int                   @default(1) // 1 = computed from the user's own data only
+  citationRef     String?
+  shownAt         DateTime              @default(now())
+  userAction      RecommendationAction? // what the user pressed; null = no response yet
+  outcomeVerified Boolean? // checked next cycle; null until then
+
+  @@index([userId, cycleId])
+  @@index([userId, ruleId, shownAt])
+  @@map("recommendation_log")
+}
+
+// Per-user "this category can be cut" flag (Category itself is shared by every user).
+// No row = fixed category; rows are never pre-created.
+model UserCategoryFlag {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  flexible   Boolean
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, categoryId])
+}
+
 model Category {
   id              String           @id @default(uuid())
   name            String
   type            TransactionType
   transactions    Transaction[]
   categoryBudgets CategoryBudget[]
+  userFlags       UserCategoryFlag[]
 
   createdAt DateTime @default(now())
 
