@@ -1,6 +1,7 @@
 import { bangkokToday } from "./goalCalculations";
 import { globalGate } from "./anomalyRules";
 import { manualPattern } from "./anomalyPatterns";
+import { coveredByShift, pendingShifts } from "./anomalyLevelShift";
 import type { Cadence } from "./anomalyPatternPolicy";
 import { createHash, randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
@@ -170,6 +171,7 @@ export async function anomalyQueue(
  AND NOT EXISTS(SELECT 1 FROM "AnomalyReview" r WHERE r."userId"=e."userId" AND r."originalTransactionId"=e."originalTransactionId" AND r.revision=e.revision)) AS waiting
  FROM "Transaction" t JOIN LATERAL (SELECT * FROM "AnomalyEvaluation" ev WHERE ev."userId"=t."userId" AND ev."originalTransactionId"=t.id AND ev.revision=t."anomalyRevision" ORDER BY ev."evaluatedAt" DESC,ev.id DESC LIMIT 1) e ON true
  WHERE t."userId"=${userId} AND t.type='expense' AND NOT t."anomalyPending" AND e.outcome='flagged'
+ AND NOT (${coveredByShift} AND coalesce(e.snapshot#>>'{assessment,time,status}','')<>'flagged')
  ), filtered AS (SELECT * FROM queue WHERE (${filter}<>'waiting' OR waiting)
  AND (${filter} NOT IN ('amount','time') OR snapshot#>>ARRAY['assessment',${filter},'status']='flagged'))
  SELECT (SELECT count(*)::int FROM filtered) AS total,coalesce((SELECT jsonb_agg(page ORDER BY page.severity,page."evaluatedAt",page.id) FROM (SELECT * FROM filtered ORDER BY severity,"evaluatedAt",id OFFSET ${offset} LIMIT ${limit}) page),'[]'::jsonb) AS items`);
@@ -188,7 +190,16 @@ export async function anomalyQueue(
     (await tx.anomalyNotificationSetting.findUnique({ where: { userId } }))
       ?.enabled,
   );
+  // A waiting shift stands in for the amount flags it covers: one queue entry instead of one per item.
+  const levelShifts =
+    filter === "time"
+      ? []
+      : (await pendingShifts(tx, userId)).map((s) => ({
+          ...s,
+          startDate: s.startDate.toISOString().slice(0, 10),
+        }));
   return {
+    levelShifts,
     readiness: {
       asOfDate: today,
       count: g.n,
@@ -197,7 +208,7 @@ export async function anomalyQueue(
       enabled,
     },
     items: rows,
-    total: result[0]?.total ?? 0,
+    total: (result[0]?.total ?? 0) + levelShifts.length,
     offset,
     limit,
     pendingEvaluation: count[0]?.pending ?? 0,

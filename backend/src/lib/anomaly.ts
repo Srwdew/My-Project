@@ -17,9 +17,16 @@ import {
   timeReady,
   globalGate,
   dimensionEvidence,
+  amountDirection,
   type Baseline,
 } from "./anomalyRules";
 import { bangkokToday } from "./goalCalculations";
+import {
+  categoryShifts,
+  baselineSince,
+  noticeHeld,
+  detectShift,
+} from "./anomalyLevelShift";
 export type Actor = { userId: string; authVersion?: number };
 export async function assertAnomalyActor(tx: GoalTx, actor: Actor) {
   const u = await tx.user.findFirst({
@@ -103,10 +110,13 @@ export async function anomalyBaseline(
   tx: GoalTx,
   row: Transaction,
   account = false,
+  since: string | null = null,
 ) {
   const end = row.transactionDate,
     start = new Date(end);
   start.setUTCDate(start.getUTCDate() - ANOMALY_RULE.windowDays);
+  // A confirmed level shift of this row's category: history before it describes the old level.
+  if (since && new Date(since + "T00:00:00Z") > start) start.setTime(Date.parse(since + "T00:00:00Z"));
   const minute = row.transactionTime
     ? row.transactionTime.getUTCHours() * 60 +
       row.transactionTime.getUTCMinutes()
@@ -174,11 +184,14 @@ export async function evaluatePending(
     count: gateRow.n,
     inclusiveDays: gateRow.days,
   };
-  const category = await anomalyBaseline(tx, row);
+  const rowDate = row.transactionDate.toISOString().slice(0, 10);
+  const shifts = await categoryShifts(tx, actor.userId, row.categoryId),
+    since = baselineSince(shifts, rowDate);
+  const category = await anomalyBaseline(tx, row, false, since);
   const account =
     gate.ready &&
     (!amountReady(category.baseline) || !timeReady(category.baseline))
-      ? await anomalyBaseline(tx, row, true)
+      ? await anomalyBaseline(tx, row, true, since)
       : null;
   const money = amountReady(category.baseline)
     ? category.baseline
@@ -254,6 +267,11 @@ export async function evaluatePending(
     baseline,
     rules: ANOMALY_RULE,
     assessment,
+    // Level-shift input only; "down" never enters the queue.
+    amountDirection:
+      assessment.amount.status === "not_evaluated"
+        ? null
+        : amountDirection(row.amount.toFixed(2), baseline),
   };
   const key = {
     userId: actor.userId,
@@ -279,9 +297,20 @@ export async function evaluatePending(
         snapshot: snapshot as unknown as Prisma.InputJsonValue,
       },
     });
-  if (evaluation.outcome === "flagged") {
+  // Detect before notifying, so the item that completes a shift is already held.
+  const detected =
+    snapshot.amountDirection &&
+    (await detectShift(tx, actor.userId, row, row.category.name, shifts));
+  const held = noticeHeld(
+    detected ? await categoryShifts(tx, actor.userId, row.categoryId) : shifts,
+    rowDate,
+  );
+  if (
+    evaluation.outcome === "flagged" &&
+    !(held && assessment.time.status !== "flagged")
+  ) {
     const reasons = [];
-    if (assessment.amount.status === "flagged")
+    if (assessment.amount.status === "flagged" && !held)
       reasons.push(
         `ยอด ${row.amount.toFixed(2)} บาท ค่ากลางประวัติ ${baseline.median} บาท (${assessment.amount.reasonCode})`,
       );

@@ -24,6 +24,8 @@ model User {
   anomalyPatterns AnomalyPattern[]
   anomalyIdentities AnomalyIdentity[]
   anomalyDecisions AnomalyDecision[]
+  anomalyLevelShifts AnomalyLevelShift[]
+  anomalyLevelShiftActions AnomalyLevelShiftAction[]
   anomalyDecisionRequests AnomalyDecisionRequest[]
   transactionCreateRequests TransactionCreateRequest[]
   setupCompletedAt          DateTime?
@@ -122,6 +124,7 @@ model Category {
   transactions    Transaction[]
   categoryBudgets CategoryBudget[]
   userFlags       UserCategoryFlag[]
+  anomalyLevelShifts AnomalyLevelShift[]
 
   createdAt DateTime @default(now())
 
@@ -464,6 +467,8 @@ model AnomalyRevision {
 model AnomalyDecision {
  patternId String?
  pattern AnomalyPattern? @relation(fields:[userId,patternId],references:[userId,id],onDelete:Restrict,onUpdate:Restrict)
+ levelShiftId String?
+ levelShift AnomalyLevelShift? @relation(fields:[userId,levelShiftId],references:[userId,id],onDelete:Restrict,onUpdate:Restrict)
  id String @id @default(uuid())
  userId String
  evaluationId String
@@ -494,6 +499,39 @@ model AnomalyDecisionRequest {
  @@id([userId,idempotencyKey])
 }
 
+// ISSUE-ANOM-1: a category's amount level moved for good. The detection is immutable; what the user said about it
+// is an append-only chain (sequence/supersedes, like AnomalyDecision). No action yet = waiting for the user.
+model AnomalyLevelShift {
+ id String @id @default(uuid())
+ userId String
+ categoryId String
+ direction String @db.VarChar(8)
+ startDate DateTime @db.Date
+ ruleVersion String @db.VarChar(100)
+ evidence Json
+ detectedAt DateTime @default(now()) @db.Timestamptz(3)
+ user User @relation(fields:[userId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ category Category @relation(fields:[categoryId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ actions AnomalyLevelShiftAction[]
+ decisions AnomalyDecision[]
+ @@unique([userId,id])
+ @@index([userId,categoryId,direction])
+}
+model AnomalyLevelShiftAction {
+ id String @id @default(uuid())
+ userId String
+ levelShiftId String
+ action String @db.VarChar(16)
+ sequence Int
+ supersedesId String?
+ decidedAt DateTime @default(now()) @db.Timestamptz(3)
+ user User @relation(fields:[userId],references:[id],onDelete:Restrict,onUpdate:Restrict)
+ levelShift AnomalyLevelShift @relation(fields:[userId,levelShiftId],references:[userId,id],onDelete:Restrict,onUpdate:Restrict)
+ supersedes AnomalyLevelShiftAction? @relation("LevelShiftActionSupersession",fields:[userId,supersedesId],references:[userId,id],onDelete:Restrict,onUpdate:Restrict)
+ successors AnomalyLevelShiftAction[] @relation("LevelShiftActionSupersession")
+ @@unique([userId,id])
+ @@unique([userId,levelShiftId,sequence])
+}
 model AnomalyPattern {
  id String @id @default(uuid())
  userId String

@@ -5,6 +5,7 @@ import {
   submitDecision,
 } from "../lib/anomalyDecisions";
 import { reviewView, submitReview } from "../lib/anomalyReview";
+import { levelShiftAction } from "../lib/anomalyLevelShift";
 import { Router } from "express";
 import { z } from "zod";
 import { authMiddleware, type AuthRequest } from "../middleware/auth";
@@ -166,6 +167,30 @@ anomalyRouter.get(
         anomalyQueue(tx, req.user!.userId, q.filter, q.offset, q.limit),
       ),
     );
+  }),
+);
+anomalyRouter.post(
+  "/anomaly/level-shifts/:id/action",
+  authMiddleware,
+  handle(async (req, res) => {
+    const id = z.string().uuid().parse(req.params.id);
+    const input = z
+      .object({
+        action: z.enum(["confirmed", "rejected"]),
+        expectedActionId: z.string().uuid().nullable(),
+      })
+      .strict()
+      .parse(req.body);
+    const r = await withAnomalyLock(req.user!, (tx) =>
+      levelShiftAction(
+        tx,
+        req.user!.userId,
+        id,
+        input.action,
+        input.expectedActionId,
+      ),
+    );
+    res.status(r.status).json({ action: r.action, decided: r.decided });
   }),
 );
 anomalyRouter.get(

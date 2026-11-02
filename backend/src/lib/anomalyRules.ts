@@ -28,6 +28,9 @@ export const ANOMALY_RULE = Object.freeze({
   quartile: "median-halves-exclude-center",
   baseline: "prior-dates-only",
   time: "confirmed-bangkok-wall-clock",
+  // ISSUE-ANOM-1: a category whose latest amount results go one way this often has a new level, not anomalies.
+  levelShiftWindow: 7,
+  levelShiftRequired: 5,
 });
 export const RULE_VERSION =
   ANOMALY_RULE.algorithm +
@@ -139,6 +142,41 @@ export function screenExpense(
         : "review"
       : null,
   };
+}
+export type Direction = "up" | "down";
+/** Which side of the amount screen a value falls on. "up" is exactly an amount flag; "down" mirrors every branch
+ *  (modified Z, IQR lower fence, zero dispersion) with the same money floor. Down never enters the review queue:
+ *  it only feeds level-shift detection. */
+export function amountDirection(amount: string, b: Baseline): Direction | null {
+  if (screenExpense(amount, false, b).amount.status === "flagged") return "up";
+  if (!amountReady(b)) return null;
+  const r = ANOMALY_RULE,
+    x = new D(amount),
+    m = new D(b.median!),
+    mad = new D(b.mad!),
+    iqr = new D(b.q3!).minus(b.q1!),
+    below = m.minus(x),
+    floor = D.max(r.minimumDifference, m.mul(r.medianDifferenceRatio));
+  const low = mad.gt(0)
+    ? below.mul(r.zScale).gt(mad.mul(r.zThreshold))
+    : iqr.gt(0)
+      ? x.lt(new D(b.q1!).minus(iqr.mul(r.iqrMultiplier)))
+      : new D(b.min!).eq(b.max!) && x.lt(m);
+  return low && below.gt(floor) ? "down" : null;
+}
+/** Level shift: at least levelShiftRequired of the latest levelShiftWindow amount results (oldest first) point the
+ *  same way. Fewer results than the window means no decision yet. */
+export function detectLevelShift(recent: readonly (Direction | null)[]): Direction | null {
+  const { levelShiftWindow: w, levelShiftRequired: k } = ANOMALY_RULE;
+  if (recent.length < w) return null;
+  const last = recent.slice(-w);
+  for (const d of ["up", "down"] as const) if (last.filter((x) => x === d).length >= k) return d;
+  return null;
+}
+/** Index in `recent` of the first result pointing `d` inside the latest window: the shift's start. */
+export function levelShiftStartIndex(recent: readonly (Direction | null)[], d: Direction) {
+  const from = Math.max(0, recent.length - ANOMALY_RULE.levelShiftWindow);
+  return from + recent.slice(from).indexOf(d);
 }
 export function amountReady(b: Baseline) {
   return (
