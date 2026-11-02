@@ -25,6 +25,9 @@ test('level shift: one notice, one queue entry, confirm writes per-item decision
  await t.test('notices: 4 per-item before detection, then one shift notice; nothing per item afterwards',async()=>{
   assert.deepEqual(await notices(a.id),{items:4,shifts:1});
   assert.equal(await prisma.anomalyEvaluation.count({where:{userId:a.id,outcome:'flagged'}}),10,'every high item is still flagged');
+  const n=await prisma.notification.findFirstOrThrow({where:{userId:a.id,eventKey:{startsWith:'anomaly-level-shift:'}}});
+  console.log('LEVEL_SHIFT_NOTICE',JSON.stringify({title:n.title,message:n.message}));
+  assert.match(n.message,/รายการที่ควรตรวจสอบ/,'says where to answer');assert.doesNotMatch(n.message,/MAD|z-score|\d{4}-\d{2}-\d{2}/,'no statistics, no ISO date');
  });
  let shiftId='';
  await t.test('queue shows the shift once instead of 10 items',async()=>{
@@ -60,5 +63,20 @@ test('level shift: one notice, one queue entry, confirm writes per-item decision
   const q=await req(b,'/anomaly/queue?filter=waiting');assert.equal(q.levelShifts.length,0);assert.equal(q.items.length,10);
   assert.deepEqual(await notices(b.id),before);
   assert.equal(await prisma.anomalyDecision.count({where:{userId:b.id}}),0);
+ });
+ await t.test('two rejections in a row are listed for Settings, and reopening lifts the block',async()=>{
+  assert.deepEqual((await req(b,'/anomaly/level-shifts/blocked')).items,[],'one rejection is not a block');
+  const first=await prisma.anomalyLevelShift.findFirstOrThrow({where:{userId:b.id},include:{actions:true}});
+  await req(b,`/anomaly/level-shifts/${first.id}/action`,'POST',{action:'reopened',expectedActionId:first.actions[0]!.id},201);
+  await req(b,`/anomaly/level-shifts/${first.id}/action`,'POST',{action:'rejected',expectedActionId:(await prisma.anomalyLevelShiftAction.findFirstOrThrow({where:{levelShiftId:first.id,sequence:2}})).id},201);
+  // A second shift for the same category and direction, rejected as well (detections are written by the system only).
+  const second=await prisma.anomalyLevelShift.create({data:{userId:b.id,categoryId:first.categoryId,direction:'up',startDate:day(DAYS+5),ruleVersion:first.ruleVersion,evidence:{synthetic:true}}});
+  await req(b,`/anomaly/level-shifts/${second.id}/action`,'POST',{action:'rejected',expectedActionId:null},201);
+  const list=(await req(b,'/anomaly/level-shifts/blocked')).items;assert.equal(list.length,1);assert.equal(list[0].id,second.id);assert.equal(list[0].direction,'up');
+  await req(a,'/anomaly/level-shifts/blocked').then(r=>assert.deepEqual(r.items,[]),'owner only');
+  await req(b,`/anomaly/level-shifts/${shiftId}/action`,'POST',{action:'reopened',expectedActionId:null},404);
+  await req(a,`/anomaly/level-shifts/${shiftId}/action`,'POST',{action:'reopened',expectedActionId:(await prisma.anomalyLevelShiftAction.findFirstOrThrow({where:{levelShiftId:shiftId}})).id},409);
+  await req(b,`/anomaly/level-shifts/${second.id}/action`,'POST',{action:'reopened',expectedActionId:list[0].actionId},201);
+  assert.deepEqual((await req(b,'/anomaly/level-shifts/blocked')).items,[]);
  });
 });

@@ -823,6 +823,57 @@
 .anomaly-queue .anomaly-empty-cta:hover {
   background: #0f2c4c;
 }
+/* ISSUE-ANOM-1: one question standing in for many flagged items */
+.anomaly-shifts {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.anomaly-shift {
+  background: #f4f8ff;
+  border: 1px solid #b9cdf3;
+  border-radius: 14px;
+  padding: 20px;
+}
+.anomaly-shift h2 {
+  margin: 0 0 6px;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.anomaly-shift p {
+  margin: 0;
+}
+.anomaly-shift-outcomes {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 14px;
+  margin: 14px 0;
+}
+.anomaly-shift-outcomes dt {
+  font-weight: 500;
+}
+.anomaly-shift-outcomes dd {
+  margin: 0;
+  color: var(--color-ink-muted);
+}
+.anomaly-shift-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.anomaly-queue .anomaly-shift-buttons button:first-child {
+  background: #173c65;
+  border-color: #173c65;
+  color: #fff;
+}
+@media (max-width: 800px) {
+  .anomaly-shift-outcomes {
+    grid-template-columns: 1fr;
+  }
+  .anomaly-shift-outcomes dd {
+    margin-bottom: 6px;
+  }
+}
 @keyframes anomaly-empty-in {
   from {
     opacity: 0;

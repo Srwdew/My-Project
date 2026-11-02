@@ -5,7 +5,7 @@ import {
   submitDecision,
 } from "../lib/anomalyDecisions";
 import { reviewView, submitReview } from "../lib/anomalyReview";
-import { levelShiftAction } from "../lib/anomalyLevelShift";
+import { levelShiftAction, blockedShifts } from "../lib/anomalyLevelShift";
 import { Router } from "express";
 import { z } from "zod";
 import { authMiddleware, type AuthRequest } from "../middleware/auth";
@@ -169,6 +169,19 @@ anomalyRouter.get(
     );
   }),
 );
+anomalyRouter.get(
+  "/anomaly/level-shifts/blocked",
+  authMiddleware,
+  handle(async (req, res) => {
+    if (Object.keys(req.query).length)
+      throw new GoalError(400, "INVALID_QUERY", "ไม่รับ query parameters");
+    res.json({
+      items: await withAnomalyLock(req.user!, (tx) =>
+        blockedShifts(tx, req.user!.userId),
+      ),
+    });
+  }),
+);
 anomalyRouter.post(
   "/anomaly/level-shifts/:id/action",
   authMiddleware,
@@ -176,7 +189,7 @@ anomalyRouter.post(
     const id = z.string().uuid().parse(req.params.id);
     const input = z
       .object({
-        action: z.enum(["confirmed", "rejected"]),
+        action: z.enum(["confirmed", "rejected", "reopened"]),
         expectedActionId: z.string().uuid().nullable(),
       })
       .strict()

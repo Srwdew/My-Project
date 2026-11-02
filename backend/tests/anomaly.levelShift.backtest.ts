@@ -16,7 +16,7 @@ type Shift={category:string;direction:Direction;start:string;detectedAt:string;s
 export function simulate(rows:Sample[],mode:Mode){
  const order=rows.map((r,i)=>({...r,i})).sort((a,b)=>a.date.localeCompare(b.date)||a.categoryId.localeCompare(b.categoryId)||a.i-b.i);
  const flagged=new Set<number>(),normal=new Set<number>(),hist=new Map<string,{date:string;dir:Direction|null}[]>(),shifts:Shift[]=[];
- const flagsByCategory=new Map<string,number>();let notifications=0;
+ const flagsByCategory=new Map<string,number>();let notifications=0;const medians:{date:string;median:number}[]=[];
  for(const r of order){
   const before=order.filter(o=>o.date<r.date);
   if(!globalGate(before.length,before.length?days(before[0]!.date,before.at(-1)!.date)+1:0))continue;
@@ -29,6 +29,7 @@ export function simulate(rows:Sample[],mode:Mode){
   const cat=amountBaseline(window.filter(o=>o.categoryId===r.categoryId)),b=amountReady(cat)?cat:amountBaseline(window);
   const status=screenExpense(r.amount,false,b).amount.status;
   if(status==='not_evaluated')continue;
+  medians.push({date:r.date,median:Number(b.median)});
   const dir=amountDirection(r.amount,b);
   if(status==='flagged'){flagged.add(r.i);flagsByCategory.set(r.categoryId,(flagsByCategory.get(r.categoryId)??0)+1);}
   // Detect before notifying (detectShift runs before the notice in evaluatePending).
@@ -54,7 +55,19 @@ export function simulate(rows:Sample[],mode:Mode){
  const pending=shifts.filter(s=>s.state==='pending');
  const covered=(i:number)=>{const o=order.find(x=>x.i===i)!;return pending.some(s=>s.direction==='up'&&s.category===o.categoryId&&o.date>=s.start);};
  const queue=[...flagged].filter(i=>!normal.has(i)&&!covered(i)).length+pending.length;
- return {flags:flagged.size,queue,notifications,shifts:shifts.map(s=>`${s.category}:${s.direction}:${s.start}`),flagsByCategory:Object.fromEntries(flagsByCategory)};
+ return {flags:flagged.size,queue,notifications,shifts:shifts.map(s=>`${s.category}:${s.direction}:${s.start}`),flagsByCategory:Object.fromEntries(flagsByCategory),medians};
+}
+
+/** Not in the locked forecast fixture: a permanent drop (e.g. a cancelled subscription), 400 → 150 baht from day 150. */
+export const DOWN_AT=150;
+export function levelDown(seed:number):Sample[]{
+ let state=seed>>>0;const next=()=>state=(Math.imul(1664525,state)+1013904223)>>>0;
+ return Array.from({length:PROTOCOL.days},(_,i)=>({categoryId:'primary',date:shiftDay(PROTOCOL.start,i),amount:((i<DOWN_AT?40000:15000)+next()%2001-1000)/100+'',count:1}));
+}
+/** Days after the drop until the amount baseline's median is closer to the new level than the old (below 275). */
+export function daysToFollow(medians:{date:string;median:number}[]){
+ const at=medians.find(m=>m.date>=shiftDay(PROTOCOL.start,DOWN_AT)&&m.median<275);
+ return at?days(shiftDay(PROTOCOL.start,DOWN_AT),at.date):null;
 }
 
 export function run(){
@@ -79,4 +92,6 @@ if(require.main===module){
  console.log('| scenario | โหมด | flag | เห็นในคิว (วันสุดท้าย) | แจ้งเตือน | ตรวจพบการขยับ (seed:หมวด:ทิศ:วันเริ่ม) | flag ต่อหมวด |\n|---|---|---|---|---|---|---|');
  for(const x of r)console.log(`| ${x.scenario} | ${label[x.mode]} | ${x.flags} | ${x.queue} | ${x.notifications} | ${x.shifts.length?x.shifts.length+' — '+x.shifts.join(', '):'0'} | ${JSON.stringify(x.flagsByCategory)} |`);
  for(const mode of ['off','confirm','ignore'] as const){const s=r.filter(x=>x.mode===mode);console.log(`| **รวม** | ${label[mode]} | ${s.reduce((a,x)=>a+x.flags,0)} | ${s.reduce((a,x)=>a+x.queue,0)} | ${s.reduce((a,x)=>a+x.notifications,0)} | ${s.reduce((a,x)=>a+x.shifts.length,0)} | |`);}
+ console.log('\n### ขาลง (400 → 150 บาท จากวันที่ 150)\n| seed | โหมด | flag | เห็นในคิว | แจ้งเตือน | ตรวจพบ | วันที่ baseline ตามระดับใหม่ (มัธยฐาน < 275) |\n|---|---|---|---|---|---|---|');
+ for(const seed of PROTOCOL.seeds)for(const mode of ['off','confirm','ignore'] as const){const s=simulate(levelDown(seed),mode);console.log(`| ${seed} | ${label[mode]} | ${s.flags} | ${s.queue} | ${s.notifications} | ${s.shifts.join(', ')||'0'} | ${daysToFollow(s.medians)??'ไม่ตามภายในข้อมูล'} |`);}
 }

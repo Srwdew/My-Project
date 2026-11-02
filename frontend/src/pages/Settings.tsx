@@ -155,6 +155,63 @@ function Toggle({
     </label>
   );
 }
+type BlockedShift = { id: string; categoryName: string; direction: "up" | "down"; actionId: string };
+// ISSUE-ANOM-1: after the user says "no" twice for the same category and direction the system stops asking.
+// This is the only way back, so it lists exactly those categories and nothing when there are none.
+function BlockedLevelShifts() {
+  const [items, setItems] = useState<BlockedShift[]>([]),
+    [error, setError] = useState(""),
+    [reload, setReload] = useState(0);
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const r = await apiFetch("/anomaly/level-shifts/blocked");
+        if (!r.ok) throw Error();
+        const d = (await r.json()) as { items: BlockedShift[] };
+        if (active) setItems(d.items);
+      } catch {
+        if (active) setItems([]);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [reload]);
+  const reopen = async (s: BlockedShift) => {
+    setError("");
+    try {
+      const r = await apiFetch("/anomaly/level-shifts/" + s.id + "/action", {
+        method: "POST",
+        body: JSON.stringify({ action: "reopened", expectedActionId: s.actionId }),
+      });
+      if (!r.ok) throw Error();
+      setReload((n) => n + 1);
+    } catch {
+      setError("เปิดถามใหม่ไม่สำเร็จ กรุณาลองใหม่");
+    }
+  };
+  if (!items.length) return null;
+  return (
+    <div className="settings-blocked-shifts">
+      <strong>หมวดที่หยุดถามเรื่องระดับค่าใช้จ่าย</strong>
+      <small>คุณตอบว่า "ไม่ใช่ระดับใหม่" สองครั้งติด ระบบจึงหยุดถาม และตรวจรายการในหมวดนี้ทีละรายการตามปกติ</small>
+      <ul>
+        {items.map((s) => (
+          <li key={s.id}>
+            <span>
+              {s.categoryName} · {s.direction === "up" ? "สูงขึ้น" : "ลดลง"}
+            </span>
+            <button type="button" className="settings-secondary" onClick={() => void reopen(s)}>
+              เปิดถามใหม่
+            </button>
+          </li>
+        ))}
+      </ul>
+      {error && <p role="alert">{error}</p>}
+    </div>
+  );
+}
 export default function Settings() {
   const { avatarUrl, reloadProfile } = useProfile();
   const navigate = useNavigate();
@@ -555,6 +612,7 @@ export default function Settings() {
                 value={draft.notifyAnomaly}
                 onChange={(v) => change("notifyAnomaly", v)}
               />
+              <BlockedLevelShifts />
               <Toggle
                 label="ความคืบหน้าเป้าหมายการออม"
                 description="พร้อมใช้เมื่อเปิดระบบสรุปความคืบหน้ารายสัปดาห์"

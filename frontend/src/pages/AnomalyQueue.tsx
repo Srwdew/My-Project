@@ -36,7 +36,76 @@ type Queue = {
   offset: number;
   limit: number;
   pendingEvaluation: number;
+  levelShifts?: LevelShift[];
 };
+type LevelShift = {
+  id: string;
+  categoryName: string;
+  direction: "up" | "down";
+  startDate: string;
+  covered: number;
+};
+// ISSUE-ANOM-1: one question for a whole category instead of one per item. The text says what each answer does
+// to the covered items, so nothing changes silently.
+function LevelShiftCard({ shift, onDone }: { shift: LevelShift; onDone: () => void }) {
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useState("");
+  const up = shift.direction === "up";
+  const answer = async (action: "confirmed" | "rejected") => {
+    setBusy(true);
+    setError("");
+    try {
+      const r = await apiFetch("/anomaly/level-shifts/" + shift.id + "/action", {
+        method: "POST",
+        body: JSON.stringify({ action, expectedActionId: null }),
+      });
+      if (!r.ok) throw Error();
+      window.dispatchEvent(new Event("spendsense-anomaly-decision"));
+      onDone();
+    } catch {
+      setError("บันทึกคำตอบไม่สำเร็จ กรุณาลองใหม่");
+      setBusy(false);
+    }
+  };
+  return (
+    <article className="anomaly-shift" aria-labelledby={"shift-" + shift.id}>
+      <h2 id={"shift-" + shift.id}>
+        ค่าใช้จ่ายหมวด{shift.categoryName}{" "}
+        {up ? "สูงขึ้นเป็นระดับใหม่หรือไม่" : "ลดลงเป็นระดับใหม่หรือไม่"}
+      </h2>
+      <p>
+        ตั้งแต่ {thaiDate(shift.startDate)} รายการในหมวดนี้
+        {up ? "สูงกว่าเดิม" : "ต่ำกว่าเดิม"}ติดกันหลายรายการ
+        {up
+          ? ` ระบบจึงรวม ${shift.covered} รายการไว้เป็นเรื่องเดียว แทนการถามทีละรายการ`
+          : " เช่น อาจยกเลิกรายจ่ายประจำบางอย่าง"}
+      </p>
+      <dl className="anomaly-shift-outcomes">
+        <dt>ถ้าตอบว่าใช่</dt>
+        <dd>
+          {up
+            ? `ทั้ง ${shift.covered} รายการจะถูกบันทึกว่า "ปกติ" ทีละรายการ (ดูได้ในประวัติของแต่ละรายการ) และระบบจะใช้ระดับใหม่นี้เป็นค่าปกติของหมวด`
+            : "ระบบจะใช้ระดับที่ลดลงนี้เป็นค่าปกติของหมวด ไม่มีรายการใดถูกเปลี่ยน"}
+        </dd>
+        <dt>ถ้าตอบว่าไม่ใช่</dt>
+        <dd>
+          {up
+            ? `ทั้ง ${shift.covered} รายการจะกลับมาให้ตรวจทีละรายการในหน้านี้ ไม่มีการแจ้งเตือนเพิ่ม`
+            : "ระบบใช้ค่าปกติเดิมต่อ"}
+        </dd>
+      </dl>
+      <div className="anomaly-shift-buttons">
+        <button disabled={busy} onClick={() => void answer("confirmed")}>
+          ใช่ เป็นระดับใหม่
+        </button>
+        <button disabled={busy} onClick={() => void answer("rejected")}>
+          ไม่ใช่
+        </button>
+      </div>
+      {error && <p role="alert">{error}</p>}
+    </article>
+  );
+}
 export default function AnomalyQueue() {
   const session = useSessionKey();
   return <QueueBody key={session} session={session} />;
@@ -148,7 +217,14 @@ function QueueBody({ session }: { session: string | null }) {
             {data.total} รายการในตัวกรองนี้ · รอระบบประเมิน{" "}
             {data.pendingEvaluation} รายการ
           </p>
-          {!data.items.length ? (
+          {!!data.levelShifts?.length && (
+            <section className="anomaly-shifts" aria-label="ค่าใช้จ่ายที่อาจขยับเป็นระดับใหม่">
+              {data.levelShifts.map((s) => (
+                <LevelShiftCard key={s.id} shift={s} onDone={() => setReload((n) => n + 1)} />
+              ))}
+            </section>
+          )}
+          {!data.items.length && data.levelShifts?.length ? null : !data.items.length ? (
             <section className="anomaly-empty" aria-label="รายการตามความสำคัญ">
               <span
                 className={

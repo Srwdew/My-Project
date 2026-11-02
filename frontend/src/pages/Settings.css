@@ -141,6 +141,33 @@
   gap: 6px;
   min-width: 0;
 }
+/* ISSUE-ANOM-1: categories where level-shift questions were stopped */
+.settings-blocked-shifts {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: -8px 0 24px;
+}
+.settings-blocked-shifts ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+/* Same specificity as the card button rule above, declared later: a quiet secondary action. */
+.settings-page .settings-card .settings-blocked-shifts button {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+.settings-blocked-shifts li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
 .settings-toggle input {
   flex-shrink: 0;
   appearance: none;

@@ -149,7 +149,8 @@ test('dimension decisions, Gate and fallback on real PostgreSQL/HTTP',async t=>{
   for(const e of evaluations){const s=e.snapshot as any;assert.equal(s.window.endExclusive,s.transaction.date);assert.equal(s.baseline.n<84,true);}
   for(const r of rows.filter(r=>r.amount.eq(100))){const e=evaluations.find(e=>e.originalTransactionId===r.id)!;assert.equal((e.snapshot as any).assessment.amount.reasonCode,'global_gate_not_ready');assert.equal((e.snapshot as any).scores,null);}
   const final=evaluations.find(e=>e.originalTransactionId===target.id)!;assert.equal((final.snapshot as any).baseline.n,30);assert.equal(final.outcome,'not_flagged');
-  // 30 days at 100 then 53 at 1000 is a level shift (ISSUE-ANOM-1): the queue shows it once, and it still stands for all 53 flags.
+  // Before c87661f this asserted total 53. 30 days at 100 then 53 at 1000 is a level shift (ISSUE-ANOM-1), so the queue
+  // now shows it once; covered=53 proves no flag was dropped. The expectation changed with the behaviour, not to pass.
   const q=(await req(u,'/anomaly/queue?filter=waiting')).body;assert.equal(q.total,1);assert.equal(q.items.length,0);assert.equal(q.levelShifts.length,1);assert.equal(q.levelShifts[0].covered,53);
  });
 
