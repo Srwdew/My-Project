@@ -13,7 +13,7 @@
 // Run from the repo root:  backend/node_modules/.bin/tsx scripts/forecast-experiment/run.ts
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { FORECAST_RULE, holt } from "../../backend/src/lib/holt";
+import { HOLT_REFERENCE, holt } from "../../backend/src/lib/holt";
 
 const SEED = Number(process.env.SEED ?? 20261026);
 const TRAIN_DAYS = 28;
@@ -199,7 +199,7 @@ const summary: Record<string, ReturnType<typeof metrics>[]> = Object.fromEntries
 
 console.log("RANDOM SYNTHETIC DATA — functional check only, NOT evidence of real-user accuracy");
 console.log(`seed=${SEED} train=days 1-${TRAIN_DAYS} test=days ${TRAIN_DAYS + 1}-${TRAIN_DAYS + TEST_DAYS}`);
-console.log(`locked defaults in code: alpha=${FORECAST_RULE.defaultAlpha} betaStar=${FORECAST_RULE.defaultBetaStar}\n`);
+console.log(`locked defaults in code: alpha=${HOLT_REFERENCE.defaultAlpha} betaStar=${HOLT_REFERENCE.defaultBetaStar}\n`);
 
 for (const p of PROFILES) {
   const days = generate(p, rand);
@@ -215,15 +215,15 @@ for (const p of PROFILES) {
   const best = tune(train);
   const preds: Record<string, number[]> = {
     tuned: forecast7(train, best.alpha, best.beta),
-    locked: forecast7(train, FORECAST_RULE.defaultAlpha, FORECAST_RULE.defaultBetaStar),
+    locked: forecast7(train, HOLT_REFERENCE.defaultAlpha, HOLT_REFERENCE.defaultBetaStar),
     mean28: Array(TEST_DAYS).fill(train.reduce((s, v) => s + v, 0) / TRAIN_DAYS) as number[],
   };
   // Capped variants use the locked alpha/beta so only the input changes.
   for (const k of CAP_KS)
-    preds[`cap${k}`] = forecast7(capSpikes(train, k), FORECAST_RULE.defaultAlpha, FORECAST_RULE.defaultBetaStar);
+    preds[`cap${k}`] = forecast7(capSpikes(train, k), HOLT_REFERENCE.defaultAlpha, HOLT_REFERENCE.defaultBetaStar);
   // User-marked "occasional" one-offs removed from training only; the rest of that day stays.
   const trainNoOneOff = days.slice(0, TRAIN_DAYS).map((d) => d.amount - d.oneOff);
-  preds.excl = forecast7(trainNoOneOff, FORECAST_RULE.defaultAlpha, FORECAST_RULE.defaultBetaStar);
+  preds.excl = forecast7(trainNoOneOff, HOLT_REFERENCE.defaultAlpha, HOLT_REFERENCE.defaultBetaStar);
   const book = fpp3Fit(train);
   preds.fpp3 = book.forecast;
   const oneOffs = days.flatMap((d, i) => (d.oneOff > 0 ? [i + 1] : []));
@@ -243,7 +243,7 @@ for (const p of PROFILES) {
     const m = metrics(actual, pred);
     summary[method]!.push(m);
     const [a, b] =
-      method === "tuned" ? [best.alpha, best.beta] : method === "mean28" ? ["-", "-"] : method === "fpp3" ? [String(book.a), String(book.bs)] : [FORECAST_RULE.defaultAlpha, FORECAST_RULE.defaultBetaStar];
+      method === "tuned" ? [best.alpha, best.beta] : method === "mean28" ? ["-", "-"] : method === "fpp3" ? [String(book.a), String(book.bs)] : [HOLT_REFERENCE.defaultAlpha, HOLT_REFERENCE.defaultBetaStar];
     metricRows.push([p.name, method, a, b, fmt(m.MAE), fmt(m.RMSE), fmt(m.MAPE), m.mapeSkippedDays, fmt(m.accuracy), fmt(m.total7Accuracy)].join(","));
     console.log(
       `   ${method.padEnd(7)} MAE ${fmt(m.MAE).padStart(8)}  RMSE ${fmt(m.RMSE).padStart(8)}  MAPE ${fmt(m.MAPE).padStart(7)}% (skipped ${m.mapeSkippedDays})  accuracy ${fmt(m.accuracy)}%  total7 ${fmt(m.total7Accuracy)}%`,

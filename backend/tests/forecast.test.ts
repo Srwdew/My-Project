@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import { D,MODEL_VERSION,initialize,holt,fitHolt,sum } from '../src/lib/holt';
 import { buildForecast,totalSeries,shiftDay } from '../src/lib/expenseForecast';
 import {fixtureInput,history} from './forecast.fixture';
+import { theta } from '../src/lib/theta';
 test('Holt OLS, linear trend, output clipping and deterministic tuning',()=>{
  const values=Array.from({length:42},(_,i)=>String((i+1)*10));
  assert.equal(initialize(values).level.toString(),'70');
  assert.deepEqual(holt(values,'0.4','0.2').amounts,['430.00','440.00','450.00','460.00','470.00','480.00','490.00']);
  assert.deepEqual(holt(Array.from({length:42},(_,i)=>String(42-i)),'0.5','0.5').amounts,Array(7).fill('0.00'));
  assert.deepEqual(fitHolt(Array(42).fill('0.08')),fitHolt(Array(42).fill('0.08')));
- assert.throws(()=>fitHolt(Array(41).fill('1')));assert.match(MODEL_VERSION,/holt-total-v2-/);
+ assert.throws(()=>fitHolt(Array(41).fill('1')));/* production model is Theta since the switch selected in 730fd82; Holt stays as backtest reference */assert.match(MODEL_VERSION,/theta-total-v1-/);
 });
 test('29/30 transactions x 29/30 inclusive observed days; last expense not cutoff',async t=>{
  for(const count of [29,30])for(const span of [29,30])await t.test(count+'/'+span,()=>{
@@ -26,12 +27,13 @@ test('today/future never unlock readiness or change fit; current actual is separ
  assert.deepEqual(a.readiness,b.readiness);assert.equal(b.status,'unavailable');
  assert.equal(b.recordedExpenseToday,'999.00');
 });
-test('fixed 30/41 and tuned 42 days; sparse/stale warnings, lifetime history outside training window',()=>{
+test('Theta from 30 days (no Holt 42-day split); sparse/stale warnings, lifetime history outside training window',()=>{
+ /* Before the Theta switch (selected in 730fd82) this asserted Holt fixed 0.2/0.1 below 42 days and tuning from 42 */
  for(const n of [30,41,42]){
   const v=buildForecast(fixtureInput(history(n),'2026-09-28'));
-  assert.equal(v.parameterMode,n<42?'fixed_default':'inner_validation');
+  assert.equal(v.parameterMode,'inner_validation');
   assert.equal(v.summary.sevenDayForecastTotal,'700.00');
-  if(n<42){assert.equal(v.parameters!.alpha,'0.2');assert.equal(v.parameters!.betaStar,'0.1');assert.equal(v.parameters!.validationMAE,null);}
+  assert.equal(v.parameters!.seasonalMode,'none');assert.equal(v.clampedDays,0);
  }
  const sparse=buildForecast(fixtureInput([{date:'2026-08-01',amount:'100',count:29},{date:'2026-08-30',amount:'1',count:1}],'2026-09-28'));
  assert.equal(sparse.status,'available');assert(sparse.warningCodes.includes('long_recording_gap'));assert(sparse.warningCodes.includes('stale_expense_history'));
@@ -39,7 +41,7 @@ test('fixed 30/41 and tuned 42 days; sparse/stale warnings, lifetime history out
  assert.equal(old.training.calendarDays,180);assert.equal(old.training.zeroFilledDays,180);assert.equal(old.status,'available');
  assert.equal(old.readiness.lastExpenseDate,'2020-01-30');
 });
-test('aggregate before Holt; category relabel/new sparse category cannot cause partial or leaks',()=>{
+test('aggregate before the model; category relabel/new sparse category cannot cause partial or leaks',()=>{
  const rows=history().flatMap(r=>[{...r,categoryId:'a',amount:'0.07'},{...r,categoryId:'b',amount:'0.01'}]);
  const a=buildForecast(fixtureInput(rows,'2026-09-28'));
  const b=buildForecast(fixtureInput(rows.map((r,i)=>({...r,categoryId:'new-'+i})),'2026-09-28'));
@@ -47,8 +49,9 @@ test('aggregate before Holt; category relabel/new sparse category cannot cause p
  assert.equal(a.summary.sevenDayForecastTotal,'0.56');assert(a.summary.daily!.every(d=>d.amount==='0.08'));
  assert.equal(sum(a.summary.daily!.map(d=>d.amount)).toFixed(2),a.summary.sevenDayForecastTotal);
  for(const key of ['categories','coverage'])assert(!Object.hasOwn(a,key));
- assert.equal(a.aggregation,'daily_expense_total_before_holt');
- assert.deepEqual(a.summary.daily!.map(d=>d.amount),holt(Array(30).fill('0.08'),'0.2','0.1').amounts);
+ /* Before the Theta switch (selected in 730fd82): '..._before_holt' and Holt 0.2/0.1 amounts */
+ assert.equal(a.aggregation,'daily_expense_total_before_theta');
+ assert.deepEqual(a.summary.daily!.map(d=>d.amount),theta(Array(30).fill(0.08)).forecast.map(v=>v.toFixed(2)));
  assert.equal(new D(a.summary.sevenDayForecastTotal!).isFinite(),true);
 });
 test('budget uses TOTAL today residual, no budget/exhausted/over, cross month and leap year',()=>{

@@ -13,6 +13,8 @@ import { R7 } from '../src/lib/recommendation/rules/r7';
 import { R8 } from '../src/lib/recommendation/rules/r8';
 import { R9 } from '../src/lib/recommendation/rules/r9';
 import { R1 } from '../src/lib/recommendation/rules/r1';
+import { buildForecast } from '../src/lib/expenseForecast';
+import { fixtureInput, history } from './forecast.fixture';
 import { goalFeasibility } from '../src/lib/goalFeasibility';
 import { render } from '../src/lib/recommendation/text';
 import { evaluate } from '../src/lib/recommendation/evaluate';
@@ -305,6 +307,21 @@ test('R1: next 7 days vs income − spending so far; total cut across flexible c
     assert.equal(R1.evaluate(ctxAt('2026-11-20', { ...base, spendThisCycle: D(17000) })).length, 0); // 3,000 left covers it
     assert.equal(R1.evaluate(ctxAt('2026-11-20', { ...base, flexibleCategoryIds: new Set() })).length, 0);
     assert.equal(R1.evaluate(ctxAt('2026-11-20', { ...base, incomeSource: 'none' })).length, 0);
+});
+
+test('R1 still fires on real Theta output (the reason median-7 was rejected); no interval → factor 1 fallback; hundreds on screen', () => {
+    // Same mapping as recommendation/context.ts: Theta daily amounts summed, no interval.
+    const out = buildForecast(fixtureInput(history(60, '2026-11-19', '137.00'), '2026-11-20'));
+    const total = out.summary.daily!.reduce((s, d) => s.plus(d.amount), D(0));
+    assert.equal(total.toString(), '959'); // flat 137/day -> Theta 7 × 137
+    const [r] = R1.evaluate(ctxAt('2026-11-20', {
+        incomeThisCycle: D(20000), spendThisCycle: D(19500), flexibleCategoryIds: new Set(['food']),
+        forecast: { horizonDays: 7, total, byCategory: null, interval: null },
+        previousCycleByCategory: new Map([['food', { name: 'อาหาร', amount: D(8300) }]]),
+    }));
+    assert.ok(r, 'R1 triggers');
+    assert.deepEqual([r!.what.shortfall, r!.confidence.forecastFactor, (r!.inputs as any).forecastFactorFallback], ['459', 1, true]);
+    assert.equal(render(r!).what, 'ใน 7 วันข้างหน้าคาดว่าจะใช้เกินเงินที่เหลืออยู่ 500 บาท');
 });
 
 test('R3 records increasing categories it skipped, still counted in the divisor', () => {

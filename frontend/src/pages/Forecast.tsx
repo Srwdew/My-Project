@@ -38,7 +38,7 @@ type View = {
     zeroFilledDays: number;
     longestGapDays: number;
   };
-  parameterMode: "fixed_default" | "inner_validation" | null;
+  parameterMode: "inner_validation" | null;
   warningCodes: string[];
   clampedDays: number;
   summary: {

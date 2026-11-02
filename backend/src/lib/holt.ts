@@ -1,3 +1,6 @@
+// Holt is NOT the production model any more: buildForecast uses Theta (./theta.ts) since the real-data
+// comparison in docs/FORECAST_REAL_DATA_BACKTEST.md. holt()/fitHolt() stay only as the reference column of
+// that backtest and the earlier synthetic reports. D, sum, money and FORECAST_RULE are shared and live here.
 import { Prisma } from "@prisma/client";
 import { createHash } from "node:crypto";
 
@@ -6,30 +9,32 @@ export const D = Prisma.Decimal.clone({
   rounding: Prisma.Decimal.ROUND_HALF_UP,
 });
 export const FORECAST_RULE = Object.freeze({
-  method: "holt_linear_total",
+  method: "theta_2_total",
   windowDays: 180,
   horizon: 7,
   minTransactions: 30,
   minObservedDays: 30,
-  tuningMinDays: 42,
-  defaultAlpha: "0.2",
-  defaultBetaStar: "0.1",
-  defaultSource: "engineering-fixed-before-total-outer-benchmark",
   staleDays: 7,
   longGapDays: 7,
   readiness: "lifetime-expense-count-and-inclusive-first-last-through-cutoff",
-  initialization: "ols-first-7-level-at-7-recur-from-8",
-  grid: "0.0:0.1:1.0",
-  folds: "last-three-nonoverlapping-7-day-inner-folds",
-  objective: "rounded-clipped-MAE-then-MSE-then-alpha-then-beta",
+  seasonality: "tested-first-acf-lag7-90pct-bartlett-deseasonalise-only-if-found-multiplicative-else-additive",
+  alpha: "in-sample-one-step-sse-grid-0.01-to-0.99",
+  drift: "theta-2-equals-ses-with-drift-half-ols-slope",
   missing: "zero-after-first-expense",
   negative: "clip-output-only",
-  rounding: "40-digit-decimal-half-up-daily-total-cents-before-seven-day-sum",
+  rounding: "float-daily-cents-then-40-digit-decimal-seven-day-sum",
   coverage: "all-expenses-total",
-  version: 2,
+  version: 1,
+});
+// Settings of the retired Holt model. Frozen so the Holt comparison tables in the reports can be rebuilt
+// exactly; do not change or delete them even though Holt is no longer used in production.
+export const HOLT_REFERENCE = Object.freeze({
+  tuningMinDays: 42,
+  defaultAlpha: "0.2",
+  defaultBetaStar: "0.1",
 });
 export const MODEL_VERSION =
-  "holt-total-v2-" +
+  "theta-total-v1-" +
   createHash("sha256")
     .update(JSON.stringify(FORECAST_RULE))
     .digest("hex")
@@ -69,7 +74,7 @@ export function holt(
   };
 }
 export function fitHolt(values: readonly Prisma.Decimal.Value[]) {
-  if (values.length < FORECAST_RULE.tuningMinDays)
+  if (values.length < HOLT_REFERENCE.tuningMinDays)
     throw Error("HOLT_TUNING_REQUIRES_42_DAYS");
   let best:
     | {
@@ -111,4 +116,10 @@ export function fitHolt(values: readonly Prisma.Decimal.Value[]) {
     validationMAE: money(best!.absolute.div(21)),
     validationRMSE: money(best!.squared.div(21).sqrt()),
   };
+}
+// The old buildForecast choice: fixed defaults below 42 days, inner-fold tuning from 42 days.
+export function holtReference(values: readonly Prisma.Decimal.Value[]) {
+  return values.length < HOLT_REFERENCE.tuningMinDays
+    ? { mode: "fixed_default" as const, ...holt(values, HOLT_REFERENCE.defaultAlpha, HOLT_REFERENCE.defaultBetaStar) }
+    : { mode: "inner_validation" as const, ...fitHolt(values) };
 }

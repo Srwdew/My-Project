@@ -9,11 +9,11 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { buildForecast, totalSeries, shiftDay } from "../../backend/src/lib/expenseForecast";
-import { MODEL_VERSION, FORECAST_RULE } from "../../backend/src/lib/holt";
+import { MODEL_VERSION, FORECAST_RULE, holtReference } from "../../backend/src/lib/holt";
 import { fixtureInput, type Sample } from "../../backend/tests/forecast.fixture";
 import { baseline, PROTOCOL } from "../../backend/tests/forecast.benchmark";
 import { loadMoneyData, loadBerka } from "./explore-real-data";
-import { median7, holtWintersTuned, holtWintersFixed, theta } from "./models";
+import { median7, holtWintersTuned, holtWintersFixed } from "./models";
 
 // Stage D adds median-7, weekly seasonal naive (the protocol's "seasonal-naive" already repeats the last 7 days,
 // i.e. the same weekday one week earlier), Holt-Winters tuned / fixed and Theta. HW_STEP=0.2 shrinks the HW grid.
@@ -59,31 +59,33 @@ export function walkForward(account: string, rows: Sample[]) {
     const cutoff = shiftDay(first, PROTOCOL.firstCutoffIndex + k * PROTOCOL.step);
     if (shiftDay(cutoff, 7) > last) break;
     const input = fixtureInput(sorted.filter((r) => r.date <= cutoff), shiftDay(cutoff, 1));
-    // SKIP_HOLT: same Forecast Gate as buildForecast (count and inclusive span), without fitting Holt.
+    // Forecast Gate recomputed independently (count and inclusive span) as a cross-check on buildForecast.
     const h0 = input.history, gateOk = h0.transactionCount >= FORECAST_RULE.minTransactions && !!h0.firstDate && !!h0.lastDate
       && Math.round((Date.parse(h0.lastDate) - Date.parse(h0.firstDate)) / DAY) + 1 >= FORECAST_RULE.minObservedDays;
-    const view = ACTIVE.includes("holt") ? buildForecast(input) : null;
-    if (view ? !view.summary.daily : !gateOk) { unavailable++; continue; }
-    const series = totalSeries(input.rows, cutoff, input.history.firstDate).series.map(Number);
+    // Theta comes from production buildForecast itself, so this table checks the code users run, not a copy.
+    const view = buildForecast(input);
+    if (!view.summary.daily) { if (gateOk) throw Error("gate mismatch"); unavailable++; continue; }
+    const raw = totalSeries(input.rows, cutoff, input.history.firstDate).series, series = raw.map(Number);
+    const holtRef = ACTIVE.includes("holt") ? holtReference(raw) : null;
     // MASE scale (Hyndman & Koehler 2006): in-sample MAE of the one-step naive forecast on the training series.
     const diffs = series.slice(1).map((v, i) => Math.abs(v - series[i]!));
     const scale = diffs.length ? diffs.reduce((a, b) => a + b, 0) / diffs.length : 0;
     // Sensitivity scales: naive on non-overlapping 7-day sums ending at the cutoff, and naive on complete blocks.
     const weeks = Array.from({ length: Math.floor(series.length / 7) }, (_, i) => series.slice(series.length - 7 * (i + 1), series.length - 7 * i).reduce((a, b) => a + b, 0)).reverse();
     const s7 = meanAbsDiff(weeks), sb = meanAbsDiff(blocks(series.map((v, i) => ({ date: shiftDay(cutoff, i - series.length + 1), v }))).map((b) => b.v));
-    const tuned = ACTIVE.includes("hw-tuned") ? holtWintersTuned(series, HW_STEP) : { forecast: [], params: null }, th = theta(series);
-    origins.push({ account, origin: k, scale: scale > 0 ? scale : null, mode: view?.parameterMode ?? "holt_skipped", cutoff,
-      scale7: s7 > 0 ? s7 : null, scaleBlock: sb > 0 ? sb : null, hw: tuned.params, theta: { alpha: th.alpha, mode: th.mode },
+    const tuned = ACTIVE.includes("hw-tuned") ? holtWintersTuned(series, HW_STEP) : { forecast: [], params: null }, th = view.parameters!;
+    origins.push({ account, origin: k, scale: scale > 0 ? scale : null, mode: holtRef?.mode ?? "holt_skipped", cutoff,
+      scale7: s7 > 0 ? s7 : null, scaleBlock: sb > 0 ? sb : null, hw: tuned.params, theta: { alpha: th.alpha, mode: th.seasonalMode },
       trainWeekMedian: weeks.length ? median(weeks) : null });
     const preds: Record<Model, number[]> = {
-      holt: view ? view.summary.daily!.map((d) => Number(d.amount)) : [],
+      holt: holtRef ? holtRef.amounts.map(Number) : [],
       "naive-1": Array(7).fill(r2(Math.max(series.at(-1)!, 0))),
       "mean-7": baseline(series.map((v) => v.toFixed(2)), "mean-7").map(Number),
       "median-7": median7(series),
       "seasonal-naive": baseline(series.map((v) => v.toFixed(2)), "seasonal-naive").map(Number),
       "hw-tuned": tuned.forecast,
       "hw-fixed": holtWintersFixed(series),
-      theta: th.forecast,
+      theta: view.summary.daily.map((d) => Number(d.amount)),
     };
     for (const model of ACTIVE)
       for (let h = 1; h <= 7; h++)

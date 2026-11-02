@@ -4,11 +4,10 @@ import {
   D,
   FORECAST_RULE as R,
   MODEL_VERSION,
-  fitHolt,
-  holt,
   money,
   sum,
 } from "./holt";
+import { theta } from "./theta";
 
 export const shiftDay = (date: string, days: number) => {
   const d = new Date(date + "T00:00:00Z");
@@ -102,27 +101,12 @@ export function buildForecast(input: ForecastInput) {
       r.date >= shiftDay(cutoffDate, 1 - R.windowDays) && r.date <= asOfDate,
   );
   const { series, training } = totalSeries(rows, cutoffDate, history.firstDate);
-  const parameterMode = !readiness.ready
-    ? null
-    : series.length < R.tuningMinDays
-      ? ("fixed_default" as const)
-      : ("inner_validation" as const);
-  const fitted =
-    parameterMode === "fixed_default"
-      ? {
-          ...holt(series, R.defaultAlpha, R.defaultBetaStar),
-          alpha: R.defaultAlpha,
-          betaStar: R.defaultBetaStar,
-          validationMAE: null,
-          validationRMSE: null,
-        }
-      : parameterMode === "inner_validation"
-        ? fitHolt(series)
-        : null;
+  const parameterMode = readiness.ready ? ("inner_validation" as const) : null;
+  const fitted = readiness.ready ? theta(series.map(Number)) : null;
   const daily = fitted
     ? Array.from({ length: 7 }, (_, i) => ({
         date: shiftDay(asOfDate, i),
-        amount: fitted.amounts[i]!,
+        amount: fitted.forecast[i]!.toFixed(2),
       }))
     : null;
   const total = daily ? money(sum(daily.map((d) => d.amount))) : null;
@@ -183,23 +167,17 @@ export function buildForecast(input: ForecastInput) {
     forecastStartDate: asOfDate,
     forecastEndDate: shiftDay(asOfDate, 6),
     horizonDays: 7,
-    method: "holt_linear",
-    aggregation: "daily_expense_total_before_holt",
+    method: "theta",
+    aggregation: "daily_expense_total_before_theta",
     modelVersion: MODEL_VERSION,
     readiness,
     training,
     parameterMode,
+    // seasonalMode is kept for reporting (does real data deseasonalise as rarely as the backtest?); not shown in the UI.
     parameters: fitted
-      ? {
-          alpha: fitted.alpha,
-          betaStar: fitted.betaStar,
-          initialLevel: fitted.initialLevel,
-          initialTrend: fitted.initialTrend,
-          validationMAE: fitted.validationMAE,
-          validationRMSE: fitted.validationRMSE,
-        }
+      ? { alpha: fitted.alpha, seasonalMode: fitted.mode }
       : null,
-    clampedDays: fitted?.clampedDays ?? 0,
+    clampedDays: fitted ? fitted.raw.filter((v) => v < 0).length : 0,
     daysSinceLastExpense,
     recordedExpenseToday: actualToday,
     summary: {
@@ -246,7 +224,7 @@ export function buildForecast(input: ForecastInput) {
       ...(training.longestGapDays >= R.longGapDays
         ? ["long_recording_gap"]
         : []),
-      ...(fitted?.clampedDays ? ["negative_forecast_clipped"] : []),
+      ...(fitted?.raw.some((v) => v < 0) ? ["negative_forecast_clipped"] : []),
     ],
   };
 }

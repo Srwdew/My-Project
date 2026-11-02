@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 import {writeFileSync,readFileSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {buildForecast,totalSeries,shiftDay} from '../src/lib/expenseForecast';
-import {D,sum,money,MODEL_VERSION,FORECAST_RULE} from '../src/lib/holt';
+import {D,sum,money,MODEL_VERSION,FORECAST_RULE,holtReference} from '../src/lib/holt';
 import {fixtureInput,type Sample} from './forecast.fixture';
 export const PROTOCOL=Object.freeze({version:'total-walk-forward-v2',start:'2025-01-01',days:280,
  seeds:[607,701,809],developmentSeeds:[17],firstCutoffIndex:29,step:14,windows:18,
@@ -39,18 +39,19 @@ export function baseline(series:string[],model:string):string[]{
 }
 export function evaluateWindow(rows:Sample[],cutoff:string,account:string,scenario:string){
  const input=fixtureInput(rows.filter(r=>r.date<=cutoff),shiftDay(cutoff,1));
- const view=buildForecast(input),points:Point[]=[];
+ // Production moved to Theta; this synthetic benchmark documents Holt, so 'holt' is the retired Holt reference, gated by buildForecast.
+ const view=buildForecast(input),points:Point[]=[];let holtMode:string|null=null;
  if(view.summary.daily){
-  const series=totalSeries(input.rows,cutoff,input.history.firstDate).series;
+  const series=totalSeries(input.rows,cutoff,input.history.firstDate).series,ref=holtReference(series);holtMode=ref.mode;
   for(const model of PROTOCOL.models){
-   const forecasts=model==='holt'?view.summary.daily.map(d=>d.amount):baseline(series,model);
+   const forecasts=model==='holt'?ref.amounts:baseline(series,model);
    for(let h=1;h<=7;h++){
     const actual=money(sum(rows.filter(r=>r.date===shiftDay(cutoff,h)).map(r=>r.amount))),prediction=forecasts[h-1]!;
-    points.push({account,scenario,cutoff,model,parameterMode:view.parameterMode!,horizon:h,actual,prediction,error:money(new D(actual).minus(prediction))});
+    points.push({account,scenario,cutoff,model,parameterMode:ref.mode,horizon:h,actual,prediction,error:money(new D(actual).minus(prediction))});
    }
   }
  }
- return {view,points,coverage:{account,scenario,cutoff,status:view.status,parameterMode:view.parameterMode,transactionCount:view.readiness.transactionCount,
+ return {view,points,coverage:{account,scenario,cutoff,status:view.status,parameterMode:holtMode,transactionCount:view.readiness.transactionCount,
  observedSpanDays:view.readiness.observedSpanDays,zeroFilledDays:view.training.zeroFilledDays,reasons:view.reasonCodes}};
 }
 export function runBenchmark(progress:(s:string)=>void=()=>{}){

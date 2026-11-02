@@ -15,5 +15,5 @@ test('outer future cannot affect readiness, default or tuned parameters; all fut
 });
 test('insufficient account origins produce no error points; tuning scores are not outer errors',()=>{
  const a=evaluateWindow(history(29),'2026-09-27','dev','short');assert.equal(a.view.status,'unavailable');assert.deepEqual(a.points,[]);
- const b=evaluateWindow(history(30),'2026-09-27','dev','ready');assert.equal(b.view.parameterMode,'fixed_default');assert.equal(b.view.parameters!.validationMAE,null);
+ const b=evaluateWindow(history(30),'2026-09-27','dev','ready');/* Holt -> Theta switch (selected in 730fd82): the Holt mode now lives on the reference column, not on the production view */assert.equal(b.coverage.parameterMode,'fixed_default');assert.equal(b.view.parameterMode,'inner_validation');
 });

@@ -68,7 +68,7 @@ export async function buildRecommendationContext(tx: Prisma.TransactionClient, u
   if (forecastOut.readiness.ready && forecastOut.summary.daily) {
     const horizonDays = Math.min(forecastOut.horizonDays, daysInclusive(today, cycle.endDate)); // fewer days left: use what is left
     const days = forecastOut.summary.daily.slice(0, horizonDays);
-    forecast = { horizonDays, total: days.reduce((s, d) => s.plus(d.amount), ZERO), byCategory: null, interval: null }; // Holt gives no interval
+    forecast = { horizonDays, total: days.reduce((s, d) => s.plus(d.amount), ZERO), byCategory: null, interval: null }; // Theta as used here gives no interval
   }
 
   const lastCycleCashFlow = await goalCashFlow(tx, userId, today);

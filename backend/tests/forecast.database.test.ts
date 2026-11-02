@@ -59,7 +59,7 @@ test('Forecast HTTP/PostgreSQL ownership, query shape, no mutation and CRUD',asy
   const daily=value.rows.filter(r=>r.date===shiftDay(today,-1));assert.equal(daily.length,1);assert.equal(daily[0]!.amount,'100.08');
   const v=(await req()).data;assert.equal(v.status,'available');
   const walk=(obj:any)=>{if(!obj||typeof obj!=='object')return;for(const [key,value] of Object.entries(obj)){assert(!['categoryId','categoryName','categories','coverage','comparableAmount','previousSevenDayActualComparableCategories'].includes(key),key);walk(value);}};
-  walk(v);assert.equal(v.aggregation,'daily_expense_total_before_holt');
+  walk(v);/* '..._before_holt' before the Theta switch (selected in 730fd82) */assert.equal(v.aggregation,'daily_expense_total_before_theta');
   await prisma.transaction.deleteMany({where:{id:{in:[extra.id,extra2.id]}}});
  });
  await t.test('HTTP readiness boundaries and cutoff count use observed first-last dates',async()=>{

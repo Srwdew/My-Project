@@ -1,4 +1,4 @@
-// Stage D candidate models for the real-data backtest. Experiment code only: production Holt is untouched.
+// Stage D candidate models for the real-data backtest. Theta was selected and now lives in production (backend/src/lib/theta.ts).
 // Every forecast is 7 daily values from the end of the training series, clipped at 0 and rounded to cents
 // (as production clips and rounds), so all models are scored on the same footing.
 import assert from "node:assert/strict";
@@ -60,50 +60,9 @@ export function holtWintersTuned(series: number[], step: number) {
   return { forecast: out(hwForecast(hwStates(series, p.alpha, p.beta, p.gamma).at(-1)!)), params: p };
 }
 
-// ---------- Theta (Assimakopoulos & Nikolopoulos 2000), theta = 2 ----------
-// Standard procedure: test the weekly season with ACF lag 7 at the 90% Bartlett bound; if seasonal, remove it
-// with classical decomposition (centred 7-day moving average), forecast, then put it back. Multiplicative indices
-// are the standard; when an index is 0 or below (days that are always 0, e.g. bank weekends) multiplicative
-// cannot be inverted, so the additive decomposition is used and the case is counted.
-// Forecast of the seasonally adjusted series = SES + half the OLS drift (Hyndman & Billah 2003 form);
-// the SES alpha is fitted in-sample by one-step squared error on a 0.01 grid, as standard Theta does.
-function acf(v: number[], k: number) {
-  const m = mean(v), d = v.map((x) => x - m), c0 = d.reduce((a, b) => a + b * b, 0);
-  return c0 ? d.slice(k).reduce((a, x, i) => a + x * d[i]!, 0) / c0 : 0;
-}
-export function weeklySeasonal(v: number[]) {
-  if (v.length < 3 * M) return false;
-  const r = Array.from({ length: M + 1 }, (_, k) => acf(v, k));
-  return Math.abs(r[M]!) > 1.645 * Math.sqrt((1 + 2 * r.slice(1, M).reduce((a, x) => a + x * x, 0)) / v.length);
-}
-function decompose(y: number[]) {
-  // Odd period: the centred moving average is the plain 7-term mean around t.
-  const n = y.length, cma = y.map((_, t) => (t < 3 || t + 3 >= n ? null : mean(y.slice(t - 3, t + 4))));
-  const pos = (t: number) => t % M;
-  const ratio: number[][] = Array.from({ length: M }, () => []), diff: number[][] = Array.from({ length: M }, () => []);
-  y.forEach((v, t) => { const c = cma[t]; if (c == null) return; diff[pos(t)]!.push(v - c); if (c > 0) ratio[pos(t)]!.push(v / c); });
-  const mult = ratio.map((r) => (r.length ? mean(r) : NaN)), mm = mean(mult), mi = mult.map((x) => x / mm);
-  if (mi.every((x) => Number.isFinite(x) && x > 0)) return { mode: "multiplicative" as const, idx: mi };
-  const add = diff.map((d) => (d.length ? mean(d) : 0)), am = mean(add);
-  return { mode: "additive" as const, idx: add.map((x) => x - am) };
-}
-export function theta(series: number[]) {
-  const n = series.length, seasonal = weeklySeasonal(series), dec = seasonal ? decompose(series) : null;
-  const adj = dec ? series.map((v, t) => (dec.mode === "multiplicative" ? v / dec.idx[t % M]! : v - dec.idx[t % M]!)) : series;
-  let bestA = 0.01, bestSse = Infinity, bestLevel = adj[0]!;
-  for (let i = 1; i <= 99; i++) {
-    const a = i / 100; let l = adj[0]!, sse = 0;
-    for (let t = 1; t < n; t++) { const e = adj[t]! - l; sse += e * e; l += a * e; }
-    if (sse < bestSse) { bestSse = sse; bestA = a; bestLevel = l; }
-  }
-  const tm = (n - 1) / 2, ym = mean(adj);
-  const slope = adj.reduce((s, v, t) => s + (t - tm) * (v - ym), 0) / adj.reduce((s, _, t) => s + (t - tm) ** 2, 0);
-  const f = Array.from({ length: H }, (_, i) => {
-    const h = i + 1, x = bestLevel + (slope / 2) * (h - 1 + 1 / bestA - (1 - bestA) ** n / bestA);
-    return dec ? (dec.mode === "multiplicative" ? x * dec.idx[(n - 1 + h) % M]! : x + dec.idx[(n - 1 + h) % M]!) : x;
-  });
-  return { forecast: out(f), alpha: bestA, mode: dec ? dec.mode : "none" };
-}
+// ---------- Theta: the production model, imported so backtest and production share one implementation ----------
+import { theta, weeklySeasonal } from "../../backend/src/lib/theta";
+export { theta, weeklySeasonal };
 
 // ---------- self-check ----------
 if (require.main === module) {
