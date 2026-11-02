@@ -44,7 +44,7 @@
 - **`Budget`**: งบรวมรายเดือนปฏิทินต่อผู้ใช้ และ **`CategoryBudget`**: งบรายหมวด
 - **`Goal`**: `targetAmount`, `targetDate`, `plannedMonthlyAmount` ยอดออมคิดจาก ledger (`GoalLedgerEntry`) ที่จัดสรรจาก**รายรับ** ไม่ได้มาจากรายจ่าย
 - **`TransactionType`** มีแค่ `income` / `expense` ไม่มีประเภทโอนเข้าบัญชีออม
-- **Forecast**: Holt ยอดรวมรายวัน, horizon 7, gate 30/30, `validationMAE` มีเฉพาะโหมด `inner_validation` (ซีรีส์ ≥ 42 วัน) ส่วนโหมด `fixed_default` เป็น `null`
+- **Forecast**: Theta (θ=2) ยอดรวมรายวัน, horizon 7, gate 30/30, `parameters` = `{ alpha, seasonalMode }` (เปลี่ยนจาก Holt 3 พ.ย. 2026 ดู [DECISIONS](DECISIONS.md); ข้อ C3 และ 4.2 ด้านล่างตัดสินตอนใช้ Holt และยังใช้กับ Theta)
 - **`budgetComparison`**: `referenceAllowance = max(งบคงเหลือ, 0) × k ÷ วันที่เหลือ` โดย `k = min(7, วันที่เหลือในรอบ)`
 - **`calculateSavingsPlan`**: ตรวจ (รายได้ − งบ) เทียบยอดออมที่ต้องใช้ต่อเดือน แล้วเสนอ "ลดงบ" หรือ "เพิ่มรายได้"
 - **Anomaly**: `AnomalyEvaluation.outcome = "flagged"` คือระบบตีว่าผิดปกติ ส่วน `AnomalyDecision.action` คือผู้ใช้ตัดสินแล้ว ค่าใน `ANOMALY_RULE` ล็อกแล้ว **[ยืนยัน]**

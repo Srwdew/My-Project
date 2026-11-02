@@ -68,7 +68,7 @@ npm run dev
 | ส่วน | พฤติกรรมปัจจุบัน | เอกสารรายละเอียด |
 |---|---|---|
 | Overview / Budget / Goals | สรุปธุรกรรม งบ และแผนออม/บัญชีเงินเป้าหมาย | [Dashboard](DASHBOARD_IMPLEMENTATION.md), [Goals](GOALS_IMPLEMENTATION.md) |
-| Forecast | Holt บนยอดรายจ่ายรวมรายวัน พยากรณ์ 7 วัน ไม่ใช่ผลรวม forecast รายหมวด | [Forecast](FORECAST_IMPLEMENTATION.md) |
+| Forecast | Theta (θ=2) บนยอดรายจ่ายรวมรายวัน (แทน Holt ตั้งแต่ 3 พ.ย. 2026, [เหตุผล](docs/FORECAST_REAL_DATA_BACKTEST.md)) พยากรณ์ 7 วัน ไม่ใช่ผลรวม forecast รายหมวด | [Forecast](FORECAST_IMPLEMENTATION.md) |
 | Behavior | readiness 30 รายจ่าย/ระยะข้อมูล 30 วัน inclusive; รูปแบบซ้ำแยกจากยอดเพิ่มเทียบช่วงก่อนและเวลากระจุก | [Behavior](BEHAVIOR_IMPLEMENTATION.md) โดยอ่านหัวข้อ v2 และ revision ล่าสุด |
 | Anomaly | มีกฎ/การตัดสินแยกจาก Behavior; collection และ automatic amount matching ปิดใน source | [Dimensions](ANOMALY_DIMENSIONS_IMPLEMENTATION.md), [Retention](ANOMALY_RETENTION_IMPLEMENTATION.md) |
 | OCR | Tesseract ไทย/อังกฤษทำงานใน browser ใช้ assets local ที่ต้องเตรียมก่อน | [OCR](OCR_IMPLEMENTATION.md) |

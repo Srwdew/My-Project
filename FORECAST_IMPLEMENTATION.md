@@ -1,6 +1,8 @@
 # Forecast total-only — 4 October 2026 (Asia/Bangkok)
 
 ## Current scope and thesis mapping
+> **Update 3 Nov 2026:** the model is now Theta (θ=2, [theta.ts](backend/src/lib/theta.ts)), not Holt; see [FORECAST_REAL_DATA_BACKTEST](docs/FORECAST_REAL_DATA_BACKTEST.md) and [DECISIONS](docs/DECISIONS.md). Holt-specific details below (fixed 0.2/0.1 below 42 days, inner-fold tuning, `validationMAE`) describe the retired model, kept as history. Endpoint contract, gate 30/30, horizon 7 and budget comparison are unchanged.
+
 GET /forecast and /forecast use one Holt model on daily expense totals, not a sum of category forecasts. Authentication, strict no-query contract (400), 401, private/no-store, Bangkok date capture, RepeatableRead snapshot, and frontend abort/session guards are retained. No schema, migration, dependency, notification or financial write is added.
 
 Reference: C:\Doc Project\รวมเล่ม (3-67).pdf, PDF pages21–22 describe daily expense aggregation/Holt, seven-day total and current-month budget comparison; page55 gives general readiness of30 transactions/30days; pages40–41 cover Holt and held-out MAE/RMSE. Page20 mentions category forecasting: total-only is the user's explicit superseding scope decision, not a claim that the thesis has no category wording. Inclusive observed span and expense-only count follow the approved implementation specification.
