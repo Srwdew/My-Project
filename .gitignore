@@ -13,7 +13,9 @@ frontend/public/ocr/
 # Local-only: design drafts, tool caches, generated experiment output, demo seed, new mockups
 logo-concepts/
 .impeccable/
-scripts/forecast-experiment/output/
+scripts/forecast-experiment/output/*
+# Reproducibility evidence for docs/FORECAST_REAL_DATA_BACKTEST.md: results before the Stage D models were added
+!scripts/forecast-experiment/output/pre-stage-d-*.md
 # Third-party raw datasets (MoneyData, Berka): downloaded by the experiment scripts, never committed
 scripts/forecast-experiment/data/
 backend/prisma/seed.ts
