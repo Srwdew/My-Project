@@ -15,6 +15,7 @@ import {
 } from "./lib/defaultCategories";
 import { behaviorRouter } from "./routes/behavior";
 import { forecastRouter } from "./routes/forecast";
+import { recommendationsRouter } from "./routes/recommendations";
 import { anomalyRouter } from "./routes/anomaly";
 import {
   assertAnomalyActor,
@@ -71,6 +72,7 @@ app.use(settingsRouter);
 app.use(dashboardRouter);
 app.use(forecastRouter);
 app.use(behaviorRouter);
+app.use(recommendationsRouter);
 app.use(anomalyRouter);
 
 function getTransactionTodayKey(): string {
