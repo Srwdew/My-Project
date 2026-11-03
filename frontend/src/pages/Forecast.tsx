@@ -187,7 +187,10 @@ function ForecastSession({
     diff = data?.summary.periodDifference ?? null;
   const changePct =
     diff !== null && Number(prev) > 0 ? (Number(diff) / Number(prev)) * 100 : null;
-  const trend = diff === null ? null : Number(diff) > 0 ? "up" : Number(diff) < 0 ? "down" : "flat";
+  // Borrowed Behavior line (>=5% and >=100 baht, both directions; DECISIONS 3 Nov 2026): smaller moves are "close to last week", not a trend.
+  const significant =
+    diff !== null && Math.abs(Number(diff)) >= 100 && (changePct === null || Math.abs(changePct) >= 5);
+  const trend = diff === null ? null : !significant ? "flat" : Number(diff) > 0 ? "up" : "down";
   const barMax = Math.max(1, Number(prev), Number(total ?? 0));
   const shortDay = (d: string, i: number) =>
     i === 0 || d.endsWith("-01") ? thaiDate(d).split(" ").slice(0, 2).join(" ") : String(Number(d.slice(8)));
@@ -274,11 +277,11 @@ function ForecastSession({
               <p>
                 {diff === null
                   ? "เปรียบเทียบรายจ่ายรวม จำนวนวันเท่ากัน 7 วัน"
-                  : Number(diff) > 0
+                  : trend === "up"
                     ? "คาดว่าจะเพิ่มขึ้น " + baht(diff) + " บาท จากสัปดาห์ก่อน"
-                    : Number(diff) < 0
+                    : trend === "down"
                       ? "คาดว่าจะลดลง " + baht(diff.replace("-", "")) + " บาท จากสัปดาห์ก่อน"
-                      : "ใกล้เคียงกับสัปดาห์ก่อน"}
+                      : "ใกล้เคียงกับสัปดาห์ก่อน (ต่างกัน " + baht(diff.replace("-", "")) + " บาท)"}
               </p>
             </section>
           </div>
