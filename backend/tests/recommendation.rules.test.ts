@@ -288,6 +288,9 @@ test('R1: next 7 days vs income − spending so far; total cut across flexible c
         forecast: { horizonDays: 7, total: D(3000), byCategory: null, interval: null },
         previousCycleByCategory: new Map([['food', { name: 'อาหาร', amount: D(8300) }], ['fun', { name: 'บันเทิง', amount: D(1200) }], ['rent', { name: 'ค่าเช่า', amount: D(9000) }]]),
     };
+    // Rounds to 0 under 50 baht: no card. 50 rounds to 100, so it stays.
+    assert.equal(R1.evaluate(ctxAt('2026-11-20', { ...base, forecast: { ...base.forecast, total: D(1149.99) } })).length, 0);
+    assert.equal(R1.evaluate(ctxAt('2026-11-20', { ...base, forecast: { ...base.forecast, total: D(1150) } })).length, 1);
     const [r] = R1.evaluate(ctxAt('2026-11-20', base));
     assert.deepEqual([r!.what.shortfall, r!.action.topFlexibleCategoryName, r!.action.topFlexibleAmount], ['1900', 'อาหาร', '8300']); // rent is not flexible
     assert.deepEqual([r!.confidence.forecastFactor, (r!.inputs as any).forecastFactorFallback, (r!.inputs as any).forecast.level, (r!.inputs as any).left.budgetUsed], [1, true, 'total_only_not_per_category', false]);

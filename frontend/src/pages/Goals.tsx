@@ -32,6 +32,7 @@ import { useToast } from "../components/LocalToast";
 import { apiFetch } from "../api";
 import { getToken } from "../auth";
 import Dropdown from "../components/Dropdown";
+import { DateField } from "../components/DatePill";
 import "./Goals.css";
 type Feasibility = {
   status: string;
@@ -1041,11 +1042,7 @@ function GoalsSession({ session }: { session: string | null }) {
                       <span className="goal-form-label">
                         กำหนดเสร็จ <em className="goal-form-optional">ไม่บังคับ</em>
                       </span>
-                      <input
-                        type="date"
-                        name="targetDate"
-                        defaultValue={g?.targetDate ?? ""}
-                      />
+                      <DateField name="targetDate" label="กำหนดเสร็จ" defaultValue={g?.targetDate ?? ""} clearable />
                     </label>
                     <label className="goal-form-half">
                       <span className="goal-form-label">
@@ -1093,14 +1090,7 @@ function GoalsSession({ session }: { session: string | null }) {
                     </label>
                     <label>
                       วันตัดยอด
-                      <input
-                        name="cutoffDate"
-                        type="date"
-                        required
-                        max={todayKey()}
-                        disabled={opening?.cutoffLocked}
-                        defaultValue={opening?.cutoffDate ?? todayKey()}
-                      />
+                      <DateField name="cutoffDate" label="วันตัดยอด" max={todayKey()} disabled={opening?.cutoffLocked} defaultValue={opening?.cutoffDate ?? todayKey()} />
                     </label>
                     {opening?.cutoffLocked && (
                       <p>วันตัดยอดถูกล็อกเพราะมีประวัติการเก็บเงินแล้ว</p>

@@ -4,6 +4,8 @@ import { randomUUID } from 'node:crypto';
 import { prisma } from '../src/lib/prisma';
 import { loadTier0 } from '../src/lib/tier0';
 import { buildForecast, forecastInput } from '../src/lib/expenseForecast';
+import { dashboardView } from '../src/lib/dashboard';
+import { D } from '../src/lib/goalCalculations';
 
 const db = new URL(process.env.DATABASE_URL!).pathname.slice(1);
 if (!db.startsWith('spendsense_goals_test_') || process.env.GOALS_TEST_DATABASE !== db) throw Error('ISOLATED_TIER0_DATABASE_REQUIRED');
@@ -45,6 +47,20 @@ test('Tier 0 on real PostgreSQL: own spending in the cycle only, agrees with the
     const { pace } = await prisma.$transaction(tx => loadTier0(tx, a.id, today));
     const forecast = buildForecast(await prisma.$transaction(tx => forecastInput(tx, a.id, today)));
     assert.equal(forecast.budgetComparison!.remainingAmount, pace.budgetLeft);
+  });
+  await t.test('same remaining budget as the Overview summary card, including over budget', async () => {
+    const compare = async (userId: string) => {
+      const { pace } = await prisma.$transaction(tx => loadTier0(tx, userId, today));
+      const view = await prisma.$transaction(tx => dashboardView(tx, userId, '2026-11', today));
+      return { pace, remaining: new D(view.summary.budgetRemaining!) };
+    };
+    const within = await compare(a.id);
+    assert.equal(within.remaining.toFixed(2), within.pace.budgetLeft); // tomorrow's 7,000 is out of both
+    await prisma.budget.create({ data: { userId: b.id, year: 2026, month: 11, amount: '4000.00' } });
+    const over = await compare(b.id);
+    assert.equal(over.pace.budgetLeft, '0.00');
+    assert.equal(over.remaining.neg().toFixed(2), over.pace.overBudget);
+    await prisma.budget.delete({ where: { userId_year_month: { userId: b.id, year: 2026, month: 11 } } });
   });
   await t.test('no budget and no goals: nothing invented', async () => {
     const { pace, savingsPlan } = await prisma.$transaction(tx => loadTier0(tx, b.id, today));

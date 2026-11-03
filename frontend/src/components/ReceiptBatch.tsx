@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Trash2, X } from "lucide-react";
 import { apiFetch } from "../api";
+import DatePill from "./DatePill";
 import { getToken } from "../auth";
 import Dropdown from "./Dropdown";
 import { readReceipt } from "../lib/receiptOcr";
@@ -331,14 +332,13 @@ export default function ReceiptBatch({ files, session, categories, onClose }: Pr
                 </label>
                 <label>
                   วันที่
-                  <input
-                    className="input"
-                    type="date"
+                  <DatePill
+                    label="วันที่"
                     max={today}
                     disabled={locked}
-                    aria-invalid={problems.some((p) => p.includes("วันที่"))}
+                    invalid={problems.some((p) => p.includes("วันที่"))}
                     value={r.fields.transactionDate}
-                    onChange={(e) => edit(r, { transactionDate: e.target.value })}
+                    onChange={(transactionDate) => edit(r, { transactionDate })}
                   />
                 </label>
                 <label>

@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { getToken } from '../auth';
+import { moneyText } from '../utils/dashboard';
+import { extendText } from '../utils/goalDuration';
 
 function useReadOnlySummary<T>(path: string, session: string | null, refreshKey = '') {
   const [data, setData] = useState<T | null>(null);
@@ -29,6 +31,70 @@ function useReadOnlySummary<T>(path: string, session: string | null, refreshKey 
     return () => { active = false; controller.abort(); };
   }, [path, session, revision, refreshKey]);
   return { data, loading, error, retry: () => setRevision(n => n + 1) };
+}
+type AlertCard = {
+  tier: number; code: string;
+  budgetLeft?: string; overBudget?: string; perDay?: string | null; daysLeft?: number; spanDays?: number;
+  requiredMonthly?: string; availableMonthly?: string; shortfall?: string; goalCount?: number;
+  alternatives?: { budgetReductionAlonePossible: boolean; targetBudget: string | null; targetIncome: string } | null;
+  goalOptions?: { extendToMonths: number | null; lowerTargetTo: string | null } | null;
+  goalOptionsUnavailable?: string | null;
+  id?: string; amount?: string; date?: string; categoryName?: string;
+};
+type Alerts = { cards: AlertCard[]; flaggedTotal: number; levelShiftsWaiting: number };
+const RECORDED_ONLY = 'ประเมินจากรายการที่บันทึก ไม่รวมรายจ่ายที่ยังไม่ได้บันทึก';
+const budgetLine = (c: AlertCard) => Number(c.overBudget) > 0
+  ? `ใช้เกินงบแล้ว ${moneyText(c.overBudget!)} บาท`
+  : `งบเหลือ ${moneyText(c.budgetLeft!)} บาท`;
+function AlertItem({ card: c }: { card: AlertCard }) {
+  if (c.tier === 1) return <li className="alert-card alert-tier-1">
+    <strong>งบอาจไม่พอถึงสิ้นเดือน</strong>
+    <p>{budgetLine(c)} อีก {c.daysLeft} วันถึงสิ้นเดือน{c.perDay ? ` ใช้ได้วันละ ${c.perDay} บาท` : ''}</p>
+    <small>{RECORDED_ONLY}</small> <Link to="/budget">ดูงบประมาณ</Link>
+  </li>;
+  if (c.code === 'pace_over_next_cycle') return <li className="alert-card alert-tier-2">
+    <strong>ต้นเดือนหน้าอาจใช้เร็วกว่างบ</strong>
+    <p>เทียบ {c.spanDays} วันแรกของเดือนหน้ากับงบเดือนหน้าที่ตั้งไว้</p>
+    <small>{RECORDED_ONLY}</small> <Link to="/budget">ดูงบประมาณ</Link>
+  </li>;
+  if (c.tier === 2) return <li className="alert-card alert-tier-2">
+    <strong>7 วันข้างหน้าอาจใช้เร็วกว่างบ</strong>
+    <p>{budgetLine(c)}{c.perDay ? ` เฉลี่ยใช้ได้วันละ ${c.perDay} บาท จนถึงสิ้นเดือน` : ''}</p>
+    <small>{RECORDED_ONLY}</small> <Link to="/budget">ดูงบประมาณ</Link>
+  </li>;
+  if (c.tier === 3) {
+    const available = Number(c.availableMonthly), alt = c.alternatives, one = c.goalOptions;
+    return <li className="alert-card alert-tier-3">
+      <strong>เป้าออมรวมสูงกว่าเงินที่เหลือตามแผน</strong>
+      <p>ต้องออมรวม {moneyText(c.requiredMonthly!)} บาท/เดือน {available < 0
+        ? `รายได้ที่ตั้งไว้น้อยกว่างบ ${moneyText(String(-available))} บาท/เดือน`
+        : `ตามรายได้และงบที่ตั้งไว้เหลือ ${moneyText(c.availableMonthly!)} บาท/เดือน`} ขาด {moneyText(c.shortfall!)} บาท/เดือน</p>
+      <ul className="alert-options">
+        {alt?.budgetReductionAlonePossible && alt.targetBudget && <li>ลดงบเหลือ {moneyText(alt.targetBudget)} บาท</li>}
+        {alt && <li>เพิ่มรายได้เป็น {moneyText(alt.targetIncome)} บาท</li>}
+        {one?.extendToMonths != null && <li>{extendText(one.extendToMonths)}</li>}
+        {one?.lowerTargetTo != null && <li>ลดยอดเป้าเหลือ {moneyText(one.lowerTargetTo)} บาท</li>}
+      </ul>
+      {c.goalOptionsUnavailable && <small>มีหลายเป้าที่ใช้เงินเหลือก้อนเดียวกัน จึงยังคำนวณยืดเวลาหรือลดยอดแยกรายเป้าไม่ได้</small>}
+      <small>เงินที่เก็บเข้าเป้าหมายไม่ต้องบันทึกเป็นรายจ่าย</small> <Link to="/goals">ดูเป้าหมาย</Link>
+    </li>;
+  }
+  return <li className="alert-card alert-tier-4">
+    <strong>รายการนี้รอคุณตรวจ</strong>
+    <p>{c.categoryName} {moneyText(c.amount!)} บาท วันที่ {thaiDate(c.date)} ต่างจากแบบที่เคยบันทึก</p>
+    <small>{RECORDED_ONLY}</small>
+  </li>;
+}
+export function AlertsOverview({ session, today }: { session: string | null; today: string }) {
+  const { data, error, retry } = useReadOnlySummary<Alerts>('/alerts', session, today);
+  const waiting = data ? data.flaggedTotal + data.levelShiftsWaiting : 0;
+  if (error) return <section className="dashboard-alerts" role="alert"><p>โหลดสถานะงบและเป้าหมายไม่สำเร็จ</p><button onClick={retry}>ลองโหลดอีกครั้ง</button></section>;
+  if (!data || (!data.cards.length && !waiting)) return null;
+  return <section className="dashboard-alerts" data-testid="overview-alerts" aria-labelledby="overview-alerts-title">
+    <h2 id="overview-alerts-title">สถานะงบและเป้าหมาย</h2>
+    <ul className="alert-list">{data.cards.map((c) => <AlertItem key={c.id ?? c.code} card={c} />)}</ul>
+    {waiting > 0 && <Link className="dashboard-text-link" to="/anomaly?filter=waiting">ดูทั้งหมด {waiting} รายการ</Link>}
+  </section>;
 }
 export function AnomalyOverview({ session }: { session: string | null }) {
   const { data, loading, error, retry } = useReadOnlySummary<{ total: number; pendingEvaluation: number }>('/anomaly/queue?filter=waiting&limit=1', session);

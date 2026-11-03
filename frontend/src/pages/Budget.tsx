@@ -1,6 +1,7 @@
 import { categoryAppearance } from "../utils/categoryAppearance";
 import BudgetIcon from "../components/BudgetIcon";
 import DatePicker from "react-datepicker";
+import { thaiYearHeader } from "../components/DatePill";
 import "react-datepicker/dist/react-datepicker.css";
 import { useToast } from "../components/LocalToast";
 import { useSearchParams } from "react-router-dom";
@@ -392,6 +393,7 @@ export default function Budget() {
           }}
           preventOpenOnFocus
           showMonthYearPicker
+          renderCustomHeader={thaiYearHeader}
           dateFormat="MM/yyyy"
           minDate={new Date(1900, 0, 1)}
           maxDate={new Date(9999, 11, 31)}

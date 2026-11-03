@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { budgetPace, goalOptions } from '../src/lib/tier0';
 import { cycleByPeriod, cycleContextFromProfile } from '../src/lib/cycle';
+import { extendText } from '../../frontend/src/utils/goalDuration';
 
 const nov = cycleByPeriod(cycleContextFromProfile('u', null), 2026, 11); // 30 days
 
@@ -48,6 +49,12 @@ test('a date outside the cycle is refused', () => {
 test('goal options follow 3.4: extend rounds up, target = saved + available x months', () => {
   assert.deepEqual(goalOptions({ targetAmount: '10000', savedAmount: '1000', monthsRemaining: 3 }, '2000'), { extendToMonths: 5, lowerTargetTo: '7000.00' });
   assert.deepEqual(goalOptions({ targetAmount: '10000', savedAmount: '0', monthsRemaining: null }, '3000'), { extendToMonths: 4, lowerTargetTo: null });
+});
+test('extend text: years and months, and past 50 years says extending alone is not enough', () => {
+  assert.equal(extendText(5), 'ยืดเวลาเป็น 5 เดือน');
+  assert.equal(extendText(24), 'ยืดเวลาเป็น 2 ปี');
+  assert.equal(extendText(600), 'ยืดเวลาเป็น 50 ปี');
+  assert.equal(extendText(601), 'ยืดเวลาอย่างเดียวไม่พอสำหรับเป้านี้');
 });
 test('goal options need money to spare', () => {
   for (const a of ['0', '-500']) assert.deepEqual(goalOptions({ targetAmount: '100', savedAmount: '0', monthsRemaining: 2 }, a), { extendToMonths: null, lowerTargetTo: null });

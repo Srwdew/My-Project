@@ -19,6 +19,8 @@ const mock=()=>{
    const id=route.split('/')[2];
    if(route.endsWith('/action')){window.__actions=(window.__actions||[]).concat({id,body:JSON.parse(options.body)});data={id,userAction:JSON.parse(options.body).action};}
    else data={id,text:{what:'from log',action:'',outcome:''},shownAt:'2026-10-15T03:00:00.000Z',citationTier:1,dataRange:id==='r3'?{kind:'window',startDate:'2026-09-15',endDate:'2026-10-14'}:{kind:'cycle',startDate:'2026-10-01',endDate:'2026-10-14'}};
+  } else if(route==='/alerts'){
+   data={cards:[],flaggedTotal:0,levelShiftsWaiting:0};
   } else if(route==='/anomaly/queue'||route==='/recommendations'){
    if(window.__insightHold&&session==='session-a')await new Promise(r=>window.__gates.push(r));
    if(window.__insightFail)return new Response('{}',{status:503});

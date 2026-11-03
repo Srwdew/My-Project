@@ -1,4 +1,5 @@
 import { D, ZERO } from "./shared";
+import { FORECAST_ROUND_TO } from "../config";
 import type { Rule } from "../types";
 
 // R1 next 7 days (or what is left of the cycle) vs money left in the cycle = income this cycle − spending so far.
@@ -13,7 +14,9 @@ export const R1: Rule = {
     if (!f || ctx.incomeSource === "none" || !ctx.flexibleCategoryIds.size) return [];
     const left = ctx.incomeThisCycle.minus(ctx.spendThisCycle);
     const shortfall = f.total.minus(left.gt(0) ? left : ZERO);
-    if (!shortfall.gt(0)) return [];
+    // Under half the D-8 rounding the text would say "0 บาท". R1 has its own floor: MIN_OUTCOME_RULES would hide too much of
+    // the most urgent rule, and the 92.57 filter belongs to the Alert Layer, which must stay separate (C2).
+    if (shortfall.lt(FORECAST_ROUND_TO / 2)) return [];
     const flexible = [...ctx.flexibleCategoryIds]
       .map((id) => ({ id, ...(ctx.previousCycleByCategory.get(id) ?? { name: "", amount: ZERO }) }))
       .filter((c) => c.amount.gt(0))

@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import {
   AnomalyOverview,
+  AlertsOverview,
   RecommendationsOverview,
 } from "../components/OverviewInsights";
 import WeeklyExpenses from "../components/WeeklyExpenses";
@@ -29,6 +30,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { apiFetch } from "../api";
 import { getToken, useSessionKey } from "../auth";
 import UserHeader from "../components/UserHeader";
+import { MonthPill } from "../components/DatePill";
 import { bangkokDate, moneyText, type DailyAmount } from "../utils/dashboard";
 import "./Overview.css";
 type Dashboard = {
@@ -250,15 +252,11 @@ function OverviewMonth({
                   disabled
                 />
               ) : (
-                <input
-                  aria-label="เดือน"
-                  type="month"
-                  min="0001-01"
+                <MonthPill
+                  label="เดือน"
                   max={data?.period.currentMonth}
                   value={data?.month ?? ""}
-                  onChange={(e) => {
-                    if (e.target.value) setMonth(e.target.value);
-                  }}
+                  onChange={setMonth}
                 />
               )}
             </label>
@@ -290,6 +288,8 @@ function OverviewMonth({
       )}
       {data && (
         <>
+          {/* Alerts describe today, so they stay off past months. */}
+          {data.period.isCurrentMonth && <AlertsOverview session={session} today={today} />}
           <section
             className="dashboard-hero"
             aria-label="สรุปข้อมูลเดือนที่เลือก"

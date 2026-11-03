@@ -353,6 +353,54 @@
   font-size: 13px;
   line-height: 1.8;
 }
+.dashboard-page .dashboard-alerts {
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  background: #fff;
+  border: 1px solid var(--overview-line);
+  border-radius: 13px;
+}
+.dashboard-page .dashboard-alerts h2 {
+  margin: 0 0 12px;
+  font-size: 17px;
+}
+.dashboard-page .alert-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 0;
+  list-style: none;
+}
+.dashboard-page .alert-card {
+  padding: 12px 14px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--overview-line);
+  border-radius: 8px;
+}
+.dashboard-page .alert-card.alert-tier-1 strong {
+  color: #b4412f;
+}
+.dashboard-page .alert-card p {
+  margin: 4px 0 6px;
+  font-size: 14px;
+}
+.dashboard-page .alert-card small {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--overview-muted);
+  font-size: 12px;
+}
+.dashboard-page .alert-card a {
+  font-size: 13px;
+  font-weight: 650;
+}
+.dashboard-page .alert-options {
+  margin: 0 0 6px;
+  padding-left: 18px;
+  font-size: 13px;
+}
 .dashboard-page .dashboard-guidance {
   padding: 17px;
   background: #f0f5ff;

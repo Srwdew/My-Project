@@ -3,6 +3,7 @@ import { useSessionKey } from "../auth";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import DatePicker from "react-datepicker";
+import { thaiDayText, thaiMonthHeader } from "../components/DatePill";
 import UserHeader from "../components/UserHeader";
 import "react-datepicker/dist/react-datepicker.css";
 // Shares the add page's look; only the slip card and preview are absent.
@@ -393,6 +394,8 @@ function EditTransactionSession() {
                         }
                       }}
                       dateFormat="dd/MM/yyyy"
+                      value={thaiDayText(transactionDate)}
+                      renderCustomHeader={thaiMonthHeader}
                       calendarStartDay={1}
                       todayButton="วันนี้"
                       className="input date-picker-input"
