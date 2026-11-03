@@ -54,18 +54,18 @@
 แนวทาง: เพิ่มตาราง version แบบ append-only และคง `Profile` ไว้ ไม่ลบคอลัมน์เดิมในรอบนี้
 
 ```sql
-CREATE EXTENSION IF NOT EXISTS btree_gist;  -- ใช้กับ exclusion constraint ด้านล่าง [รอ: D-16]
+CREATE EXTENSION IF NOT EXISTS btree_gist;  -- ใช้กับ exclusion constraint ด้านล่าง (D-16)
 
 CREATE TYPE "PaydayMode" AS ENUM ('MONTHLY','SEMI_MONTHLY','IRREGULAR');
 
+-- ชนิด text ตรงกับ User.id และ Goal.id จริง ลองรันกับฐานทดสอบ 3 พ.ย. 2026: uuid สร้าง FK ไม่ได้ แต่ text ผ่านครบ
 CREATE TABLE "FinancialProfileVersion" (
-  "id"              uuid PRIMARY KEY,
-  "userId"          uuid NOT NULL REFERENCES "User"("id") ON DELETE RESTRICT,
+  "id"              text PRIMARY KEY,
+  "userId"          text NOT NULL REFERENCES "User"("id") ON DELETE RESTRICT,
   "effectiveFrom"   date NOT NULL,                 -- วันแรกที่ใช้ค่าชุดนี้ (เวลาไทย)
   "effectiveTo"     date,                          -- ไม่รวมวันนี้; NULL = ยังใช้อยู่
   "monthlyIncome"   numeric(12,2) CHECK ("monthlyIncome" >= 0),
-  "monthlyBudget"   numeric(12,2) CHECK ("monthlyBudget" >= 0),  -- [รอ: D-15] ถ้าใช้ Budget เดิม ให้ตัดคอลัมน์นี้
-  "primaryGoalId"   uuid,                          -- ยอดเป้าและกำหนดเวลาอ่านจาก Goal (C6)
+  "primaryGoalId"   text,                          -- ยอดเป้าและกำหนดเวลาอ่านจาก Goal (C6)
   "intention"       text,                          -- ค่าเดิมจาก FINANCIAL_INTENTIONS ตรวจใน service layer (C4)
   "intentionNote"   varchar(500),
   "paydayMode"      "PaydayMode",
@@ -78,7 +78,7 @@ CREATE UNIQUE INDEX ON "FinancialProfileVersion"("userId") WHERE "effectiveTo" I
 
 -- MONTHLY = 1 แถว, SEMI_MONTHLY = 2 แถว, IRREGULAR = 0 แถว (ใช้เดือนปฏิทิน)
 CREATE TABLE "PaydayRule" (
-  "versionId"  uuid NOT NULL REFERENCES "FinancialProfileVersion"("id") ON DELETE RESTRICT,
+  "versionId"  text NOT NULL REFERENCES "FinancialProfileVersion"("id") ON DELETE RESTRICT,
   "dayOfMonth" smallint NOT NULL CHECK ("dayOfMonth" BETWEEN 1 AND 31),
   PRIMARY KEY ("versionId","dayOfMonth")
 );
@@ -86,8 +86,9 @@ CREATE TABLE "PaydayRule" (
 
 ตาราง `PaydayExpected` ของร่างแรกถูกตัดออก เพราะ IRREGULAR ใช้เดือนปฏิทินแทน **[ยืนยัน]** และ enum ความตั้งใจใหม่ก็ถูกตัดออกตาม C4
 
-กติกาการเขียน **[รอ]**:
-- ห้าม UPDATE ค่าการเงินของแถวเดิม การแก้โปรไฟล์ทำใน transaction เดียว คือปิดแถวปัจจุบัน (`effectiveTo = X`) แล้ว INSERT แถวใหม่ (`effectiveFrom = X`) โดย X ตาม D-1
+กติกาการเขียน **[ยืนยัน]**:
+- ห้าม UPDATE ค่าการเงินของแถวเดิม การแก้โปรไฟล์ทำใน transaction เดียว คือปิดแถวปัจจุบัน (`effectiveTo = X`) แล้ว INSERT แถวใหม่ (`effectiveFrom = X`) โดย X คือวันที่แก้ตาม D-1
+- ยกเว้นแก้ซ้ำในวันเดียวกัน: แก้แถวของวันนั้นทับ ไม่สร้างแถวใหม่ D-1 ยังเป็นจริง และไม่ชน `effectiveTo > effectiveFrom` **[ยืนยัน 3 พ.ย. 2026]**
 - การวิเคราะห์วันที่ d ใช้แถวที่ `effectiveFrom ≤ d < coalesce(effectiveTo, ∞)`
 - จำนวนแถว `PaydayRule` ต้องตรงกับ `paydayMode` (ตรวจใน service layer)
 - Migration: สร้างแถวแรกจาก `Profile` เดิม `effectiveFrom` ตาม D-2 แปลง `paydayDay` เดิมเป็น `MONTHLY` + 1 แถว และคัด `goal` ไปเป็น `intention` ตรง ๆ
@@ -177,12 +178,12 @@ CREATE TABLE "PaydayRule" (
 - `elapsed = วันนี้ − P₀ + 1` (วัน, รวมวันนี้)
 - `daysLeft = P₁ − วันนี้` (วัน, รวมวันนี้)
 - `spent = Σ รายจ่ายใน [P₀, วันนี้]` (บาท)
-- `cycleBudget` (บาท/รอบ) = งบต่อเดือน × สัดส่วนรอบ **[รอ: D-4, D-15]**
+- `cycleBudget` (บาท/รอบ) = งบต่อเดือนจาก `Budget` (D-15) รอบนี้เป็นเดือนปฏิทิน จึงเท่างบเดือนพอดี สัดส่วนรอบ D-4 ใช้เมื่อมีเฟส 2
 
 ### 3.2 งบคงเหลือรายวัน (แทน runway) **[ยืนยันแนวทาง]**
 
 `budgetLeft = max(cycleBudget − spent, 0)` (บาท) · `perDay = budgetLeft ÷ daysLeft` (บาท/วัน)
-ข้อความ: "งบเหลือ 800 ใช้ได้วันละ 160" `perDay` ปัดลงเป็นบาทเต็มเท่านั้น ห้ามปัดขึ้นเพราะจะเกินเพดาน และไม่ใช้กฎปัดของ D-8 เพราะค่านี้มาจากงบ ไม่ใช่พยากรณ์ ถ้าใช้เกินงบแล้ว แสดงยอดที่เกินแทน ห้ามแสดง "ใช้ได้วันละ 0"
+ข้อความ: "งบเหลือ 800 ใช้ได้วันละ 160" `perDay` ปัดลงเป็นบาทเต็มเท่านั้น ห้ามปัดขึ้นเพราะจะเกินเพดาน และไม่ใช้กฎปัดของ D-8 เพราะค่านี้มาจากงบ ไม่ใช่พยากรณ์ ต่ำกว่า 1 บาทไม่แสดงตัวเลข ใช้งบเหลือแทน หน้า Forecast ใช้กฎเดียวกัน ถ้าใช้เกินงบแล้ว แสดงยอดที่เกินแทน ห้ามแสดง "ใช้ได้วันละ 0"
 
 ### 3.3 Budget pace
 
@@ -194,7 +195,8 @@ CREATE TABLE "PaydayRule" (
 ถ้า `required > available` ให้ `shortfall = required − available` แล้วเสนอ:
 - ลดงบ: `งบต่อเดือน − shortfall` (แสดงเฉพาะถ้า ≥ 0)
 - ยืดเวลา: `ceil((targetAmount − saved) ÷ available)` เดือน (แสดงเฉพาะถ้า `available > 0`)
-- ลดยอดเป้า: `saved + available × monthsLeft`
+- ลดยอดเป้า: `saved + available × monthsLeft` (แสดงเฉพาะถ้า `available > 0`)
+- ยืดเวลาและลดยอดเป้าแสดงเฉพาะเมื่อมีเป้าเดียว เพราะหลายเป้าใช้เงินเหลือก้อนเดียวกัน ถ้าหลายเป้าต้องบอกเหตุผลที่ไม่มีสองตัวเลือกนี้ **[ยืนยัน 3 พ.ย. 2026]**
 - เพิ่มรายได้ (มีอยู่เดิม): D-17
 
 ## 4. ส่วนที่ 3 — เชื่อม Forecast กับ Budget และ Goal
@@ -225,7 +227,7 @@ CREATE TABLE "PaydayRule" (
 
 **ข้อจำกัดสำคัญ:** backtest ทั้งหมดใช้ข้อมูลสังเคราะห์ที่สร้างขึ้นเอง ยังไม่ใช่ dataset ที่อ้างอิงได้ จึงยังไม่ตอบข้อกำหนดเรื่อง dataset อ้างอิง ตัวเลขใช้ได้แค่เทียบสองวิธีบนสถานการณ์ที่จำลองไว้ ไม่ได้บอกความแม่นยำกับผู้ใช้จริง และไม่ได้อ้างนัยสำคัญทางสถิติ
 
-**ISSUE-ANOM-1 (เปิดอยู่ ยังไม่แก้):** amount screen ของ Anomaly flag รายการต่อกันทุกรายการเมื่อรายจ่ายขึ้นระดับถาวร ใน backtest scenario level-change ถูก flag 390 รายการ (3 seed × 130 วันหลังวันที่ 150) เพราะรายการที่ flag แล้วแต่ยังไม่ตัดสินถูกตัดออกจาก baseline (`anomaly_dimension_exclusion`) baseline จึงค้างอยู่ที่ระดับเก่า ผลกับผู้ใช้จริง: เช่น ย้ายบ้านแล้วค่าเดินทางแพงขึ้นถาวร ผู้ใช้จะได้แจ้งเตือนผิดปกติเป็นร้อยรายการ และต้องกดตัดสินทีละรายการ ฟีเจอร์จึงใช้งานจริงไม่ได้ในกรณีที่พบบ่อย หลักฐาน: [FORECAST_ANOMALY_EXCLUSION_BACKTEST](FORECAST_ANOMALY_EXCLUSION_BACKTEST.md) ค่าใน `ANOMALY_RULE` ล็อกไว้ การแก้ต้องได้รับการยืนยันใหม่ (ข้อมูลสังเคราะห์ ยังต้องตรวจกับข้อมูลจริง)
+**ISSUE-ANOM-1 (ปิด 2 พ.ย. 2026 ดู [ANOMALY_LEVEL_SHIFT_BACKTEST](ANOMALY_LEVEL_SHIFT_BACKTEST.md) ข้อความนี้เป็นบันทึกปัญหาเดิม):** amount screen ของ Anomaly flag รายการต่อกันทุกรายการเมื่อรายจ่ายขึ้นระดับถาวร ใน backtest scenario level-change ถูก flag 390 รายการ (3 seed × 130 วันหลังวันที่ 150) เพราะรายการที่ flag แล้วแต่ยังไม่ตัดสินถูกตัดออกจาก baseline (`anomaly_dimension_exclusion`) baseline จึงค้างอยู่ที่ระดับเก่า ผลกับผู้ใช้จริง: เช่น ย้ายบ้านแล้วค่าเดินทางแพงขึ้นถาวร ผู้ใช้จะได้แจ้งเตือนผิดปกติเป็นร้อยรายการ และต้องกดตัดสินทีละรายการ ฟีเจอร์จึงใช้งานจริงไม่ได้ในกรณีที่พบบ่อย หลักฐาน: [FORECAST_ANOMALY_EXCLUSION_BACKTEST](FORECAST_ANOMALY_EXCLUSION_BACKTEST.md) ค่าใน `ANOMALY_RULE` ล็อกไว้ การแก้ต้องได้รับการยืนยันใหม่ (ข้อมูลสังเคราะห์ ยังต้องตรวจกับข้อมูลจริง)
 
 **ISSUE-OCR-1 (เปิดอยู่ ยังไม่แก้ บันทึก 30 ต.ค. 2026):** Tesseract อ่าน "ต.ค." เป็น "ต.ุค." (มีสระอุ U+0E38 หลงเข้ามา) `parseReceipt` ซึ่งเป็น parser หลักจึงหาวันที่ไม่เจอ (`date_not_found`) ทั้งที่ pass `template-layout` อ่านวันที่ได้ถูก แต่ผลของ pass นั้นถูกทิ้ง เพราะ `readSevenElevenRegions` ใช้ผลเฉพาะสลิปที่จำได้ว่าเป็น 7-Eleven เกิดทั้งกับสลิปเดี่ยวและหลายสลิป ส่วนนี้ไม่ใช่บั๊กของ ReceiptBatch พบระหว่าง e2e ด้วยสลิปสังเคราะห์ที่มีบรรทัด "ค่าธรรมเนียม 0.00 บาท"
 - **ความรุนแรง: ต่ำ ล้มเหลวแบบปลอดภัย** แถวจะขึ้นสีแดง "ไม่พบวันที่" ระบบไม่บันทึก และผู้ใช้แก้วันที่เองได้ จึงยังไม่แก้ เพราะ CycleContext เป็น blocker ที่ค้างอยู่
@@ -262,6 +264,12 @@ CREATE TABLE "PaydayRule" (
 | คำถามที่ตอบ | "ควรปรับพฤติกรรมอะไร" | "ตอนนี้มีอะไรเร่งด่วน" |
 | ผลลัพธ์ | คำแนะนำ | รายการสถานะเรียงลำดับ พร้อมสิ่งที่ทำต่อได้ |
 | ความสัมพันธ์ | ไม่อ่านผลของ Alert Layer | ไม่สร้างหรือแก้คำแนะนำ |
+
+**ขอบเขตและค่าที่ล็อก 3 พ.ย. 2026 [ยืนยัน]:**
+- **ข้อจำกัดที่ต้องบอกกรรมการ:** ตัดเฟส 2 และเงินเข้าสองงวดออกจากแผนแล้ว รอบยังเป็นเดือนปฏิทิน ชั้น 1 จึงหมายถึง "งบไม่พอถึงสิ้นเดือน" ข้อความต้องใช้คำว่าสิ้นเดือนหรือสิ้นรอบ ห้ามพูดว่าวันเงินเข้า แม้ผู้ใช้ตั้งวันเงินเข้าไว้แล้ว ส่วนอื่นในเอกสารนี้ที่เขียนถึงวันเงินเข้าคือแบบที่ออกแบบไว้ ยังไม่ได้ทำ
+- การ์ด Alert อยู่บนสุดของ Overview มีหัวข้อแยกจากกล่องคำแนะนำให้ชัดว่าคนละเรื่อง
+- ชั้น 4 แสดงไม่เกิน 3 ใบ พร้อมลิงก์ไปคิวตรวจ (เลขเดียวกับเพดานของ Recommendation Engine)
+- ข้อความการ์ดทั้ง 4 ชั้นต้องให้ผู้ใช้ดูร่างก่อนใส่ ส่วนชั้น 3 ที่อาจขัดกับป้าย Goals ต้องถามพร้อมตัวเลขจริงตอนทำลำดับ 2
 
 ลำดับการตัดสินใจ **[ยืนยัน 30 ต.ค. 2026]**:
 1. คำนวณรอบ (ข้อ 3.0), Tier 0, หน้าต่างที่ตัดแล้ว (4.1) และสถานะ gate (Global 30/30, Forecast 30/30)
