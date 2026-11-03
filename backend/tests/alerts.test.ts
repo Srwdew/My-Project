@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluateAlerts, type AlertInput } from '../src/lib/alerts';
+import { evaluateAlerts, typicalDaily, type AlertInput } from '../src/lib/alerts';
 import { budgetPace } from '../src/lib/tier0';
 import { cycleByPeriod, cycleContextFromProfile } from '../src/lib/cycle';
 
@@ -50,6 +50,31 @@ test('today counts only what it may still add, so spending today is not counted 
 test('forecast gate closed or no budget: tiers 1 and 2 stay out', () => {
   assert.deepEqual(tiers(input({ today: '2026-11-26', spent: '2990', budget: '3000', forecastDaily: null })), []);
   assert.deepEqual(tiers(input({ today: '2026-11-26', spent: '2990', budget: null })), []);
+});
+const recorded = (...pairs: [string, string][]) => pairs.map(([date, amount]) => ({ date, amount }));
+test('D-9: 1 or 2 recorded days, or fewer than 7 days counted, is not enough', () => {
+  assert.equal(typicalDaily(recorded(['2026-11-01', '100']), '2026-11-20'), null);
+  assert.equal(typicalDaily(recorded(['2026-11-01', '100'], ['2026-11-02', '100']), '2026-11-20'), null);
+  assert.equal(typicalDaily(recorded(['2026-11-17', '100'], ['2026-11-18', '100'], ['2026-11-19', '100']), '2026-11-20'), null);
+});
+test('D-9: median of recorded days x frequency, one large day does not move it', () => {
+  // 3 recorded days in 10 counted (10th to 19th): 100 x 3/10
+  const days = recorded(['2026-11-10', '100'], ['2026-11-12', '9000'], ['2026-11-19', '50']);
+  assert.equal(typicalDaily(days, '2026-11-20')!.toFixed(2), '30.00');
+  assert.equal(typicalDaily(recorded(['2026-11-10', '100'], ['2026-11-12', '200'], ['2026-11-14', '300'], ['2026-11-19', '400']), '2026-11-20')!.toFixed(2), '100.00'); // median 250 x 4/10
+});
+test('D-9: looks back 30 days and ignores today', () => {
+  const days = recorded(['2026-10-20', '999'], ['2026-11-10', '100'], ['2026-11-12', '100'], ['2026-11-19', '100'], ['2026-11-20', '999']);
+  assert.equal(typicalDaily(days, '2026-11-20')!.toFixed(2), '30.00');
+});
+test('forecast wins; the estimate fills in only while its gate is closed', () => {
+  const near = { today: '2026-11-26', spent: '2600', budget: '3000' };
+  const typical = evaluateAlerts(input({ ...near, forecastDaily: null, typicalDaily: '100' }));
+  assert.deepEqual(typical.cards.map(c => c.estimate), ['typical']);
+  assert.equal(typical.gates.estimate, 'typical');
+  const both = evaluateAlerts(input({ ...near, typicalDaily: '1' }));
+  assert.deepEqual(both.cards.map(c => c.estimate), ['forecast']);
+  assert.equal(evaluateAlerts(input({ ...near, forecastDaily: null })).gates.estimate, 'insufficient');
 });
 test('tier 3 follows the savings plan and carries why options are missing', () => {
   const plan = { ...quiet, status: 'shortfall', shortfall: '900.00' } as AlertInput['savingsPlan'];

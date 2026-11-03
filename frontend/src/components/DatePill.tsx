@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import DatePicker from 'react-datepicker';
 import { th } from 'date-fns/locale';
-import { thaiMonth } from '../utils/thaiDate';
+import { thaiDate, thaiMonth } from '../utils/thaiDate';
 import 'react-datepicker/dist/react-datepicker.css';
 import './DatePill.css';
 
@@ -9,8 +9,8 @@ import './DatePill.css';
 const toDate=(s:string)=>new Date(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8));
 const toKey=(d:Date)=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 // Screens show Buddhist years; stored keys stay Gregorian.
-export const thaiDayText=(d:Date)=>`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()+543}`;
-const shown=(s:string)=>s?thaiDayText(toDate(s)):'เลือกวันที่';
+export const thaiDayText=(d:Date)=>thaiDate(toKey(d));
+const shown=(s:string)=>s?thaiDate(s):'เลือกวันที่';
 const longMonth=new Intl.DateTimeFormat('th-TH',{month:'long',year:'numeric'});
 
 type HeaderProps={date:Date;decreaseMonth:()=>void;increaseMonth:()=>void;decreaseYear:()=>void;increaseYear:()=>void;prevMonthButtonDisabled:boolean;nextMonthButtonDisabled:boolean;prevYearButtonDisabled:boolean;nextYearButtonDisabled:boolean};

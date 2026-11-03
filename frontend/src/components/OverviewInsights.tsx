@@ -41,7 +41,7 @@ type AlertCard = {
   goalOptionsUnavailable?: string | null;
   id?: string; amount?: string; date?: string; categoryName?: string;
 };
-type Alerts = { cards: AlertCard[]; flaggedTotal: number; levelShiftsWaiting: number };
+type Alerts = { cards: AlertCard[]; flaggedTotal: number; levelShiftsWaiting: number; gates?: { estimate: string; budget: boolean } };
 const RECORDED_ONLY = 'ประเมินจากรายการที่บันทึก ไม่รวมรายจ่ายที่ยังไม่ได้บันทึก';
 const budgetLine = (c: AlertCard) => Number(c.overBudget) > 0
   ? `ใช้เกินงบแล้ว ${moneyText(c.overBudget!)} บาท`
@@ -82,16 +82,18 @@ function AlertItem({ card: c }: { card: AlertCard }) {
   return <li className="alert-card alert-tier-4">
     <strong>รายการนี้รอคุณตรวจ</strong>
     <p>{c.categoryName} {moneyText(c.amount!)} บาท วันที่ {thaiDate(c.date)} ต่างจากแบบที่เคยบันทึก</p>
-    <small>{RECORDED_ONLY}</small>
+    <small>{RECORDED_ONLY}</small> <Link to={'/transactions/' + c.id + '/anomaly'}>ตรวจรายการนี้</Link>
   </li>;
 }
 export function AlertsOverview({ session, today }: { session: string | null; today: string }) {
   const { data, error, retry } = useReadOnlySummary<Alerts>('/alerts', session, today);
   const waiting = data ? data.flaggedTotal + data.levelShiftsWaiting : 0;
   if (error) return <section className="dashboard-alerts" role="alert"><p>โหลดสถานะงบและเป้าหมายไม่สำเร็จ</p><button onClick={retry}>ลองโหลดอีกครั้ง</button></section>;
-  if (!data || (!data.cards.length && !waiting)) return null;
+  const tooLittle = data?.gates?.budget && data.gates.estimate === 'insufficient';
+  if (!data || (!data.cards.length && !waiting && !tooLittle)) return null;
   return <section className="dashboard-alerts" data-testid="overview-alerts" aria-labelledby="overview-alerts-title">
     <h2 id="overview-alerts-title">สถานะงบและเป้าหมาย</h2>
+    {tooLittle && <p className="dashboard-section-note">ข้อมูลยังไม่พอสำหรับประเมินรายจ่ายข้างหน้าเทียบกับงบ</p>}
     <ul className="alert-list">{data.cards.map((c) => <AlertItem key={c.id ?? c.code} card={c} />)}</ul>
     {waiting > 0 && <Link className="dashboard-text-link" to="/anomaly?filter=waiting">ดูทั้งหมด {waiting} รายการ</Link>}
   </section>;

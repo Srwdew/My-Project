@@ -33,7 +33,7 @@ test('Alerts on real PostgreSQL and HTTP', async t => {
     assert.equal(r.status, 200);
     assert.equal(r.cache, 'private, no-store');
     assert.deepEqual(r.body.cards, []);
-    assert.deepEqual(r.body.gates, { forecast: false, anomaly: false, budget: false });
+    assert.deepEqual(r.body.gates, { forecast: false, estimate: 'insufficient', anomaly: false, budget: false });
   });
 
   await prisma.transaction.createMany({ data: Array.from({ length: 40 }, (_, i) => ({ userId: a.id, categoryId: cat.id, type: 'expense' as const, amount: '100.00', transactionDate: at(addDays(today, i - 40)) })) });
