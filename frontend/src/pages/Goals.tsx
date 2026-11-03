@@ -818,6 +818,16 @@ function GoalsSession({ session }: { session: string | null }) {
                           ))}
                         </ul>
                       )}
+                      {cash && goal.feasibility?.status === "no_income" && (
+                        <small className="goal-stats-note">
+                          ยังเทียบกับเงินสุทธิไม่ได้: เดือน {thaiMonth(cash.period.month)} ไม่มีรายรับที่บันทึก
+                        </small>
+                      )}
+                      {cash && goal.feasibility?.status === "no_transactions" && (
+                        <small className="goal-stats-note">
+                          ยังเทียบกับเงินสุทธิไม่ได้: เดือน {thaiMonth(cash.period.month)} ยังไม่มีธุรกรรมที่บันทึก
+                        </small>
+                      )}
                       {required !== null && (planned === null || short || overNet || shortfall !== null) && (
                         <button
                           type="button"
