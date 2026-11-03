@@ -8,7 +8,7 @@ const mode = process.argv[2] || 'test';
 if (!['unit', 'db', 'browser', 'test', 'all'].includes(mode)) throw Error('Unknown mode: ' + mode);
 const wants = g => mode === 'all' || mode === g || (mode === 'test' && g !== 'browser');
 
-const UNIT = ['anomaly', 'anomalyDetail.presentation', 'anomalyDimensions', 'anomalyLevelShift', 'anomalyTolerance', 'behavior', 'budgetNotifications', 'cycle', 'dashboard', 'forecast.backtest', 'forecast.benchmark', 'forecast', 'forecastTrend', 'goalFeasibility', 'goals.calculations', 'goalSavingsPlan', 'passwordResetProviders', 'pendingTransaction', 'presence', 'receiptBatch', 'receiptParser', 'recommendation.engine', 'recommendation.rules', 'reconciliation.frontend', 'setupChecklist', 'setupRequirement', 'testDatabaseGuard', 'weeklyExpenses.frontend'].map(n => n + '.test.ts');
+const UNIT = ['warningCopy', 'anomaly','anomalyDetail.presentation', 'anomalyDimensions', 'anomalyLevelShift', 'anomalyTolerance', 'behavior', 'budgetNotifications', 'cycle', 'dashboard', 'forecast.backtest', 'forecast.benchmark', 'forecast', 'forecastTrend', 'goalFeasibility', 'goals.calculations', 'goalSavingsPlan', 'passwordResetProviders', 'pendingTransaction', 'presence', 'receiptBatch', 'receiptParser', 'recommendation.engine', 'recommendation.rules', 'reconciliation.frontend', 'setupChecklist', 'setupRequirement', 'testDatabaseGuard', 'weeklyExpenses.frontend'].map(n => n + '.test.ts');
 const GOALS = 'spendsense_goals_test_';
 // file -> database name prefix its own guard demands
 const DB = {
