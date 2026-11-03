@@ -466,6 +466,12 @@ function ForecastSession({
               </section>
             </div>
           )}
+          {!data.budgetComparison && (
+            <p className="forecast-box forecast-budget">
+              ยังไม่ได้ตั้งงบรวม จึงไม่มีการเทียบวงเงิน{" "}
+              <Link to={"/budget?month=" + data.asOfDate.slice(0, 7)}>ตั้งงบประมาณ</Link>
+            </p>
+          )}
           {data.budgetComparison && (
             <section className="forecast-box forecast-budget">
               <div className="forecast-box-head">
