@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { prisma } from '../src/lib/prisma';
 import { checkBudgetMonth } from '../src/lib/budgetNotifications';
+const db = new URL(process.env.DATABASE_URL!).pathname.slice(1);
+if (!db.startsWith('spendsense_goals_test_') || process.env.GOALS_TEST_DATABASE !== db) throw Error('Explicit isolated test database required');
 const rollback = new Error('EXPECTED_TEST_ROLLBACK');
 let stage = 'connect and begin transaction';
 async function main() {

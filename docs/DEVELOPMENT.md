@@ -80,6 +80,8 @@ OCR setup คัดลอก worker/core จาก node_modules และอ่�
 
 ## การตรวจและทดสอบ
 
+⚠️ เทสต์ต้องไม่ต่อฐานหลัก: ใช้ตัวรันใน `backend/tests` ซึ่งสร้างฐานแยก ถ้าเห็น `[test guard]` แปลว่าการต่อฐานถูกบล็อกเพราะ DATABASE_URL ไม่ใช่ฐานทดสอบ อย่าแก้ `.env` เพื่อให้ผ่าน (ISSUE-TEST-3 ใน [DECISIONS](DECISIONS.md))
+
 ไม่มี npm test และ backend build ไม่ครอบคลุม tests เพราะ tsconfig include เฉพาะ src/**/*.ts
 
 | Working directory | คำสั่งที่มีหลักฐานใช้ | ขอบเขต/ผลข้างเคียง |

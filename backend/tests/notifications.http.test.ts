@@ -6,6 +6,8 @@ import { randomUUID } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { app } from '../src/index';
 import { prisma } from '../src/lib/prisma';
+const db = new URL(process.env.DATABASE_URL!).pathname.slice(1);
+if (!db.startsWith('spendsense_goals_test_') || process.env.GOALS_TEST_DATABASE !== db) throw Error('Explicit isolated test database required');
 
 test('HTTP settings, CRUD hooks, notification ownership, read timestamps and latest 30', async t => {
   const originals: (() => void)[] = [];
