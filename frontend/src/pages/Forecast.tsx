@@ -16,6 +16,7 @@ import {
 import { apiFetch } from "../api";
 import { getToken, useSessionKey } from "../auth";
 import { bangkokDate } from "../utils/dashboard";
+import { forecastTrend } from "../utils/forecastTrend";
 import "./Forecast.css";
 
 type Day = { date: string; amount: string };
@@ -187,10 +188,7 @@ function ForecastSession({
     diff = data?.summary.periodDifference ?? null;
   const changePct =
     diff !== null && Number(prev) > 0 ? (Number(diff) / Number(prev)) * 100 : null;
-  // Borrowed Behavior line (>=5% and >=100 baht, both directions; DECISIONS 3 Nov 2026): smaller moves are "close to last week", not a trend.
-  const significant =
-    diff !== null && Math.abs(Number(diff)) >= 100 && (changePct === null || Math.abs(changePct) >= 5);
-  const trend = diff === null ? null : !significant ? "flat" : Number(diff) > 0 ? "up" : "down";
+  const trend = forecastTrend(diff, prev);
   const barMax = Math.max(1, Number(prev), Number(total ?? 0));
   const shortDay = (d: string, i: number) =>
     i === 0 || d.endsWith("-01") ? thaiDate(d).split(" ").slice(0, 2).join(" ") : String(Number(d.slice(8)));
@@ -263,9 +261,9 @@ function ForecastSession({
                 <h2>เปลี่ยนแปลงจาก 7 วันที่ผ่านมา</h2>
                 {trend === "down" ? (
                   <TrendingDown size={18} aria-hidden="true" />
-                ) : (
+                ) : trend === "up" ? (
                   <TrendingUp size={18} aria-hidden="true" />
-                )}
+                ) : null}
               </div>
               <strong>
                 {changePct === null
@@ -405,7 +403,7 @@ function ForecastSession({
                   <h2>ผลการพยากรณ์</h2>
                   {trend && (
                     <span className={"forecast-trend is-" + trend}>
-                      {trend === "down" ? <TrendingDown size={14} aria-hidden="true" /> : <TrendingUp size={14} aria-hidden="true" />}
+                      {trend === "down" ? <TrendingDown size={14} aria-hidden="true" /> : trend === "up" ? <TrendingUp size={14} aria-hidden="true" /> : null}
                       {trend === "up" ? "มีแนวโน้มสูงขึ้น" : trend === "down" ? "มีแนวโน้มลดลง" : "ใกล้เคียงเดิม"}
                     </span>
                   )}
