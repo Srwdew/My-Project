@@ -674,6 +674,10 @@ function GoalsSession({ session }: { session: string | null }) {
           </div>
         </div>
         <div className="goals-funding-note">
+          <span>
+            เงินที่เก็บเข้าเป้าหมายเป็นการกันเงินไว้ ไม่เปลี่ยนรายรับ รายจ่าย หรืองบประมาณ
+            และไม่ใช่ยอดเงินสดคงเหลือ
+          </span>
           <button onClick={() => open("opening")}>
             ตั้งค่า / แก้ไขเงินออมตั้งต้น
           </button>

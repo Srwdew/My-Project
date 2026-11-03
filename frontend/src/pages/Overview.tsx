@@ -393,6 +393,11 @@ function OverviewMonth({
               />
             ))}
           </div>
+          <p className="dashboard-section-note dashboard-summary-note">
+            {data.period.isCurrentMonth ? "เดือนนี้ยังไม่สิ้นสุด · " : ""}
+            อัตราการออมคำนวณจากรายการที่บันทึก ไม่ใช่ยอดที่เก็บเข้าเป้าหมาย
+            หรือข้อกำหนดให้ต้องออมเงินทั้งหมด
+          </p>
           {!data.summary.hasTransactions && (
             <div className="dashboard-empty" role="status">
               ยังไม่มีรายการในเดือนนี้ ยอดจากรายการที่บันทึกเป็น 0.00 บาท

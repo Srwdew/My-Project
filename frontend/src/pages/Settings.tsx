@@ -492,21 +492,6 @@ export default function Settings() {
               aria-labelledby="settings-finance"
             >
               <h2 id="settings-finance">ข้อมูลทางการเงินพื้นฐาน</h2>
-              <div className="settings-security-row">
-                <p id="settings-setup-help">
-                  {dirty
-                    ? "มีการแก้ไขที่ยังไม่บันทึก ระบบจะถามยืนยันก่อนทิ้งการแก้ไขและเปิด Setup"
-                    : "กลับไปแก้ไขโปรไฟล์การเงินในแบบฟอร์ม Setup"}
-                </p>
-                <button
-                  id="settings-open-setup"
-                  aria-describedby="settings-setup-help"
-                  type="button"
-                  onClick={() => navigate("/setup")}
-                >
-                  เปิดฟอร์ม Setup
-                </button>
-              </div>
               <div className="settings-grid">
                 <label htmlFor="settings-income">
                   รายได้ต่อเดือน (บาท)

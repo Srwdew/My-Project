@@ -1021,6 +1021,9 @@ function BehaviorBody({
                 {data.facts.recurrence.reasonCodes.map((r) => (
                   <p key={r}>{reasons[r] ?? r}</p>
                 ))}
+                <p className="behavior-note">
+                  เป็นหลักฐานในช่วงที่เลือก ไม่ยืนยันว่าเกิดซ้ำต่อเนื่องจนถึงปัจจุบันหรือเป็นบิลเดียวกัน
+                </p>
                 <ul className="behavior-status-list">
                 {data.facts.categories
                   .filter(
@@ -1261,6 +1264,7 @@ function BehaviorBody({
                 ยังไม่มีคำแนะนำเฉพาะสำหรับช่วงนี้
               </p>
             )}
+            <p className="behavior-note">คำแนะนำอ้างข้อมูลที่พบ ไม่ได้พิสูจน์สาเหตุหรือแรงจูงใจ</p>
           </section>
         </div>
         <p className="behavior-footer">

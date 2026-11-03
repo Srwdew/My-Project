@@ -25,42 +25,13 @@ const mock=()=>{
  await send('Page.enable');await send('Runtime.enable');await send('Page.addScriptToEvaluateOnNewDocument',{source:'('+mock.toString()+')()'});await send('Emulation.setDeviceMetricsOverride',{width:1280,height:1000,deviceScaleFactor:1,mobile:false});await send('Page.navigate',{url:origin+'/settings'});await waitFor("Boolean(document.querySelector('#settings-name'))");
  assert.equal(await evaluate("document.querySelector('#settings-email').readOnly"),true);assert.equal(await evaluate("document.querySelectorAll('input[role=switch]:disabled').length"),1);assert.equal(await evaluate("getComputedStyle(document.querySelector('.settings-grid')).gridTemplateColumns.split(' ').length"),2);console.log('PASS desktop: read-only email, two columns, disabled unsupported toggles');
 
- // A completed account can reopen Setup through the visible Settings control.
- const valuesBefore=await evaluate("({income:document.querySelector('#settings-income').value,payday:document.querySelector('#settings-payday').value,budget:document.querySelector('#settings-budget').value})");
- const snapshotBefore=await evaluate('window.__settingsSnapshot()');
- const requestOffset=await evaluate('window.__requests.length');
- await evaluate("window.__originalConfirm=window.confirm;window.__confirmMessages=[];window.confirm=message=>{window.__confirmMessages.push(message);return false;}");
- await evaluate("document.querySelector('#settings-name').focus()");await send('Input.insertText',{text:' draft'});
- await waitFor("!document.querySelector('button[type=submit]').disabled");
- const unsavedName=await evaluate("document.querySelector('#settings-name').value");
-
- await evaluate("document.querySelector('#settings-open-setup').focus()");
- assert.equal(await evaluate("document.activeElement.id"),'settings-open-setup');
- await evaluate("document.querySelector('#settings-open-setup').click()");
- assert.equal(await evaluate('location.pathname'),'/settings');
- assert.equal(await evaluate("document.querySelector('#settings-name').value"),unsavedName);
- assert.equal(await evaluate('window.__confirmMessages.length'),1);
- assert.ok(await evaluate("window.__confirmMessages[0].includes('\u0e22\u0e31\u0e07\u0e44\u0e21\u0e48\u0e1a\u0e31\u0e19\u0e17\u0e36\u0e01')"));
- assert.equal(await evaluate('window.__settingsSnapshot()'),snapshotBefore);
- assert.equal(await evaluate('window.__saveCount||0'),0);
- await evaluate("window.confirm=message=>{window.__confirmMessages.push(message);return true;};document.querySelector('#settings-open-setup').click()");
- assert.equal(await evaluate('window.__confirmMessages.length'),2);
- console.log('PASS Setup navigation asks before discarding; Cancel retains draft; explicit confirmation permits leaving');
-
- await waitFor("location.pathname==='/setup'&&document.querySelector('#setup-income')!==null");
- assert.deepEqual(await evaluate("({income:document.querySelector('#setup-income').value,payday:document.querySelector('#setup-payday').value,budget:document.querySelector('#setup-budget').value})"),valuesBefore);
- assert.equal(await evaluate("document.querySelector('#setup-name')===null"),true);
- assert.equal(await evaluate('window.__settingsSnapshot()'),snapshotBefore);
- assert.deepEqual(await evaluate('window.__requests.slice('+requestOffset+').filter(r=>r.method!=="GET")'),[]);
- assert.equal(await evaluate('window.__saveCount||0'),0);
- await evaluate("document.querySelector('.setup-card a[href=\"/settings\"]').click()");
- await waitFor("location.pathname==='/settings'&&document.querySelector('#settings-name')!==null");
- await evaluate('window.confirm=window.__originalConfirm');
- console.log('PASS completed account Settings -> Setup with prefill; opening sends no mutation and preserves stored values');
+ // ISSUE-UI-2: ProtectedRoute sends completed accounts away from /setup, so the Settings button never worked and was removed; income is edited here.
+ assert.equal(await evaluate("document.querySelector('#settings-open-setup')"),null);
+ console.log('PASS Settings offers no Setup button');
  if(process.env.SETTINGS_SCREENSHOT_DIR){fs.mkdirSync(process.env.SETTINGS_SCREENSHOT_DIR,{recursive:true});const shot=await send('Page.captureScreenshot',{format:'png',captureBeyondViewport:true});fs.writeFileSync(path.join(process.env.SETTINGS_SCREENSHOT_DIR,'settings-desktop.png'),Buffer.from(shot.data,'base64'));}
  await evaluate("document.querySelector('input[role=switch]:not(:disabled)').focus()");await send('Input.dispatchKeyEvent',{type:'keyDown',key:' ',code:'Space',windowsVirtualKeyCode:32});await send('Input.dispatchKeyEvent',{type:'keyUp',key:' ',code:'Space',windowsVirtualKeyCode:32});assert.equal(await evaluate("document.querySelector('input[role=switch]:not(:disabled)').checked"),true);console.log('PASS keyboard Space toggles near notification');
- await evaluate("const e=document.querySelector('#settings-intention');Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype,'value').set.call(e,e.options[1].value);e.dispatchEvent(new Event('change',{bubbles:true}))");
- await evaluate("document.querySelector('#settings-name').focus()");await send('Input.insertText',{text:' แก้ไข'});await waitFor("!document.querySelector('button[type=submit]').disabled");await evaluate("document.querySelector('button[type=submit]').click();document.querySelector('button[type=submit]').click()");await waitFor("document.querySelector('.settings-success').textContent.includes('บันทึก')");await waitFor("document.querySelector('.user-header-info strong')?.textContent===document.querySelector('#settings-name')?.value");assert.equal(await evaluate('window.__saveCount'),1);assert.equal(await evaluate("document.querySelector('#settings-intention').selectedIndex"),1);console.log('PASS saved financial intention, shared UserHeader and duplicate submit guard');
+ await evaluate("document.querySelector('#settings-intention').click()");await waitFor("document.querySelectorAll('[role=listbox] li').length>1");const intention=await evaluate("document.querySelectorAll('[role=listbox] li')[1].textContent");await evaluate("document.querySelectorAll('[role=listbox] li')[1].click()");
+ await evaluate("document.querySelector('#settings-name').focus()");await send('Input.insertText',{text:' แก้ไข'});await waitFor("!document.querySelector('button[type=submit]').disabled");await evaluate("document.querySelector('button[type=submit]').click();document.querySelector('button[type=submit]').click()");await waitFor("document.querySelector('.settings-success').textContent.includes('บันทึก')");await waitFor("document.querySelector('.user-header-info strong')?.textContent===document.querySelector('#settings-name')?.value");assert.equal(await evaluate('window.__saveCount'),1);assert.equal(await evaluate("document.querySelector('#settings-intention').textContent"),intention);console.log('PASS saved financial intention, shared UserHeader and duplicate submit guard');
  await evaluate("document.querySelector('#settings-name').focus()");await send('Input.insertText',{text:' ยังไม่บันทึก'});await evaluate("window.confirm=()=>false;document.querySelector('a[href=\"/overview\"]').click()");assert.equal(await evaluate('location.pathname'),'/settings');await evaluate("document.querySelector('.sidebar-logout').click()");assert.equal(await evaluate("localStorage.getItem('spendsense_token')"),'session-a');console.log('PASS cancelled logout retains current session');await evaluate("[...document.querySelectorAll('.settings-actions button')].find(b=>b.textContent==='ยกเลิก').click()");await waitFor("Boolean(document.querySelector('#settings-name')) && document.querySelector('button[type=submit]').disabled");console.log('PASS dirty navigation blocked; Cancel reloads server values');
  await evaluate("window.__failSettings=true;document.querySelector('.settings-actions button[type=button]').click()");await waitFor("Boolean(document.querySelector('.settings-error button'))");await evaluate("document.querySelector('.settings-error button').click()");await waitFor("Boolean(document.querySelector('#settings-name')) && !document.querySelector('.settings-error button')");console.log('PASS loading/error/retry restores server values');
  await evaluate("const trigger=[...document.querySelectorAll('button')].find(b=>b.textContent==='เปลี่ยนรหัสผ่าน');trigger.focus();trigger.click()");await waitFor("document.querySelector('dialog.settings-dialog')?.open");assert.equal(await evaluate('document.activeElement.id'),'current-password');for(let i=0;i<7;i++){await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Tab',code:'Tab',windowsVirtualKeyCode:9});assert.equal(await evaluate("Boolean(document.activeElement.closest('dialog.settings-dialog'))"),true);}console.log('PASS dialog keyboard focus remains inside modal');await send('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await send('Input.dispatchKeyEvent',{type:'keyUp',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});await waitFor("!document.querySelector('dialog.settings-dialog')");await waitFor('document.activeElement===trigger');console.log('PASS native dialog focus, Escape, focus restoration');
