@@ -1,18 +1,18 @@
 # Forecast TOTAL model synthetic benchmark
 
-This report belongs only to holt-total-v2-e949a61713de0b90. The category-v1 results remain in FORECAST_BACKTEST_REPORT.md and are not evidence for this model.
+This report belongs only to theta-total-v1-a69a8feb13f6aac5. The category-v1 results remain in FORECAST_BACKTEST_REPORT.md and are not evidence for this model.
 
 Synthetic engineering evidence only. No user data, database, or application connection. MAE/RMSE are research metrics, not UI accuracy scores.
 
-Protocol: {"version":"total-walk-forward-v2","start":"2025-01-01","days":280,"seeds":[607,701,809],"developmentSeeds":[17],"firstCutoffIndex":29,"step":14,"windows":18,"scenarios":["constant","trend","weekly","intermittent","spikes","level-change","lifecycle","missing-records"],"models":["holt","seasonal-naive","mean-7"]}
+Protocol: {"version":"total-walk-forward-v2","start":"2025-01-01","days":280,"seeds":[607,701,809],"developmentSeeds":[17],"firstCutoffIndex":29,"step":14,"windows":18,"scenarios":["constant","trend","weekly","intermittent","spikes","level-change","lifecycle","missing-records"],"models":["holt","theta","seasonal-naive","mean-7"]}
 
-Rule: {"method":"holt_linear_total","windowDays":180,"horizon":7,"minTransactions":30,"minObservedDays":30,"tuningMinDays":42,"defaultAlpha":"0.2","defaultBetaStar":"0.1","defaultSource":"engineering-fixed-before-total-outer-benchmark","staleDays":7,"longGapDays":7,"readiness":"lifetime-expense-count-and-inclusive-first-last-through-cutoff","initialization":"ols-first-7-level-at-7-recur-from-8","grid":"0.0:0.1:1.0","folds":"last-three-nonoverlapping-7-day-inner-folds","objective":"rounded-clipped-MAE-then-MSE-then-alpha-then-beta","missing":"zero-after-first-expense","negative":"clip-output-only","rounding":"40-digit-decimal-half-up-daily-total-cents-before-seven-day-sum","coverage":"all-expenses-total","version":2}
+Rule: {"method":"theta_2_total","windowDays":180,"horizon":7,"minTransactions":30,"minObservedDays":30,"staleDays":7,"longGapDays":7,"readiness":"lifetime-expense-count-and-inclusive-first-last-through-cutoff","seasonality":"tested-first-acf-lag7-90pct-bartlett-deseasonalise-only-if-found-multiplicative-else-additive","alpha":"in-sample-one-step-sse-grid-0.01-to-0.99","drift":"theta-2-equals-ses-with-drift-half-ols-slope","missing":"zero-after-first-expense","negative":"clip-output-only","rounding":"float-daily-cents-then-40-digit-decimal-seven-day-sum","coverage":"all-expenses-total","version":1}
 
 Fixture SHA256: ef41ff9c8ce4d73f2e8eee97a4eccb4e8d31d0a8619673604bfe38e689456e0e
 
-Core SHA256: 371b54b68fe7e9f8259d9ce367a254df73c24188725ac3bd1366b978385e9521
+Core SHA256: d669b7617ea2c8253dbf8b6094078df3616515806c73bc8525d6a034240c2ae0
 
-Point SHA256: 977c31d1e83f23c02649a6822e7865ea02dc3e61fc0bf683ed3d312fa7a65930
+Point SHA256: a741c84899f6b855c3d28b4d53f81951cc29b74c42915f5596e1618ab639a6ec
 
 ## Frozen methodology
 
@@ -29,6 +29,7 @@ MAE=mean(abs(actual-prediction)); RMSE=sqrt(mean(error^2)); weekly error=sum(act
 | Model | Daily points | MAE | RMSE | 7-day origins | 7-day MAE | 7-day RMSE |
 | --- | --- | --- | --- | --- | --- | --- |
 | holt | 2884 | 38.80 | 101.75 | 412 | 174.48 | 461.33 |
+| theta | 2884 | 30.23 | 80.10 | 412 | 92.57 | 178.81 |
 | seasonal-naive | 2884 | 39.71 | 122.54 | 412 | 126.58 | 270.85 |
 | mean-7 | 2884 | 37.14 | 86.69 | 412 | 126.58 | 270.85 |
 
@@ -45,6 +46,13 @@ In this frozen synthetic run Mean-7 has lower pooled daily MAE/RMSE and seven-da
 | holt | 5 | 412 | 47.31 | 108.87 |
 | holt | 6 | 412 | 39.83 | 102.42 |
 | holt | 7 | 412 | 39.78 | 104.84 |
+| theta | 1 | 412 | 30.23 | 83.86 |
+| theta | 2 | 412 | 28.36 | 72.87 |
+| theta | 3 | 412 | 28.86 | 73.22 |
+| theta | 4 | 412 | 31.92 | 83.18 |
+| theta | 5 | 412 | 30.54 | 81.31 |
+| theta | 6 | 412 | 30.72 | 82.93 |
+| theta | 7 | 412 | 30.98 | 82.46 |
 | seasonal-naive | 1 | 412 | 41.97 | 126.91 |
 | seasonal-naive | 2 | 412 | 35.72 | 116.15 |
 | seasonal-naive | 3 | 412 | 38.32 | 113.08 |
@@ -65,9 +73,11 @@ In this frozen synthetic run Mean-7 has lower pooled daily MAE/RMSE and seven-da
 | Mode | Model | Daily points | MAE | RMSE | 7-day origins | 7-day MAE | 7-day RMSE |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | fixed_default | holt | 126 | 23.01 | 104.64 | 18 | 113.96 | 299.61 |
+| fixed_default | theta | 126 | 17.70 | 100.30 | 18 | 104.69 | 263.46 |
 | fixed_default | seasonal-naive | 126 | 16.56 | 101.59 | 18 | 97.32 | 273.19 |
 | fixed_default | mean-7 | 126 | 22.09 | 103.05 | 18 | 97.33 | 273.20 |
 | inner_validation | holt | 2758 | 39.52 | 101.62 | 394 | 177.25 | 467.38 |
+| inner_validation | theta | 2758 | 30.80 | 79.05 | 394 | 92.02 | 173.96 |
 | inner_validation | seasonal-naive | 2758 | 40.77 | 123.42 | 394 | 127.92 | 270.75 |
 | inner_validation | mean-7 | 2758 | 37.82 | 85.87 | 394 | 127.92 | 270.75 |
 
@@ -76,27 +86,35 @@ In this frozen synthetic run Mean-7 has lower pooled daily MAE/RMSE and seven-da
 | Scenario | Model | Daily points | MAE | RMSE | 7-day origins | 7-day MAE | 7-day RMSE |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | constant | holt | 378 | 0.00 | 0.00 | 54 | 0.00 | 0.00 |
+| constant | theta | 378 | 0.00 | 0.00 | 54 | 0.00 | 0.00 |
 | constant | seasonal-naive | 378 | 0.00 | 0.00 | 54 | 0.00 | 0.00 |
 | constant | mean-7 | 378 | 0.00 | 0.00 | 54 | 0.00 | 0.00 |
 | trend | holt | 378 | 0.00 | 0.00 | 54 | 0.00 | 0.00 |
+| trend | theta | 378 | 0.40 | 0.45 | 54 | 2.80 | 2.80 |
 | trend | seasonal-naive | 378 | 1.40 | 1.40 | 54 | 9.80 | 9.80 |
 | trend | mean-7 | 378 | 1.40 | 1.46 | 54 | 9.80 | 9.80 |
 | weekly | holt | 378 | 42.96 | 51.95 | 54 | 104.33 | 125.02 |
+| weekly | theta | 378 | 5.27 | 6.32 | 54 | 16.80 | 21.56 |
 | weekly | seasonal-naive | 378 | 6.86 | 8.49 | 54 | 18.59 | 22.57 |
 | weekly | mean-7 | 378 | 43.48 | 50.23 | 54 | 18.59 | 22.58 |
 | intermittent | holt | 273 | 125.16 | 149.49 | 39 | 312.78 | 386.70 |
+| intermittent | theta | 273 | 135.54 | 144.02 | 39 | 170.87 | 183.46 |
 | intermittent | seasonal-naive | 273 | 200.47 | 244.91 | 39 | 210.81 | 249.66 |
 | intermittent | mean-7 | 273 | 134.70 | 143.52 | 39 | 210.81 | 249.66 |
 | spikes | holt | 378 | 96.21 | 235.34 | 54 | 646.25 | 1168.81 |
+| spikes | theta | 378 | 72.94 | 177.14 | 54 | 401.48 | 438.26 |
 | spikes | seasonal-naive | 378 | 88.56 | 256.84 | 54 | 583.18 | 682.26 |
 | spikes | mean-7 | 378 | 85.51 | 192.28 | 54 | 583.17 | 682.26 |
 | level-change | holt | 378 | 8.55 | 14.05 | 54 | 47.27 | 78.70 |
+| level-change | theta | 378 | 6.20 | 7.82 | 54 | 29.06 | 36.63 |
 | level-change | seasonal-naive | 378 | 8.03 | 15.90 | 54 | 26.91 | 44.14 |
 | level-change | mean-7 | 378 | 6.06 | 8.17 | 54 | 26.91 | 44.14 |
 | lifecycle | holt | 378 | 8.01 | 23.48 | 54 | 54.53 | 151.06 |
+| lifecycle | theta | 378 | 5.95 | 16.41 | 54 | 40.63 | 94.27 |
 | lifecycle | seasonal-naive | 378 | 7.70 | 24.99 | 54 | 45.59 | 129.76 |
 | lifecycle | mean-7 | 378 | 7.19 | 20.72 | 54 | 45.59 | 129.76 |
 | missing-records | holt | 343 | 55.02 | 66.59 | 49 | 278.80 | 340.21 |
+| missing-records | theta | 343 | 46.28 | 49.47 | 49 | 101.52 | 136.30 |
 | missing-records | seasonal-naive | 343 | 50.31 | 69.14 | 49 | 142.64 | 181.35 |
 | missing-records | mean-7 | 343 | 46.73 | 52.16 | 49 | 142.64 | 181.35 |
 

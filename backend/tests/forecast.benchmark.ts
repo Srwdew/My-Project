@@ -9,7 +9,7 @@ import {fixtureInput,type Sample} from './forecast.fixture';
 export const PROTOCOL=Object.freeze({version:'total-walk-forward-v2',start:'2025-01-01',days:280,
  seeds:[607,701,809],developmentSeeds:[17],firstCutoffIndex:29,step:14,windows:18,
  scenarios:['constant','trend','weekly','intermittent','spikes','level-change','lifecycle','missing-records'],
- models:['holt','seasonal-naive','mean-7']});
+ models:['holt','theta','seasonal-naive','mean-7']});
 export type Point={account:string;scenario:string;cutoff:string;model:string;parameterMode:string;horizon:number;actual:string;prediction:string;error:string};
 export function metrics(errors:string[]){
  return {n:errors.length,mae:errors.length?money(sum(errors.map(e=>new D(e).abs())).div(errors.length)):null,
@@ -44,7 +44,8 @@ export function evaluateWindow(rows:Sample[],cutoff:string,account:string,scenar
  if(view.summary.daily){
   const series=totalSeries(input.rows,cutoff,input.history.firstDate).series,ref=holtReference(series);holtMode=ref.mode;
   for(const model of PROTOCOL.models){
-   const forecasts=model==='holt'?ref.amounts:baseline(series,model);
+   // 'theta' is production buildForecast output itself (D-10 recompute, after 730fd82), not a second implementation.
+   const forecasts=model==='holt'?ref.amounts:model==='theta'?view.summary.daily.map(d=>d.amount):baseline(series,model);
    for(let h=1;h<=7;h++){
     const actual=money(sum(rows.filter(r=>r.date===shiftDay(cutoff,h)).map(r=>r.amount))),prediction=forecasts[h-1]!;
     points.push({account,scenario,cutoff,model,parameterMode:ref.mode,horizon:h,actual,prediction,error:money(new D(actual).minus(prediction))});
