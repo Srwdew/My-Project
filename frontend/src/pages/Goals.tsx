@@ -27,7 +27,7 @@ import {
   PiggyBank,
 } from "lucide-react";
 import { thaiMonth } from "../utils/thaiDate";
-import type { Feasibility } from "../components/GoalFeasibility";
+import GoalFeasibility, { type Feasibility } from "../components/GoalFeasibility";
 import UserHeader from "../components/UserHeader";
 import { useToast } from "../components/LocalToast";
 import { apiFetch } from "../api";
@@ -117,6 +117,14 @@ const statusLabels: Record<string, string> = {
   overdue: "เลยกำหนด",
   not_started: "ยังไม่ได้เก็บเงิน",
 };
+// Only cases the plan row cannot explain: no assessment possible, or too little net cash (including a negative month).
+const feasibilityShown = [
+  "no_target_date",
+  "no_transactions",
+  "no_income",
+  "non_positive_cash_flow",
+  "exceeds_observed_cash_flow",
+];
 const money = (v: string) =>
   new Intl.NumberFormat("th-TH", {
     minimumFractionDigits: 2,
@@ -841,6 +849,9 @@ function GoalsSession({ session }: { session: string | null }) {
                     </div>
                   );
                 })()}
+                {goal.feasibility && feasibilityShown.includes(goal.feasibility.status) && (
+                  <GoalFeasibility value={goal.feasibility} />
+                )}
                 <div className="goal-actions">
                   <button
                     className="goal-action-primary"
