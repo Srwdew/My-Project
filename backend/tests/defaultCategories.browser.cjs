@@ -30,8 +30,9 @@ const origin=meta.frontend,delay=ms=>new Promise(r=>setTimeout(r,ms));
  const categories=()=>evaluate("[...document.querySelectorAll('.category-option-content>span')].map(e=>e.textContent)");
  await login(meta.legacy);await go('/transactions/add');
  await waitFor("document.querySelector('.category-options')!==null && window.__calls.some(c=>c.path==='/categories'&&c.status===200)");
- assert.deepEqual(await categories(),[]);
- console.log('PASS real browser: existing account has no categories before signup');
+ // GET /categories creates the default catalog on first use (route from 195cf1c, cached in e90f761), so an older account sees it too.
+ assert.equal((await categories()).length,7);
+ console.log('PASS real browser: existing account gets the default categories from GET /categories');
  await logout();await go('/register');await waitFor("document.querySelector('#register-email')!==null");
  await fill('#register-email',meta.fresh.email);await fill('#register-password',meta.fresh.password);await fill('#register-confirm-password',meta.fresh.password);
  await evaluate("document.querySelector('.register-submit').click()");

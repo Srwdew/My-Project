@@ -2,7 +2,8 @@
 // Disposable postgres:16 container (always removed), .env never loaded, every file reported as PASS, FAIL or SKIP.
 // A new test file not listed here counts as FAIL, so a suite cannot silently stay unrun (ISSUE-TEST-2).
 const fs = require('fs'), os = require('os'), net = require('net'), path = require('path'), cp = require('child_process'), crypto = require('crypto');
-const BACKEND = path.resolve(__dirname, '..'), FRONTEND = path.resolve(BACKEND, '../frontend');
+// SPENDSENSE_TEST_FRONTEND: test another checkout, e.g. to tell uncommitted frontend changes from older failures.
+const BACKEND = path.resolve(__dirname, '..'), FRONTEND = process.env.SPENDSENSE_TEST_FRONTEND || path.resolve(BACKEND, '../frontend');
 const mode = process.argv[2] || 'test';
 if (!['unit', 'db', 'browser', 'test', 'all'].includes(mode)) throw Error('Unknown mode: ' + mode);
 const wants = g => mode === 'all' || mode === g || (mode === 'test' && g !== 'browser');
@@ -119,9 +120,15 @@ async function runBrowser() {
   };
   await withApi(4088, 5188, GOALS, 'dimensions', (env, _t, api, origin) => runFile('browser', 'anomalyDimensions.browser.cjs', ['tests/anomalyDimensions.browser.cjs'], { ...env, ANOMALY_BROWSER_API: api, ANOMALY_BROWSER_ORIGIN: origin }));
   await withApi(4001, 5175, GOALS + 'acceptance_', 'acceptance', (env, t, api, origin) => runFile('browser', 'anomaly.acceptance.browser.cjs', ['tests/anomaly.acceptance.browser.cjs'], { ...env, ACCEPTANCE_API: api, ACCEPTANCE_DATABASE: t.name, SETTINGS_BROWSER_ORIGIN: origin }));
-  await withApi(4004, 5180, GOALS + 'categories_acceptance_', 'categories', (env, t, api, origin) => {
-    const meta = path.join(tmp, 'categories-runtime.json');
-    fs.writeFileSync(meta, JSON.stringify({ db: t.name, api, frontend: origin }));
+  await withApi(4004, 5180, GOALS + 'categories_acceptance_', 'categories', async (env, t, api, origin) => {
+    const meta = path.join(tmp, 'categories-runtime.json'), account = () => ({ email: crypto.randomUUID() + '@example.invalid', password: crypto.randomUUID() + '!A9' });
+    const legacy = account(), fresh = account();
+    // The harness needs an account that predates default categories, so it cannot come from /auth/register.
+    const { Client } = require(require.resolve('pg', { paths: [BACKEND] })), bcrypt = require(require.resolve('bcrypt', { paths: [BACKEND] }));
+    const c = new Client({ connectionString: t.url });
+    await c.connect();
+    try { await c.query('INSERT INTO "User" (id,email,"passwordHash","setupCompletedAt") VALUES ($1,$2,$3,now())', [crypto.randomUUID(), legacy.email, await bcrypt.hash(legacy.password, 12)]); } finally { await c.end(); }
+    fs.writeFileSync(meta, JSON.stringify({ db: t.name, api, frontend: origin, legacy, fresh }));
     runFile('browser', 'defaultCategories.browser.cjs', ['tests/defaultCategories.browser.cjs'], { ...env, CATEGORY_ACCEPTANCE_RUNTIME: meta });
   });
   runFile('browser', 'ocrHardening.browser.cjs', ['--import', 'tsx', 'tests/ocrHardening.browser.cjs'], dbEnv(await db.create(GOALS + 'ocr_hardening_')));

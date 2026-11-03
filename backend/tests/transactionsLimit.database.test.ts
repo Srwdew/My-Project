@@ -10,7 +10,7 @@ test('transactions optional limit: real PostgreSQL, original contract, query tak
  process.env.JWT_SECRET=randomUUID();
  const users=await Promise.all([0,1,2].map(()=>prisma.user.create({data:{email:randomUUID()+'@example.invalid',passwordHash:'synthetic-not-a-login'}})));
  const tokens=users.map(u=>jwt.sign({userId:u.id,email:u.email,authVersion:0},process.env.JWT_SECRET!));
- const category=await prisma.category.findFirstOrThrow({where:{type:'expense'}});
+ const category=await prisma.category.create({data:{name:'limit-'+randomUUID(),type:'expense'}});
  for(const [i,day] of ['2020-01-01','2020-01-02','2020-02-01'].entries())await prisma.transaction.create({data:{userId:users[0]!.id,categoryId:category.id,type:'expense',amount:'0.07',transactionDate:new Date(day+'T00:00:00Z'),createdAt:new Date(Date.UTC(2020,0,1,0,0,i))}});
  await prisma.transaction.create({data:{userId:users[1]!.id,categoryId:category.id,type:'expense',amount:'9.99',transactionDate:new Date('2021-01-01T00:00:00Z')}});
  const original=prisma.transaction.findMany.bind(prisma.transaction);

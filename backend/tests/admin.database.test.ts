@@ -100,7 +100,7 @@ test('Admin PostgreSQL / HTTP / real CLI',async t=>{
   for(const q of ['limit=0','limit=101','limit=1.5','limit=x','q=x&q=y','userId='+member.id,'cursor='+closed.id])await request('/admin/users?'+q,adminToken,'GET',undefined,400);
   const same=new Date('2010-01-01');for(let i=0;i<4;i++)await account({createdAt:same});
   const ids:string[]=[];let cursor:string|null=null;
-  do{const r=(await request('/admin/users?limit=3'+(cursor?'&cursor='+cursor:''),adminToken)).data;assert.ok(r.items.length<=3);for(const item of r.items){assert.deepEqual(Object.keys(item).sort(),['id','displayName','email','createdAt','lastLoginAt','transactionCount','basicReadiness'].sort());ids.push(item.id);}cursor=r.nextCursor;}while(cursor);
+  do{const r=(await request('/admin/users?limit=3'+(cursor?'&cursor='+cursor:''),adminToken)).data;assert.ok(r.items.length<=3);for(const item of r.items){assert.deepEqual(Object.keys(item).sort(),['id','memberNo','displayName','email','createdAt','lastLoginAt','transactionCount','basicReadiness'].sort());ids.push(item.id);}cursor=r.nextCursor;}while(cursor);
   assert.equal(new Set(ids).size,ids.length);assert.equal(ids.length,await prisma.user.count({where:{role:'USER',deletedAt:null}}));
   const body=JSON.stringify((await request('/admin/users?limit=100',adminToken)).data);for(const secret of ['PRIVATE_','amount','passwordHash','authVersion','income','budget','targetAmount'])assert.ok(!body.includes(secret));
   await request('/goals/'+goal.id,adminToken,'GET',undefined,404);

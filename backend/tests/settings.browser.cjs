@@ -12,7 +12,7 @@ const mock=()=>{
  if(window.__slow&&key==='session-a'&&(route==='/profile'||route==='/settings'))await new Promise(r=>setTimeout(r,400));
  if(route==='/settings'&&window.__failSettings&&options.method!=='PUT'){window.__failSettings=false;return new Response(JSON.stringify({error:'retry test'}),{status:503,headers:{'Content-Type':'application/json'}});}
  if(route==='/profile/avatar'){const canvas=document.createElement('canvas');canvas.width=32;canvas.height=32;const ctx=canvas.getContext('2d');ctx.fillStyle='#dbeafe';ctx.fillRect(0,0,32,32);const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));return new Response(blob,{headers:{'Content-Type':'image/png'}});}
- if(route==='/profile')value={userId:d.userId,email:d.email,displayName:d.displayName,hasAvatar:d.hasAvatar};
+ if(route==='/anomaly/level-shifts/blocked')value={items:[]};else if(route==='/profile')value={userId:d.userId,email:d.email,displayName:d.displayName,hasAvatar:d.hasAvatar};
  else if(route==='/settings'){if(options.method==='PUT'){window.__saveCount=(window.__saveCount||0)+1;await new Promise(r=>setTimeout(r,100));const input=JSON.parse(options.body);Object.assign(d,input);if(input.financialIntention!==undefined)d.legacyGoal=input.financialIntention;d.notifications={...d.notifications,notifyNearLimit:input.notifyNearLimit,notifyExceeded:input.notifyExceeded};}value=d;}
  else if(route==='/notifications')value={items:[],unreadCount:0};else if(route==='/notifications/reconcile')value={};else if(route.startsWith('/auth/'))value={logout:true};else value=[];
  return new Response(JSON.stringify(value),{headers:{'Content-Type':'application/json'}});
