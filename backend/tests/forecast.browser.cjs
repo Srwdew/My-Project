@@ -44,6 +44,8 @@ const mock=(payloads)=>{
  assert.equal(await evaluate("document.querySelectorAll('.forecast-page select').length"),0);
  assert.equal(await evaluate("document.querySelector('.forecast-page').textContent.includes('ค่าพยากรณ์แยกตามหมวด')"),false);
  assert.ok(await evaluate("document.querySelector('.forecast-warning').textContent.includes('ไม่ได้ยืนยัน')"));
+ // ISSUE-UI-4: the budget comparison came back to this page; a null field must not render a row.
+ assert.ok(await evaluate("document.querySelector('.forecast-budget').textContent.includes('วงเงินอ้างอิง')"));
  assert.equal(await evaluate("document.querySelectorAll('.forecast-panel svg').length"),1);
  console.log('PASS total-only UI, exact dates, missing-day warning, no category forecast controls');
  await evaluate("window.__mode='empty';window.dispatchEvent(new Event('spendsense-data-changed'))");
