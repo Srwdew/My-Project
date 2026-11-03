@@ -1,3 +1,4 @@
+require('./browserGuard.cjs');
 // Dependency-free Chrome DevTools browser tests. API is a controlled browser-side double;
 // real HTTP/database coverage lives in settings.database.test.ts. No production API writes.
 const fs=require('fs'),path=require('path'),os=require('os'),cp=require('child_process'),assert=require('assert/strict');

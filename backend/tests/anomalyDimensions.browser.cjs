@@ -1,3 +1,4 @@
+require('./browserGuard.cjs');
 // Real browser + actual API + an explicitly selected isolated PostgreSQL database.
 // Only synthetic accounts are created. Screenshots and browser profile live in OS temp.
 const fs=require('fs'),path=require('path'),os=require('os'),cp=require('child_process'),assert=require('assert/strict'),{randomUUID}=require('crypto');

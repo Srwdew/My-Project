@@ -1,3 +1,4 @@
+require('./browserGuard.cjs');
 // Real Chrome + real HTTP + isolated PostgreSQL. No API doubles or application fixtures.
 const fs=require('fs'),path=require('path'),os=require('os'),cp=require('child_process'),assert=require('assert/strict'),{randomUUID}=require('crypto');
 const delay=ms=>new Promise(r=>setTimeout(r,ms));const origin=process.env.SETTINGS_BROWSER_ORIGIN||'http://127.0.0.1:5175',api=process.env.ACCEPTANCE_API;

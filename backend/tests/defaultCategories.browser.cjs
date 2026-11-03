@@ -1,3 +1,4 @@
+require('./browserGuard.cjs');
 // Real browser + explicitly selected isolated acceptance server. No API mocks.
 const fs=require('fs'),path=require('path'),os=require('os'),cp=require('child_process'),assert=require('assert/strict');
 if(!process.env.CATEGORY_ACCEPTANCE_RUNTIME)throw Error('Explicit acceptance runtime required');

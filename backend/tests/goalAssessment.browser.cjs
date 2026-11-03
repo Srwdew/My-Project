@@ -1,3 +1,4 @@
+require('./browserGuard.cjs');
 // Reuse the original UI regression without modifying its existing local changes.
 // All API traffic is synthetic. Optional origin is for the existing local dev server.
 const fs=require('fs'),path=require('path'),Module=require('module');

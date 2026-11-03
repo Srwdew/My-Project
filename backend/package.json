@@ -6,7 +6,12 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test": "node tests/runAll.cjs test",
+    "test:unit": "node tests/runAll.cjs unit",
+    "test:db": "node tests/runAll.cjs db",
+    "test:browser": "node tests/runAll.cjs browser",
+    "test:all": "node tests/runAll.cjs all"
   },
   "keywords": [],
   "author": "",

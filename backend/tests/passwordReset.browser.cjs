@@ -1,3 +1,4 @@
+require('./browserGuard.cjs');
 // Real Chrome, real HTTP backend/PostgreSQL and local in-memory mail sink.
 // Only remaps the development API origin to the isolated test listener; no response doubles.
 const fs=require('fs'),os=require('os'),path=require('path'),cp=require('child_process'),assert=require('assert/strict');

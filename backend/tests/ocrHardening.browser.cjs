@@ -1,3 +1,4 @@
+require('./browserGuard.cjs');
 const fs=require('fs'),path=require('path'),os=require('os'),cp=require('child_process'),assert=require('assert/strict');
 const delay=ms=>new Promise(r=>setTimeout(r,ms));let origin,server,vite,prisma;
 (async()=>{

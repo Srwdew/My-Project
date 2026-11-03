@@ -82,7 +82,9 @@ OCR setup คัดลอก worker/core จาก node_modules และอ่�
 
 ⚠️ เทสต์ต้องไม่ต่อฐานหลัก: ใช้ตัวรันใน `backend/tests` ซึ่งสร้างฐานแยก ถ้าเห็น `[test guard]` แปลว่าการต่อฐานถูกบล็อกเพราะ DATABASE_URL ไม่ใช่ฐานทดสอบ อย่าแก้ `.env` เพื่อให้ผ่าน (ISSUE-TEST-3 ใน [DECISIONS](DECISIONS.md))
 
-ไม่มี npm test และ backend build ไม่ครอบคลุม tests เพราะ tsconfig include เฉพาะ src/**/*.ts
+จาก root หรือ `backend/`: `npm test` (unit + db), `npm run test:unit`, `npm run test:db`, `npm run test:browser`, `npm run test:all` ต้องมี Docker สำหรับ db และ Chrome + พอร์ต 4000 ว่างสำหรับ browser ถ้าขาดจะรายงาน SKIP พร้อมเหตุผลและ exit code ไม่เป็น 0 ไฟล์เทสต์ใหม่ต้องเพิ่มกลุ่มใน `backend/tests/runAll.cjs` ไม่เช่นนั้นนับเป็นล้ม harness browser รันตรงไม่ได้แล้ว ต้องผ่าน `test:browser` ผลล่าสุดดู ISSUE-TEST-4 ใน [DECISIONS](DECISIONS.md)
+
+backend build ไม่ครอบคลุม tests เพราะ tsconfig include เฉพาะ src/**/*.ts
 
 | Working directory | คำสั่งที่มีหลักฐานใช้ | ขอบเขต/ผลข้างเคียง |
 |---|---|---|

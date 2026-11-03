@@ -79,6 +79,6 @@ npm run dev
 
 ⚠️ เทสต์ต้องไม่ต่อฐานหลัก: ใช้ตัวรันใน `backend/tests` ซึ่งสร้างฐานแยก ถ้าเห็น `[test guard]` แปลว่าการต่อฐานถูกบล็อกเพราะ DATABASE_URL ไม่ใช่ฐานทดสอบ อย่าแก้ `.env` เพื่อให้ผ่าน (ISSUE-TEST-3 ใน [DECISIONS](docs/DECISIONS.md))
 
-ไม่มี npm test ใน root/backend/frontend ให้เลือก suite ตาม [คู่มือทดสอบ](docs/DEVELOPMENT.md#การตรวจและทดสอบ) ห้ามใช้ wildcard รัน tests ทั้งหมดกับ DATABASE_URL ที่ไม่ทราบเป้าหมาย
+`npm test` รัน unit + db บน container ชั่วคราว, `npm run test:browser` รัน browser, `npm run test:all` รันทั้งหมด ดู [คู่มือทดสอบ](docs/DEVELOPMENT.md#การตรวจและทดสอบ) ห้ามใช้ wildcard รัน tests ทั้งหมดกับ DATABASE_URL ที่ไม่ทราบเป้าหมาย
 
 รอบจัดทำเอกสารนี้ตรวจไฟล์และคำสั่งเท่านั้น ไม่ได้รันแอป tests migrations หรือเชื่อมฐานข้อมูลใหม่ ผลทดสอบและ User Acceptance ที่อยู่ใน implementation documents เป็นประวัติของ revision/ขอบเขตนั้น ไม่ใช่สถานะรับรองทั้ง repository ณ ปัจจุบัน

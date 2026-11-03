@@ -25,6 +25,8 @@ export function isRunningUnderTests(
 ): boolean {
   return (
     env.NODE_TEST_CONTEXT !== undefined ||
+    env.SPENDSENSE_TEST_RUN === "1" || // set by runAll.cjs; inherited by API servers it spawns
+
     execArgv.includes("--test") ||
     /[\\/]tests[\\/][^\\/]+$/.test(argv[1] ?? "")
   );

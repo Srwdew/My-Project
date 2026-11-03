@@ -17,6 +17,7 @@ test('test detection does not fire for a normal server start', () => {
   assert.equal(isRunningUnderTests({}, ['node', 'dist/index.js'], []), false);
   assert.equal(isRunningUnderTests({ NODE_TEST_CONTEXT: 'child-v8' }, ['node', 'x'], []), true);
   assert.equal(isRunningUnderTests({}, ['node', 'x'], ['--test']), true);
+  assert.equal(isRunningUnderTests({ SPENDSENSE_TEST_RUN: '1' }, ['node', 'src/index.ts'], []), true);
   assert.equal(isRunningUnderTests({}, ['node', 'C:\\repo\\backend\\tests\\a.cjs'], []), true);
 });
 
