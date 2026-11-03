@@ -70,7 +70,7 @@ const delay=ms=>new Promise(r=>setTimeout(r,ms));const origin=process.env.SETTIN
 
  await evaluate("window.name='guide-member'");
  await send('Page.navigate',{url:origin+'/guide'});await guideReady();await assertPublic();
- console.log('PASS member Guide: identical public content, no account/token reads and no API');
+ console.log('PASS member Guide: same public structure checks (not a content diff), no account/token reads and no API');
  await evaluate("window.name=''");
  for(const path of ['/register']){
   await send('Page.navigate',{url:origin+path});
