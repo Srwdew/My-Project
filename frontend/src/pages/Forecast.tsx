@@ -510,10 +510,13 @@ function ForecastSession({
                     <dd>{moneyText(data.budgetComparison.difference.replace("-", ""))} บาท</dd>
                   </div>
                 )}
-                <div>
-                  <dt>วงเงินเพิ่มเติมเฉลี่ยไม่เกิน</dt>
-                  <dd>{moneyText(data.budgetComparison.suggestedAdditionalDailyAmount)} บาท/วัน</dd>
-                </div>
+                {/* Same rule as Tier 0 perDay: round down to whole baht, no figure under 1 baht. */}
+                {Number(data.budgetComparison.suggestedAdditionalDailyAmount) >= 1 && (
+                  <div>
+                    <dt>วงเงินเพิ่มเติมเฉลี่ยไม่เกิน</dt>
+                    <dd>{baht(String(Math.floor(Number(data.budgetComparison.suggestedAdditionalDailyAmount))))} บาท/วัน</dd>
+                  </div>
+                )}
               </dl>
               <p className="forecast-budget-note">
                 หักยอดจริงรวมวันนี้จากประมาณการรวมวันนี้แล้ว ไม่รวมวันเดือนถัดไปในการเทียบงบ
