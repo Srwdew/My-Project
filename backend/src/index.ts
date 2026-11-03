@@ -15,6 +15,7 @@ import {
 } from "./lib/defaultCategories";
 import { behaviorRouter } from "./routes/behavior";
 import { forecastRouter } from "./routes/forecast";
+import { alertsRouter } from "./routes/alerts";
 import { recommendationsRouter } from "./routes/recommendations";
 import { anomalyRouter } from "./routes/anomaly";
 import {
@@ -71,6 +72,7 @@ app.use(goalsRouter);
 app.use(settingsRouter);
 app.use(dashboardRouter);
 app.use(forecastRouter);
+app.use(alertsRouter);
 app.use(behaviorRouter);
 app.use(recommendationsRouter);
 app.use(anomalyRouter);
