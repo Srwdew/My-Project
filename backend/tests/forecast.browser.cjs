@@ -60,7 +60,8 @@ const mock=(payloads)=>{
  console.log('PASS error keyboard retry and available without budget');
  await evaluate("window.__hold=true;window.dispatchEvent(new Event('spendsense-data-changed'))");await waitFor("window.__requests.at(-1).held");
  await evaluate("window.__hold=false;localStorage.setItem('spendsense_token','session-b');window.dispatchEvent(new Event('spendsense-session'))");
- await waitFor("document.querySelector('.forecast-page').textContent.includes('session-b')");
+ // The session key remounts the route, so the page is briefly absent while the new session loads.
+ await waitFor("document.querySelector('.forecast-page')?.textContent.includes('session-b')");
  await evaluate("window.__release()");await waitFor("window.__requests.every(r=>!r.held||r.consumed)");
  await evaluate("new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))");
  assert.equal(await evaluate("document.querySelector('.forecast-page').textContent.includes('session-a')"),false);

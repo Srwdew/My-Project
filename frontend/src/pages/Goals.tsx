@@ -767,10 +767,12 @@ function GoalsSession({ session }: { session: string | null }) {
                   const required = goal.requiredMonthlyAmount !== null ? Number(goal.requiredMonthlyAmount) : null;
                   const planned = goal.plannedMonthlyAmount ? Number(goal.plannedMonthlyAmount) : null;
                   const cash = goal.feasibility?.cashFlow;
-                  const net = cash && Number(cash.netCashFlow) > 0 ? Number(cash.netCashFlow) : null;
+                  // A month that spent more than it earned must warn at least as loudly as one with too little left.
+                  const negative = goal.feasibility?.status === "non_positive_cash_flow";
+                  const net = cash && (negative || Number(cash.netCashFlow) > 0) ? Number(cash.netCashFlow) : null;
                   const short = goal.warnings.includes("PLAN_INSUFFICIENT");
                   const shortfall = required !== null && planned !== null && planned < required ? required - planned : null;
-                  const overNet = goal.feasibility?.status === "exceeds_observed_cash_flow";
+                  const overNet = negative || goal.feasibility?.status === "exceeds_observed_cash_flow";
                   const rows = [
                     { label: "ต้องออมต่อเดือน", value: required, tone: "required" },
                     { label: "แผนปัจจุบัน", value: planned, tone: "planned" },
@@ -810,7 +812,7 @@ function GoalsSession({ session }: { session: string | null }) {
                               <span>{r.label}</span>
                               <strong>{baht(String(r.value))} ฿</strong>
                               <i aria-hidden="true">
-                                <b className={"goal-compare-" + r.tone} style={{ width: (r.value / scale) * 100 + "%" }} />
+                                <b className={"goal-compare-" + r.tone} style={{ width: (Math.max(r.value, 0) / scale) * 100 + "%" }} />
                               </i>
                             </li>
                           ))}
