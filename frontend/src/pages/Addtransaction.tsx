@@ -205,7 +205,9 @@ export default function AddTransaction() {
       return;
     if (files.length <= 1) return void selectReceipt(files[0] ?? null);
     if (type === "income")
-      return toast("อ่านสลิปหลายรูปได้เฉพาะรายจ่าย กรุณาเปลี่ยนเป็นรายจ่ายก่อน");
+      return toast(
+        "อ่านสลิปหลายรูปได้เฉพาะรายจ่าย กรุณาเปลี่ยนเป็นรายจ่ายก่อน",
+      );
     if (files.length > MAX_BATCH_RECEIPTS)
       toast(
         `เลือกได้ครั้งละ ${MAX_BATCH_RECEIPTS} สลิป ระบบใช้ ${MAX_BATCH_RECEIPTS} รูปแรก และข้ามอีก ${files.length - MAX_BATCH_RECEIPTS} รูป`,
@@ -542,461 +544,505 @@ export default function AddTransaction() {
             }}
           />
         ) : (
-        <>
-        <form
-          className="left-column"
-          noValidate
-          onSubmit={(e) => {
-            e.preventDefault();
-            void handleSubmit();
-          }}
-        >
-          <fieldset
-            className="transaction-draft"
-            disabled={isSaving || uncertain || !pendingReady}
-          >
-            <section className="card transaction-card">
-              <div
-                className="type-toggle"
-                role="group"
-                aria-label="ประเภทธุรกรรม"
-                data-type={type}
-              >
-                <button
-                  type="button"
-                  className={type === "expense" ? "active" : ""}
-                  aria-pressed={type === "expense"}
-                  onClick={() => handleChangeType("expense")}
-                >
-                  <ArrowUpRight size={18} aria-hidden="true" />
-                  รายจ่าย
-                </button>
-                <button
-                  type="button"
-                  className={type === "income" ? "active" : ""}
-                  aria-pressed={type === "income"}
-                  onClick={() => handleChangeType("income")}
-                >
-                  <ArrowDownLeft size={18} aria-hidden="true" />
-                  รายได้
-                </button>
-              </div>
-
-              <div className="form-grid">
-                <fieldset
-                  className="category-field"
-                  data-type={type}
-                  aria-invalid={Boolean(fieldErrors.category)}
-                  aria-describedby={
-                    fieldErrors.category ? "transaction-category-error" : undefined
-                  }
-                >
-                  <legend>
-                    หมวดหมู่ <span className="required">*</span>
-                  </legend>
-                  {categoriesError && (
-                    <p role="alert" className="field-error">
-                      โหลดหมวดหมู่ไม่สำเร็จ จึงยังบันทึกไม่ได้{" "}
-                      <button
-                        type="button"
-                        className="text-button"
-                        onClick={() => {
-                          setCategoriesError(false);
-                          setCategoriesRetry((n) => n + 1);
-                        }}
-                      >
-                        ลองโหลดใหม่
-                      </button>
-                    </p>
-                  )}
-                  <div className="category-options">
-                    {!categories.length && !categoriesError &&
-                      [0, 1, 2, 3].map((i) => (
-                        <span key={i} className="category-skeleton" aria-hidden="true" />
-                      ))}
-                    {filteredCategories.map((category) => {
-                      const Icon =
-                        type === "income"
-                          ? (incomeCategoryIcons[category.name] ?? Ellipsis)
-                          : (categoryIcons[
-                              transactionCategoryOrder(category.name)
-                            ] ?? Ellipsis);
-                      return (
-                        <label key={category.id} className="category-option">
-                          <input
-                            type="radio"
-                            name="transaction-category"
-                            value={category.id}
-                            checked={categoryId === category.id}
-                            aria-describedby={
-                              fieldErrors.category
-                                ? "transaction-category-error"
-                                : undefined
-                            }
-                            onChange={() => {
-                              setCategoryId(category.id);
-                              setFieldErrors((f) => ({ ...f, category: undefined }));
-                            }}
-                          />
-                          <span className="category-option-content">
-                            <Icon size={21} aria-hidden="true" />
-                            <span>
-                              {transactionCategoryLabel(category.name)}
-                            </span>
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                  {!categories.length && !categoriesError && (
-                    <p role="status" className="sr-only">กำลังโหลดหมวดหมู่…</p>
-                  )}
-                  {categories.length > 0 && !filteredCategories.length && (
-                    <p className="field-hint">ยังไม่มีหมวดสำหรับประเภทนี้</p>
-                  )}
-                  {fieldErrors.category && (
-                    <p id="transaction-category-error" className="field-error" role="alert">
-                      {fieldErrors.category}
-                    </p>
-                  )}
-                </fieldset>
-
-                <div className="field">
-                  <label htmlFor="transaction-title">
-                    ชื่อรายการ
-                  </label>
-
-                  <input
-                    className="input"
-                    id="transaction-title"
-                    type="text"
-                    placeholder="เช่น ค่าอาหารกลางวัน"
-                    value={description}
-                    onChange={(e) => {
-                      editedReceiptFields.current.add("description");
-                      setDescription(e.target.value);
-                    }}
-                  />
-                </div>
-
-                <div className="field">
-                  <label htmlFor="transaction-date">
-                    วันที่ / เวลาไทย <span className="required">*</span>
-                  </label>
-
-                  <div className="date-time-grid">
-                    <DatePicker
-                      id="transaction-date"
-                      ariaInvalid={fieldErrors.date ? "true" : undefined}
-                      ariaDescribedBy={
-                        fieldErrors.date ? "transaction-date-error" : undefined
-                      }
-                      selected={transactionDate}
-                      maxDate={getTransactionMaxDate()}
-                      onChangeRaw={() => {
-                        editedReceiptFields.current.add("transactionDate");
-                      }}
-                      onChange={(date: Date | null) => {
-                        editedReceiptFields.current.add("transactionDate");
-                        setTransactionDate(date);
-                        setFieldErrors((f) => ({ ...f, date: undefined }));
-                      }}
-                      dateFormat="dd/MM/yyyy"
-                      calendarStartDay={1}
-                      todayButton="วันนี้"
-                      className="input date-picker-input"
-                      wrapperClassName="date-picker-wrapper"
-                      popperClassName="transaction-date-popper"
-                      popperPlacement="bottom-start"
-                      portalId="root-portal"
-                    />
-
-                    <input
-                      className="input"
-                      aria-label="เวลาไทย (ไม่บังคับ)"
-                      type="time"
-                      value={transactionTime}
-                      onChange={(e) => {
-                        editedReceiptFields.current.add("transactionTime");
-                        setTransactionTime(e.target.value);
-                      }}
-                    />
-                  </div>
-                  {fieldErrors.date && (
-                    <p id="transaction-date-error" className="field-error">
-                      {fieldErrors.date}
-                    </p>
-                  )}
-                </div>
-
-                <div className="field amount-field">
-                  <label htmlFor="transaction-amount">
-                    จำนวนเงิน <span className="required">*</span>
-                  </label>
-
-                  <input
-                    className="input"
-                    id="transaction-amount"
-                    aria-invalid={Boolean(fieldErrors.amount)}
-                    aria-describedby={
-                      fieldErrors.amount ? "transaction-amount-error" : undefined
-                    }
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0.00"
-                    value={amount}
-                    onChange={(e) => {
-                      editedReceiptFields.current.add("amount");
-                      setAmount(e.target.value);
-                      setFieldErrors((f) => ({ ...f, amount: undefined }));
-                    }}
-                  />
-                  {fieldErrors.amount && (
-                    <p id="transaction-amount-error" className="field-error">
-                      {fieldErrors.amount}
-                    </p>
-                  )}
-                </div>
-
-                <div className="field">
-                  <label htmlFor="transaction-payment">
-                    วิธีการชำระเงิน
-                  </label>
-
-                  <Dropdown
-                    id="transaction-payment"
-                    value={paymentMethod}
-                    onChange={(value) => {
-                      editedReceiptFields.current.add("paymentMethod");
-                      setPaymentMethod(value);
-                    }}
-                    options={[
-                      { value: "", label: "เลือกวิธีการชำระเงิน" },
-                      { value: "cash", label: "เงินสด" },
-                      { value: "transfer", label: "โอนเงิน" },
-                      { value: "card", label: "บัตร" },
-                      { value: "ewallet", label: "กระเป๋าเงินอิเล็กทรอนิกส์" },
-                    ]}
-                  />
-                </div>
-
-                <div className="field field-full">
-                  <label htmlFor="transaction-note">หมายเหตุ</label>
-
-                  <input
-                    className="input"
-                    id="transaction-note"
-                    type="text"
-                    placeholder="หมายเหตุเพิ่มเติม"
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                  />
-                </div>
-              </div>
-            </section>
-          </fieldset>
-          <section className="card receipt-card">
-            <h2 className="receipt-card-title">แนบสลิปเพื่อกรอกอัตโนมัติ</h2>
-
-            <p className="small-text">
-              ความครบถ้วนของข้อมูลที่อ่านได้ขึ้นอยู่กับความคมชัดของภาพ
-              กรุณาตรวจสอบข้อมูลก่อนบันทึก ระบบไม่จัดเก็บภาพสลิป
-            </p>
-
-            {receiptError && (
-              <p role="alert">{receiptError} — กรอกข้อมูลเองต่อได้</p>
-            )}
-            <div className="receipt-actions">
-              <label
-                className="upload-box"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (!(isSaving || uncertain || !pendingReady))
-                    selectReceipts(Array.from(e.dataTransfer.files));
-                }}
-              >
-                {/* Visually hidden, not `hidden`, so the picker stays keyboard-focusable. */}
-                <input
-                  className="upload-input"
-                  type="file"
-                  disabled={isSaving || uncertain || !pendingReady}
-                  accept="image/png,image/jpeg,image/webp"
-                  multiple
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files ?? []);
-                    e.target.value = "";
-                    selectReceipts(files);
-                  }}
-                />
-                <span className="upload-icon" aria-hidden="true">
-                  <ImageUp size={22} />
-                </span>
-                <span className="upload-text">
-                  <strong>เลือกภาพสลิป</strong>
-                  <span className="small-text">
-                    JPG, PNG หรือ WebP · สูงสุด {MAX_BATCH_RECEIPTS} รูป
-                  </span>
-                </span>
-              </label>
-
-              <label className="upload-box camera-upload">
-                <input
-                  className="upload-input"
-                  type="file"
-                  disabled={isSaving || uncertain || !pendingReady}
-                  accept="image/png,image/jpeg"
-                  capture="environment"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] ?? null;
-                    e.target.value = "";
-                    void selectReceipt(file);
-                  }}
-                />
-                <span className="upload-icon" aria-hidden="true">
-                  <Camera size={22} />
-                </span>
-                <span className="upload-text">
-                  <strong>ถ่ายภาพใหม่</strong>
-                  <span className="small-text">เปิดกล้องถ่ายสลิป</span>
-                </span>
-              </label>
-            </div>
-            {receiptFile && (
-              <div className="file-name">
-                <FileImage size={14} aria-hidden="true" />
-                <span>{receiptFile.name}</span>
-              </div>
-            )}
-
-            <div className="footer-actions">
-              <button
-                type="button"
-                className="cancel-button"
-                onClick={() => {
-                  const dirty =
-                    categoryId || amount || description || note || receiptFile;
-                  if (!dirty || window.confirm("ล้างข้อมูลที่กรอกไว้ทั้งหมด?"))
-                    resetForm();
-                }}
+          <>
+            <form
+              className="left-column"
+              noValidate
+              onSubmit={(e) => {
+                e.preventDefault();
+                void handleSubmit();
+              }}
+            >
+              <fieldset
+                className="transaction-draft"
                 disabled={isSaving || uncertain || !pendingReady}
               >
-                ล้างฟอร์ม
-              </button>
+                <section className="card transaction-card">
+                  <div
+                    className="type-toggle"
+                    role="group"
+                    aria-label="ประเภทธุรกรรม"
+                    data-type={type}
+                  >
+                    <button
+                      type="button"
+                      className={type === "expense" ? "active" : ""}
+                      aria-pressed={type === "expense"}
+                      onClick={() => handleChangeType("expense")}
+                    >
+                      <ArrowUpRight size={18} aria-hidden="true" />
+                      รายจ่าย
+                    </button>
+                    <button
+                      type="button"
+                      className={type === "income" ? "active" : ""}
+                      aria-pressed={type === "income"}
+                      onClick={() => handleChangeType("income")}
+                    >
+                      <ArrowDownLeft size={18} aria-hidden="true" />
+                      รายได้
+                    </button>
+                  </div>
 
-              <button
-                type="submit"
-                className="save-button"
-                disabled={isSaving || !pendingReady}
-                aria-busy={isSaving}
-              >
-                {isSaving
-                  ? "กำลังบันทึก..."
-                  : uncertain
-                    ? "ส่งรายการเดิมอีกครั้ง"
-                    : "ยืนยันและบันทึกธุรกรรม"}
-              </button>
-            </div>
-          </section>
-        </form>
+                  <div className="form-grid">
+                    <fieldset
+                      className="category-field"
+                      data-type={type}
+                      aria-invalid={Boolean(fieldErrors.category)}
+                      aria-describedby={
+                        fieldErrors.category
+                          ? "transaction-category-error"
+                          : undefined
+                      }
+                    >
+                      <legend>
+                        หมวดหมู่ <span className="required">*</span>
+                      </legend>
+                      {categoriesError && (
+                        <p role="alert" className="field-error">
+                          โหลดหมวดหมู่ไม่สำเร็จ จึงยังบันทึกไม่ได้{" "}
+                          <button
+                            type="button"
+                            className="text-button"
+                            onClick={() => {
+                              setCategoriesError(false);
+                              setCategoriesRetry((n) => n + 1);
+                            }}
+                          >
+                            ลองโหลดใหม่
+                          </button>
+                        </p>
+                      )}
+                      <div className="category-options">
+                        {!categories.length &&
+                          !categoriesError &&
+                          [0, 1, 2, 3].map((i) => (
+                            <span
+                              key={i}
+                              className="category-skeleton"
+                              aria-hidden="true"
+                            />
+                          ))}
+                        {filteredCategories.map((category) => {
+                          const Icon =
+                            type === "income"
+                              ? (incomeCategoryIcons[category.name] ?? Ellipsis)
+                              : (categoryIcons[
+                                  transactionCategoryOrder(category.name)
+                                ] ?? Ellipsis);
+                          return (
+                            <label
+                              key={category.id}
+                              className="category-option"
+                            >
+                              <input
+                                type="radio"
+                                name="transaction-category"
+                                value={category.id}
+                                checked={categoryId === category.id}
+                                aria-describedby={
+                                  fieldErrors.category
+                                    ? "transaction-category-error"
+                                    : undefined
+                                }
+                                onChange={() => {
+                                  setCategoryId(category.id);
+                                  setFieldErrors((f) => ({
+                                    ...f,
+                                    category: undefined,
+                                  }));
+                                }}
+                              />
+                              <span className="category-option-content">
+                                <Icon size={21} aria-hidden="true" />
+                                <span>
+                                  {transactionCategoryLabel(category.name)}
+                                </span>
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      {!categories.length && !categoriesError && (
+                        <p role="status" className="sr-only">
+                          กำลังโหลดหมวดหมู่…
+                        </p>
+                      )}
+                      {categories.length > 0 && !filteredCategories.length && (
+                        <p className="field-hint">
+                          ยังไม่มีหมวดสำหรับประเภทนี้
+                        </p>
+                      )}
+                      {fieldErrors.category && (
+                        <p
+                          id="transaction-category-error"
+                          className="field-error"
+                          role="alert"
+                        >
+                          {fieldErrors.category}
+                        </p>
+                      )}
+                    </fieldset>
 
-        {/* Right Preview */}
-        <aside className="preview-card">
-          <div className="preview-header">
-            <span className="preview-title">
-              <span className="preview-title-icon" aria-hidden="true">
-                <ReceiptText size={18} />
-              </span>
-              <strong>ตัวอย่างสลิป</strong>
-            </span>
+                    <div className="field">
+                      <label htmlFor="transaction-title">ชื่อรายการ</label>
 
-            {receiptFile && type === "expense" && !uncertain && !isSaving ? (
-              <ReceiptOcr
-                key={receiptSelection.current + String(session)}
-                file={receiptFile}
-                session={session}
-                selection={receiptSelection.current}
-                onStart={beginReceipt}
-                onResult={applyReceipt}
-              />
-            ) : (
-              <span
-                className={`preview-status${receiptFile ? " is-ready" : ""}`}
-              >
-                {receiptFile
-                  ? type === "income"
-                    ? "เลือกไฟล์แล้ว · อ่านอัตโนมัติเฉพาะรายจ่าย"
-                    : "เลือกไฟล์แล้ว"
-                  : "ยังไม่ได้เลือกไฟล์"}
-              </span>
-            )}
-          </div>
+                      <input
+                        className="input"
+                        id="transaction-title"
+                        type="text"
+                        placeholder="เช่น ค่าอาหารกลางวัน"
+                        value={description}
+                        onChange={(e) => {
+                          editedReceiptFields.current.add("description");
+                          setDescription(e.target.value);
+                        }}
+                      />
+                    </div>
 
-          <div className="receipt-preview">
-            {receiptPreviewUrl ? (
-              <img
-                className="preview-image"
-                src={receiptPreviewUrl}
-                alt="ตัวอย่างสลิปที่เลือก"
-              />
-            ) : (
-              <div className="preview-empty">
-                <span className="preview-empty-icon" aria-hidden="true">
-                  <ImageUp size={28} />
+                    <div className="field">
+                      <label htmlFor="transaction-date">
+                        วันที่ / เวลาไทย <span className="required">*</span>
+                      </label>
+
+                      <div className="date-time-grid">
+                        <DatePicker
+                          id="transaction-date"
+                          ariaInvalid={fieldErrors.date ? "true" : undefined}
+                          ariaDescribedBy={
+                            fieldErrors.date
+                              ? "transaction-date-error"
+                              : undefined
+                          }
+                          selected={transactionDate}
+                          maxDate={getTransactionMaxDate()}
+                          onChangeRaw={() => {
+                            editedReceiptFields.current.add("transactionDate");
+                          }}
+                          onChange={(date: Date | null) => {
+                            editedReceiptFields.current.add("transactionDate");
+                            setTransactionDate(date);
+                            setFieldErrors((f) => ({ ...f, date: undefined }));
+                          }}
+                          dateFormat="dd/MM/yyyy"
+                          calendarStartDay={1}
+                          todayButton="วันนี้"
+                          className="input date-picker-input"
+                          wrapperClassName="date-picker-wrapper"
+                          popperClassName="transaction-date-popper"
+                          popperPlacement="bottom-start"
+                          portalId="root-portal"
+                        />
+
+                        <input
+                          className="input"
+                          aria-label="เวลาไทย (ไม่บังคับ)"
+                          type="time"
+                          value={transactionTime}
+                          onChange={(e) => {
+                            editedReceiptFields.current.add("transactionTime");
+                            setTransactionTime(e.target.value);
+                          }}
+                        />
+                      </div>
+                      {fieldErrors.date && (
+                        <p id="transaction-date-error" className="field-error">
+                          {fieldErrors.date}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="field amount-field">
+                      <label htmlFor="transaction-amount">
+                        จำนวนเงิน <span className="required">*</span>
+                      </label>
+
+                      <input
+                        className="input"
+                        id="transaction-amount"
+                        aria-invalid={Boolean(fieldErrors.amount)}
+                        aria-describedby={
+                          fieldErrors.amount
+                            ? "transaction-amount-error"
+                            : undefined
+                        }
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        value={amount}
+                        onChange={(e) => {
+                          editedReceiptFields.current.add("amount");
+                          setAmount(e.target.value);
+                          setFieldErrors((f) => ({ ...f, amount: undefined }));
+                        }}
+                      />
+                      {fieldErrors.amount && (
+                        <p
+                          id="transaction-amount-error"
+                          className="field-error"
+                        >
+                          {fieldErrors.amount}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="field">
+                      <label htmlFor="transaction-payment">
+                        วิธีการชำระเงิน
+                      </label>
+
+                      <Dropdown
+                        id="transaction-payment"
+                        value={paymentMethod}
+                        onChange={(value) => {
+                          editedReceiptFields.current.add("paymentMethod");
+                          setPaymentMethod(value);
+                        }}
+                        options={[
+                          { value: "", label: "เลือกวิธีการชำระเงิน" },
+                          { value: "cash", label: "เงินสด" },
+                          { value: "transfer", label: "โอนเงิน" },
+                          { value: "card", label: "บัตร" },
+                          {
+                            value: "ewallet",
+                            label: "กระเป๋าเงินอิเล็กทรอนิกส์",
+                          },
+                        ]}
+                      />
+                    </div>
+
+                    <div className="field field-full">
+                      <label htmlFor="transaction-note">หมายเหตุ</label>
+
+                      <input
+                        className="input"
+                        id="transaction-note"
+                        type="text"
+                        placeholder="หมายเหตุเพิ่มเติม"
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </section>
+              </fieldset>
+              <section className="card receipt-card">
+                <h2 className="receipt-card-title">
+                  แนบสลิปเพื่อกรอกอัตโนมัติ
+                </h2>
+
+                <p className="small-text">
+                  ความครบถ้วนของข้อมูลที่อ่านได้ขึ้นอยู่กับความคมชัดของภาพ
+                  กรุณาตรวจสอบข้อมูลก่อนบันทึก ระบบไม่จัดเก็บภาพสลิป
+                </p>
+
+                {receiptError && (
+                  <p role="alert">{receiptError} — กรอกข้อมูลเองต่อได้</p>
+                )}
+                <div className="receipt-actions">
+                  <label
+                    className="upload-box"
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (!(isSaving || uncertain || !pendingReady))
+                        selectReceipts(Array.from(e.dataTransfer.files));
+                    }}
+                  >
+                    {/* Visually hidden, not `hidden`, so the picker stays keyboard-focusable. */}
+                    <input
+                      className="upload-input"
+                      type="file"
+                      disabled={isSaving || uncertain || !pendingReady}
+                      accept="image/png,image/jpeg,image/webp"
+                      multiple
+                      onChange={(e) => {
+                        const files = Array.from(e.target.files ?? []);
+                        e.target.value = "";
+                        selectReceipts(files);
+                      }}
+                    />
+                    <span className="upload-icon" aria-hidden="true">
+                      <ImageUp size={22} />
+                    </span>
+                    <span className="upload-text">
+                      <strong>เลือกภาพสลิป</strong>
+                      <span className="small-text">
+                        JPG, PNG หรือ WebP · สูงสุด {MAX_BATCH_RECEIPTS} รูป
+                      </span>
+                    </span>
+                  </label>
+
+                  <label className="upload-box camera-upload">
+                    <input
+                      className="upload-input"
+                      type="file"
+                      disabled={isSaving || uncertain || !pendingReady}
+                      accept="image/png,image/jpeg"
+                      capture="environment"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        e.target.value = "";
+                        void selectReceipt(file);
+                      }}
+                    />
+                    <span className="upload-icon" aria-hidden="true">
+                      <Camera size={22} />
+                    </span>
+                    <span className="upload-text">
+                      <strong>ถ่ายภาพใหม่</strong>
+                      <span className="small-text">เปิดกล้องถ่ายสลิป</span>
+                    </span>
+                  </label>
+                </div>
+                {receiptFile && (
+                  <div className="file-name">
+                    <FileImage size={14} aria-hidden="true" />
+                    <span>{receiptFile.name}</span>
+                  </div>
+                )}
+
+                <div className="footer-actions">
+                  <button
+                    type="button"
+                    className="cancel-button"
+                    onClick={() => {
+                      const dirty =
+                        categoryId ||
+                        amount ||
+                        description ||
+                        note ||
+                        receiptFile;
+                      if (
+                        !dirty ||
+                        window.confirm("ล้างข้อมูลที่กรอกไว้ทั้งหมด?")
+                      )
+                        resetForm();
+                    }}
+                    disabled={isSaving || uncertain || !pendingReady}
+                  >
+                    ล้างฟอร์ม
+                  </button>
+
+                  <button
+                    type="submit"
+                    className="save-button"
+                    disabled={isSaving || !pendingReady}
+                    aria-busy={isSaving}
+                  >
+                    {isSaving
+                      ? "กำลังบันทึก..."
+                      : uncertain
+                        ? "ส่งรายการเดิมอีกครั้ง"
+                        : "ยืนยันและบันทึกธุรกรรม"}
+                  </button>
+                </div>
+              </section>
+            </form>
+
+            {/* Right Preview */}
+            {/* On phones the empty preview is hidden until a slip is chosen (it holds the read-slip button then). */}
+            <aside
+              className={"preview-card" + (receiptFile ? "" : " is-empty")}
+            >
+              <div className="preview-header">
+                <span className="preview-title">
+                  <span className="preview-title-icon" aria-hidden="true">
+                    <ReceiptText size={18} />
+                  </span>
+                  <strong>ตัวอย่างสลิป</strong>
                 </span>
-                <strong>ยังไม่มีภาพสลิป</strong>
-                <span>เลือกภาพหรือถ่ายภาพจากด้านซ้าย</span>
-                <ol className="preview-steps">
-                  <li>เลือกภาพสลิป</li>
-                  <li>ระบบอ่านข้อมูลให้อัตโนมัติ</li>
-                  <li>ตรวจแล้วกดบันทึก</li>
-                </ol>
+
+                {receiptFile &&
+                type === "expense" &&
+                !uncertain &&
+                !isSaving ? (
+                  <ReceiptOcr
+                    key={receiptSelection.current + String(session)}
+                    file={receiptFile}
+                    session={session}
+                    selection={receiptSelection.current}
+                    onStart={beginReceipt}
+                    onResult={applyReceipt}
+                  />
+                ) : (
+                  <span
+                    className={`preview-status${receiptFile ? " is-ready" : ""}`}
+                  >
+                    {receiptFile
+                      ? type === "income"
+                        ? "เลือกไฟล์แล้ว · อ่านอัตโนมัติเฉพาะรายจ่าย"
+                        : "เลือกไฟล์แล้ว"
+                      : "ยังไม่ได้เลือกไฟล์"}
+                  </span>
+                )}
               </div>
-            )}
-          </div>
 
-          <div className="detected-header">
-            <strong>ข้อมูลที่จะบันทึก</strong>
-            <span className="small-text">ตรวจให้ตรงกับสลิป</span>
-          </div>
+              <div className="receipt-preview">
+                {receiptPreviewUrl ? (
+                  <img
+                    className="preview-image"
+                    src={receiptPreviewUrl}
+                    alt="ตัวอย่างสลิปที่เลือก"
+                  />
+                ) : (
+                  <div className="preview-empty">
+                    <span className="preview-empty-icon" aria-hidden="true">
+                      <ImageUp size={28} />
+                    </span>
+                    <strong>ยังไม่มีภาพสลิป</strong>
+                    <span>เลือกภาพหรือถ่ายภาพจากด้านซ้าย</span>
+                    <ol className="preview-steps">
+                      <li>เลือกภาพสลิป</li>
+                      <li>ระบบอ่านข้อมูลให้อัตโนมัติ</li>
+                      <li>ตรวจแล้วกดบันทึก</li>
+                    </ol>
+                  </div>
+                )}
+              </div>
 
-          <div className="detected-list">
-            <div className="detected-row">
-              <span className="detected-label">
-                <CalendarDays size={15} aria-hidden="true" />
-                วันที่
-              </span>
-              <span>
-                {transactionDate?.toLocaleDateString("th-TH") ??
-                  "ยังไม่ได้ระบุวันที่"}
-              </span>
-            </div>
+              <div className="detected-header">
+                <strong>ข้อมูลที่จะบันทึก</strong>
+                <span className="small-text">ตรวจให้ตรงกับสลิป</span>
+              </div>
 
-            <div className="detected-row">
-              <span className="detected-label">
-                <Clock size={15} aria-hidden="true" />
-                เวลา
-              </span>
-              <span>{transactionTime || "ไม่ได้ระบุ"}</span>
-            </div>
+              <div className="detected-list">
+                <div className="detected-row">
+                  <span className="detected-label">
+                    <CalendarDays size={15} aria-hidden="true" />
+                    วันที่
+                  </span>
+                  <span>
+                    {transactionDate?.toLocaleDateString("th-TH") ??
+                      "ยังไม่ได้ระบุวันที่"}
+                  </span>
+                </div>
 
-            <div className="detected-row">
-              <span className="detected-label">
-                <Wallet size={15} aria-hidden="true" />
-                จำนวนเงิน
-              </span>
-              <span>
-                {plainAmount !== "" && Number.isFinite(Number(plainAmount))
-                  ? `${Number(plainAmount).toLocaleString("th-TH", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })} บาท`
-                  : "ยังไม่ได้ระบุ"}
-              </span>
-            </div>
-          </div>
-        </aside>
-        </>
+                <div className="detected-row">
+                  <span className="detected-label">
+                    <Clock size={15} aria-hidden="true" />
+                    เวลา
+                  </span>
+                  <span>{transactionTime || "ไม่ได้ระบุ"}</span>
+                </div>
+
+                <div className="detected-row">
+                  <span className="detected-label">
+                    <Wallet size={15} aria-hidden="true" />
+                    จำนวนเงิน
+                  </span>
+                  <span>
+                    {plainAmount !== "" && Number.isFinite(Number(plainAmount))
+                      ? `${Number(plainAmount).toLocaleString("th-TH", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })} บาท`
+                      : "ยังไม่ได้ระบุ"}
+                  </span>
+                </div>
+              </div>
+            </aside>
+          </>
         )}
       </main>
     </div>

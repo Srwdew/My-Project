@@ -887,6 +887,12 @@
   grid-template-columns: minmax(0, 1.35fr) minmax(340px, 1fr);
   margin-top: 24px;
 }
+/* Phones: no empty slip preview under the form; it appears once a slip is chosen. */
+@media (max-width: 700px) {
+  .add-page .preview-card.is-empty {
+    display: none;
+  }
+}
 .add-page .left-column {
   min-width: 0;
   display: grid;
