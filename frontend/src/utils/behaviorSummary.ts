@@ -122,6 +122,12 @@ export function behaviorSummary(view: BehaviorSummaryView): { title: string; sen
 }
 
 /** Banner title and line, including the states with too little data. */
+// New accounts only: the today card already says nothing is recorded and offers the button.
+export const NEW_ACCOUNT_BANNER = {
+  title: `จะเริ่มสรุปพฤติกรรมเมื่อมีรายจ่าย ${MINIMUM} รายการ ครอบคลุม ${MINIMUM} วัน`,
+  text: "เมื่อครบแล้ว ระบบจะบอกว่าคุณใช้จ่ายกับหมวดไหนมากที่สุด และวันไหนใช้มากที่สุด",
+};
+
 export function behaviorBanner(view: BehaviorSummaryView) {
   const c = view.readiness.current;
   // No expenses at all also fails the gate, so it is checked first or its own message could never show.

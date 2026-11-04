@@ -5,6 +5,7 @@ import { buildForecast, forecastInput } from "./expenseForecast";
 import { anomalyQueue } from "./anomalyDecisions";
 import { loadTier0 } from "./tier0";
 import { FORECAST_RULE } from "./holt";
+import { BEHAVIOR_RULE } from "./behaviorRules";
 
 // FINANCIAL_PROFILE_DESIGN section 5. Reads Budget, Forecast, Goal and Anomaly; never recommendations (C2).
 // Tiers sort 1 to 4 with no scoring. Cards carry codes and budget figures only, never a raw forecast number (D-8).
@@ -111,6 +112,7 @@ export async function loadAlerts(tx: Prisma.TransactionClient, userId: string, t
     // Already-computed values for the Overview today card and unlock bar; nothing is recalculated here.
     pace: tier0.pace,
     recordedExpenseToday: forecast.recordedExpenseToday,
+    paceNoticeMinimum: BEHAVIOR_RULE.minimumIncreaseAmount,
     forecastReadiness: {
       ready: forecast.readiness.ready,
       transactionCount: forecast.readiness.transactionCount,

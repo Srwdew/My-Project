@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { todayCard, unlockRows, type Pace } from '../../frontend/src/utils/todayCard';
+import { BEHAVIOR_RULE } from '../src/lib/behaviorRules';
 
 const pace = (o: Partial<Pace> = {}): Pace => ({ daysLeft: 12, spent: '8000.00', cycleBudget: '20000.00', budgetLeft: '5040.00', overBudget: '0.00', perDay: '420', paceGap: '-10.00', ...o });
-const card = (o: Partial<Pace> = {}, today = '50.00', count = 40) => todayCard({ pace: pace(o), recordedExpenseToday: today, forecastReadiness: { transactionCount: count } });
+const card = (o: Partial<Pace> = {}, today = '50.00', count = 40) => todayCard({ pace: pace(o), recordedExpenseToday: today, paceNoticeMinimum: BEHAVIOR_RULE.minimumIncreaseAmount, forecastReadiness: { transactionCount: count } });
 
 test('normal', () => {
   const c = card();
@@ -13,6 +14,10 @@ test('normal', () => {
 });
 test('faster than plan names the gap', () => {
   assert.equal(card({ paceGap: '1250.00', perDay: '320' }).text, 'เร็วกว่าแผน 1,250 บาท งบที่เหลือใช้ได้เฉลี่ยวันละ 320 บาท อีก 12 วัน');
+});
+test('faster than plan needs more than 100 baht', () => {
+  assert.equal(card({ paceGap: '100.00' }).status, 'ตามงบ');
+  assert.equal(card({ paceGap: '100.01' }).status, 'ใช้เร็วกว่าแผน');
 });
 test('nothing recorded today leads to adding it', () => {
   const c = card({}, '0.00');

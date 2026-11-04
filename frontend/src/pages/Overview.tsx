@@ -34,7 +34,8 @@ import { Link, useSearchParams } from "react-router-dom";
 import { apiFetch } from "../api";
 import { getToken, useSessionKey } from "../auth";
 import { MonthPill } from "../components/DatePill";
-import { bannerTitleClass } from "../utils/behaviorSummary";
+import { bannerTitleClass, NEW_ACCOUNT_BANNER } from "../utils/behaviorSummary";
+import { isNewAccount } from "../utils/todayCard";
 import { bangkokDate, moneyText, type DailyAmount } from "../utils/dashboard";
 import "./Overview.css";
 type Dashboard = {
@@ -222,8 +223,10 @@ function OverviewMonth({
   }, [session, month, valid, revision]);
   const g = data?.goals.primaryGoal;
   const behavior = useBehavior(session, today);
-  const banner = behavior.banner;
   const alerts = useAlerts(session, today);
+  const banner = behavior.banner && alerts.data && isNewAccount(alerts.data)
+    ? { ...behavior.banner, ...NEW_ACCOUNT_BANNER }
+    : behavior.banner;
   const shownGoals: GoalItem[] = [
     ...(g ? [g] : []),
     ...goalList.filter((x) => x.id !== g?.id),
