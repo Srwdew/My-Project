@@ -22,6 +22,7 @@ import {
 import {
   AnomalyOverview,
   BehaviorOverview,
+  useBehaviorBanner,
 } from "../components/OverviewInsights";
 import WeeklyExpenses from "../components/WeeklyExpenses";
 import { useEffect, useState } from "react";
@@ -216,6 +217,7 @@ function OverviewMonth({
     };
   }, [session, month, valid, revision]);
   const g = data?.goals.primaryGoal;
+  const banner = useBehaviorBanner(session, today);
   const shownGoals: GoalItem[] = [
     ...(g ? [g] : []),
     ...goalList.filter((x) => x.id !== g?.id),
@@ -293,17 +295,25 @@ function OverviewMonth({
           >
             <div>
               <span className="dashboard-eyebrow">
-                ยอดจริงจากธุรกรรมที่คุณบันทึก
+                {banner ? "ข้อสังเกตจากรายการย้อนหลัง" : "ยอดจริงจากธุรกรรมที่คุณบันทึก"}
               </span>
               <h2>
-                {data.summary.hasTransactions
-                  ? "สรุปการเงินจากรายการที่คุณบันทึก"
-                  : "เริ่มเห็นภาพการเงินจากรายการแรกของคุณ"}
+                {banner
+                  ? banner.title
+                  : data.summary.hasTransactions
+                    ? "สรุปการเงินจากรายการที่คุณบันทึก"
+                    : "เริ่มเห็นภาพการเงินจากรายการแรกของคุณ"}
               </h2>
+              {banner && <p>{banner.text}</p>}
               <div className="dashboard-hero-tags">
                 {data.summary.budgetExceeded && (
                   <span className="dashboard-hero-warning">
                     รายจ่ายเกินงบรวมของเดือน
+                  </span>
+                )}
+                {banner && (
+                  <span>
+                    พฤติกรรม {thaiDate(banner.periods.current.startDate)}–{thaiDate(banner.periods.current.endDate)} ไม่ใช่เดือนที่เลือก
                   </span>
                 )}
                 <span>{data.summary.transactionCount} รายการ</span>
@@ -378,6 +388,17 @@ function OverviewMonth({
                       ? "%"
                       : " บาท"
                     : undefined
+                }
+                children={
+                  value === null && (
+                    <small className="dashboard-section-note">
+                      {kind !== "saving"
+                        ? "ตั้งงบรวมเพื่อดูงบคงเหลือ"
+                        : data.summary.savingRate.reason === "no_income"
+                          ? "ไม่มีรายรับที่บันทึก หรือรายรับเป็นศูนย์ จึงคำนวณอัตราไม่ได้"
+                          : "ยังไม่มีธุรกรรมในช่วงนี้"}
+                    </small>
+                  )
                 }
                 className={
                   "dashboard-kpi-" +
@@ -669,6 +690,11 @@ function OverviewMonth({
               ) : (
                 <p className="goals-card-empty">
                   ยังไม่มีเป้าหมาย <Link to="/goals">สร้างเป้าหมาย</Link>
+                </p>
+              )}
+              {!g && data.goals.activeCount + data.goals.notStartedCount > 0 && (
+                <p className="goals-card-empty">
+                  ยังไม่ได้เลือกเป้าหมายหลัก <Link to="/settings">เลือกใน Settings</Link>
                 </p>
               )}
             </section>

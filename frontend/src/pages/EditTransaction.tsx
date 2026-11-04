@@ -3,6 +3,7 @@ import { useSessionKey } from "../auth";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import DatePicker from "react-datepicker";
+import { th } from "date-fns/locale";
 import { thaiDayText, thaiMonthHeader } from "../components/DatePill";
 import UserHeader from "../components/UserHeader";
 import "react-datepicker/dist/react-datepicker.css";
@@ -394,6 +395,7 @@ function EditTransactionSession() {
                         }
                       }}
                       dateFormat="dd/MM/yyyy"
+                      locale={th}
                       value={thaiDayText(transactionDate)}
                       renderCustomHeader={thaiMonthHeader}
                       calendarStartDay={1}

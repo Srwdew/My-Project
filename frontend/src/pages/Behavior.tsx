@@ -13,6 +13,7 @@ import {
 import { apiFetch } from "../api";
 import { getToken, useSessionKey } from "../auth";
 import { bangkokDate, moneyText } from "../utils/dashboard";
+import { behaviorBanner, cash, percent } from "../utils/behaviorSummary";
 import BudgetIcon from "../components/BudgetIcon";
 import { categoryAppearance } from "../utils/categoryAppearance";
 import Dropdown, { TagIcon } from "../components/Dropdown";
@@ -173,90 +174,6 @@ function StatusRow({ name, text, tone }: { name: string; text: string; tone: "fo
       <span className={"behavior-status-chip is-" + tone}>{text}</span>
     </li>
   );
-}
-const cash = (v: string | null) => (v === null ? "—" : moneyText(v) + " บาท");
-const percent = (v: string | null) => (v === null ? "—" : v + "%");
-const weekdayNames = ["จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์", "อาทิตย์"];
-const increaseCause: Record<string, string> = {
-  category_frequency_up: "ที่ซื้อบ่อยขึ้น",
-  category_average_up: "ที่จ่ายต่อครั้งสูงขึ้น",
-  category_both_up: "ที่ทั้งบ่อยขึ้นและจ่ายต่อครั้งสูงขึ้น",
-};
-const recurrenceNames: Record<string, string> = {
-  monthly: "รายเดือน",
-  weekly: "รายสัปดาห์",
-  general: "ทั่วไป",
-};
-// Behavior summary banner (user-approved 25 Oct 2026): up to 3 sentences —
-// total, category (increase finding > top share), pattern (recurrence > time > weekday).
-// Uses backend findings only; decreases and sub-threshold increases are stated as facts.
-function behaviorSummary(view: View): { title: string; sentences: string[] } {
-  const { current, comparison } = view.facts.summary;
-  const comparable = view.readiness.comparisonReady && comparison !== null;
-  const increase = view.findings.find((f) => f.ruleId in increaseCause);
-  const diff = comparable ? Number(comparison!.amount.difference) : 0;
-  const title = increase
-    ? "ช่วงนี้ใช้จ่ายมากขึ้น ส่วนใหญ่มาจาก" +
-      (increase.categoryName ?? "ไม่ระบุหมวด") +
-      increaseCause[increase.ruleId]
-    : !comparable
-      ? "สรุปช่วงนี้ (ยังเทียบช่วงก่อนไม่ได้)"
-      : diff > 0
-        ? "ช่วงนี้ใช้จ่ายมากกว่าช่วงก่อน"
-        : diff < 0
-          ? "ช่วงนี้ใช้จ่ายน้อยกว่าช่วงก่อน"
-          : "ช่วงนี้ใช้จ่ายเท่ากับช่วงก่อน";
-  const sentences = [
-    comparable
-      ? "ใช้ " + cash(current.amount) +
-        (diff === 0
-          ? " เท่ากับช่วงก่อน"
-          : (diff > 0 ? " มากกว่า" : " น้อยกว่า") +
-            "ช่วงก่อน " + cash(String(Math.abs(diff))))
-      : "ใช้ " + cash(current.amount) + " จาก " + current.transactionCount + " รายการ",
-  ];
-  const top = view.facts.categories[0];
-  if (increase) {
-    const e = increase.evidence as { current: Metric; previous: Metric };
-    sentences.push(
-      (increase.categoryName ?? "ไม่ระบุหมวด") +
-        " จำนวนครั้ง " + e.previous.transactionCount + " → " + e.current.transactionCount +
-        " เฉลี่ยต่อครั้ง " + cash(e.previous.averagePerTransaction) +
-        " → " + cash(e.current.averagePerTransaction),
-    );
-  } else if (top && top.current.transactionCount > 0)
-    sentences.push(
-      "ส่วนใหญ่ไปที่" + top.categoryName + " (" + percent(top.current.sharePercent) + ")",
-    );
-  const recurrences = view.findings.filter((f) =>
-    f.ruleId.startsWith("possible_recurrence_"),
-  );
-  const time = view.findings.find((f) => f.ruleId === "confirmed_time_concentration");
-  const busiest = view.facts.weekdayDistribution
-    .filter((w) => w.current.averagePerCalendarOccurrence !== null && Number(w.current.amount) > 0)
-    .sort(
-      (a, b) =>
-        Number(b.current.averagePerCalendarOccurrence) -
-          Number(a.current.averagePerCalendarOccurrence) || a.weekday - b.weekday,
-    )[0];
-  if (recurrences.length) {
-    const counts = Object.keys(recurrenceNames)
-      .map((k) => [k, recurrences.filter((f) => f.ruleId === "possible_recurrence_" + k).length] as const)
-      .filter(([, n]) => n > 0)
-      .map(([k, n]) => recurrenceNames[k] + " " + n);
-    sentences.push("พบรายจ่ายซ้ำ " + recurrences.length + " รูปแบบ (" + counts.join(", ") + ")");
-  } else if (time) {
-    const b = (time.evidence as { bucket: { startHour: number; endHourExclusive: number } }).bucket;
-    const hh = (h: number) => String(h).padStart(2, "0") + ":00";
-    sentences.push(
-      "รายการที่ยืนยันเวลาส่วนใหญ่อยู่ช่วง " + hh(b.startHour) + "–" + hh(b.endHourExclusive),
-    );
-  } else if (busiest)
-    sentences.push(
-      "เฉลี่ยใช้มากที่สุดวัน" + weekdayNames[busiest.weekday - 1] +
-        " (" + cash(busiest.current.averagePerCalendarOccurrence) + " ต่อวัน)",
-    );
-  return { title, sentences };
 }
 const shift = (date: string, n: number) => {
   const d = new Date(date + "T00:00:00Z");
@@ -467,8 +384,7 @@ function BehaviorBody({
   const data = validDraft && snapshot?.query === query ? snapshot.view : null;
   const ready = data?.readiness.comparisonReady ?? false,
     summary = data?.facts.summary,
-    summaryBanner =
-      data && data.readiness.current.ready ? behaviorSummary(data) : null;
+    summaryBanner = data ? behaviorBanner(data) : null;
   const findings =
     data?.findings
       .filter((f) => !f.ruleId.startsWith("possible_recurrence_"))
@@ -650,25 +566,9 @@ function BehaviorBody({
                 : error
                   ? "ยังโหลดข้อมูลไม่สำเร็จ"
                   : "เลือกช่วงวันเต็มที่ต้องการดู"
-              : !data.readiness.current.ready
-                ? "ยังสรุปพฤติกรรมไม่ได้"
-                : summaryBanner!.title}
+              : summaryBanner!.title}
           </h2>
-          {data ? (
-            <p>
-              {summaryBanner ? (
-                summaryBanner.sentences.join(" · ")
-              ) : data.status === "no_data" ? (
-                "ยังไม่มีรายจ่ายที่บันทึกในช่วงนี้"
-              ) : data.readiness.current.ready ? (
-                ""
-              ) : (
-                "ข้อมูลยังไม่ถึงเกณฑ์ ดูเหตุผลด้านล่าง"
-              )}
-            </p>
-          ) : (
-            null
-          )}
+          {summaryBanner && <p>{summaryBanner.text}</p>}
           {data && (
             <div className="behavior-banner-tags">
               <span>

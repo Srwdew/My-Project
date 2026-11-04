@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { getToken, useSessionKey } from '../auth';
 import { bangkokDate } from '../utils/dashboard';
+import { behaviorBanner, type BehaviorSummaryView } from '../utils/behaviorSummary';
 import '../pages/Overview.css';
 
 function useReadOnlySummary<T>(path: string, session: string | null, refreshKey = '') {
@@ -31,6 +32,11 @@ function useReadOnlySummary<T>(path: string, session: string | null, refreshKey 
     return () => { active = false; controller.abort(); };
   }, [path, session, revision, refreshKey]);
   return { data, loading, error, retry: () => setRevision(n => n + 1) };
+}
+// Overview banner text: same /behavior answer and same function as the Behavior page banner.
+export function useBehaviorBanner(session: string | null, today: string) {
+  const { data } = useReadOnlySummary<BehaviorSummaryView & { periods: BehaviorSummary['periods'] }>('/behavior', session, today);
+  return data?.facts && data.readiness ? { ...behaviorBanner(data), periods: data.periods } : null;
 }
 type BehaviorSummary = {
   periods: { current: { startDate: string; endDate: string }; previous: { startDate: string; endDate: string } };

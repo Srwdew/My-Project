@@ -1,6 +1,7 @@
 import { categoryAppearance } from "../utils/categoryAppearance";
 import BudgetIcon from "../components/BudgetIcon";
 import DatePicker from "react-datepicker";
+import { th } from "date-fns/locale";
 import { thaiYearHeader } from "../components/DatePill";
 import "react-datepicker/dist/react-datepicker.css";
 import { useToast } from "../components/LocalToast";
@@ -393,6 +394,7 @@ export default function Budget() {
           }}
           preventOpenOnFocus
           showMonthYearPicker
+          locale={th}
           renderCustomHeader={thaiYearHeader}
           dateFormat="MM/yyyy"
           minDate={new Date(1900, 0, 1)}

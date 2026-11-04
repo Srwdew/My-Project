@@ -9,6 +9,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { getToken, useSessionKey } from "../auth";
 import { validDashboardMonth } from "../utils/dashboard";
 import DatePicker from "react-datepicker";
+import { th } from "date-fns/locale";
 import { thaiMonthHeader } from "../components/DatePill";
 import "react-datepicker/dist/react-datepicker.css";
 import {
@@ -533,6 +534,7 @@ function TransactionHistorySession({ session }: { session: string | null }) {
                   setPeriodFilter("");
                 }}
                 dateFormat="dd/MM/yyyy"
+                locale={th}
                 renderCustomHeader={thaiMonthHeader}
                 calendarStartDay={1}
                 todayButton="วันนี้"

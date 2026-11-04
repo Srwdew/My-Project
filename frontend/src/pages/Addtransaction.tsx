@@ -25,6 +25,7 @@ import {
   Wallet,
 } from "lucide-react";
 import DatePicker from "react-datepicker";
+import { th } from "date-fns/locale";
 import { thaiDayText, thaiMonthHeader } from "../components/DatePill";
 import UserHeader from "../components/UserHeader";
 import "react-datepicker/dist/react-datepicker.css";
@@ -726,6 +727,7 @@ export default function AddTransaction() {
                             setFieldErrors((f) => ({ ...f, date: undefined }));
                           }}
                           dateFormat="dd/MM/yyyy"
+                          locale={th}
                           value={transactionDate ? thaiDayText(transactionDate) : ""}
                           renderCustomHeader={thaiMonthHeader}
                           calendarStartDay={1}
