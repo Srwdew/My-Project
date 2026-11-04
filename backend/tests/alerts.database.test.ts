@@ -5,6 +5,8 @@ import jwt from 'jsonwebtoken';
 import { app } from '../src/index';
 import { prisma } from '../src/lib/prisma';
 import { loadAlerts } from '../src/lib/alerts';
+import { syncAlertNotifications } from '../src/lib/alertNotifications';
+import { getFlexibleCategoryIds } from '../src/lib/flexibleCategories';
 import { addDays } from '../src/lib/cycle';
 import { bangkokToday } from '../src/lib/goalCalculations';
 
@@ -53,11 +55,34 @@ test('Alerts on real PostgreSQL and HTTP', async t => {
     assert.equal(body.flaggedTotal, 1);
     assert.ok(!('summary' in body));
   });
+  await t.test('bell: one notice per card, reloading repeats nothing, link kept, own anomaly notice not doubled', async () => {
+    await syncAlertNotifications(a.id, today);
+    await syncAlertNotifications(a.id, today);
+    const notices = await prisma.notification.findMany({ where: { userId: a.id, type: 'alert_layer' } });
+    assert.deepEqual(notices.map(n => n.link), ['/transactions/' + flagged.id + '/anomaly']);
+    assert.ok(notices[0]!.message.includes(cat.name));
+    await prisma.notification.create({ data: { userId: b.id, type: 'transaction_anomaly', title: 't', message: 'm', eventKey: 'transaction-anomaly:' + other.id } });
+    await prisma.transaction.createMany({ data: Array.from({ length: 40 }, (_, i) => ({ userId: b.id, categoryId: cat.id, type: 'expense' as const, amount: '100.00', transactionDate: at(addDays(today, i - 40)) })) });
+    await syncAlertNotifications(b.id, today);
+    assert.equal(await prisma.notification.count({ where: { userId: b.id, type: 'alert_layer' } }), 0);
+  });
   await t.test('a decided item leaves the list', async () => {
     const evaluation = await prisma.anomalyEvaluation.findFirstOrThrow({ where: { userId: a.id, originalTransactionId: flagged.id } });
     await prisma.anomalyDecision.create({ data: { userId: a.id, evaluationId: evaluation.id, originalTransactionId: flagged.id, revision: 0, dimension: 'amount', action: 'occasional', sequence: 1 } });
     const out = await prisma.$transaction(tx => loadAlerts(tx, a.id, today));
     assert.equal(out.flaggedTotal, 0);
+  });
+  await t.test('category flags: own account only, expense only, reaches the engine', async () => {
+    const put = async (id: string, body: unknown, who = a) => (await fetch('http://127.0.0.1:' + addr.port + '/category-flags/' + id, { method: 'PUT', headers: { Authorization: 'Bearer ' + token(who), 'Content-Type': 'application/json' }, body: JSON.stringify(body) })).status;
+    assert.equal(await put(cat.id, { flexible: 'yes' }), 400);
+    const income = await prisma.category.create({ data: { name: randomUUID(), type: 'income' } });
+    assert.equal(await put(income.id, { flexible: true }), 404);
+    assert.equal(await put(cat.id, { flexible: true }), 200);
+    assert.ok((await get('/category-flags')).body.find((c: any) => c.categoryId === cat.id).flexible);
+    assert.equal((await get('/category-flags', b)).body.find((c: any) => c.categoryId === cat.id).flexible, false);
+    assert.deepEqual([...await getFlexibleCategoryIds(prisma as any, a.id)], [cat.id]);
+    assert.equal(await put(cat.id, { flexible: false }), 200);
+    assert.equal((await getFlexibleCategoryIds(prisma as any, a.id)).size, 0);
   });
   await t.test('reading writes nothing', async () => {
     const before = await prisma.transaction.count();

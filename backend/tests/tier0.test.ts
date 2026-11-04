@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { budgetPace, goalOptions } from '../src/lib/tier0';
 import { cycleByPeriod, cycleContextFromProfile } from '../src/lib/cycle';
-import { extendText } from '../../frontend/src/utils/goalDuration';
+import { extendText } from '../src/lib/alertNotifications';
 
 const nov = cycleByPeriod(cycleContextFromProfile('u', null), 2026, 11); // 30 days
 

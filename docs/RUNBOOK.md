@@ -84,7 +84,7 @@ docker exec SpendSense-db pg_restore -U SpendSense_user -d spendsense_restore /t
 
 ## 5. Migration ที่ยังไม่ยืนยันว่ารันบนฐานหลัก
 
-ใน repository มี 25 migration บันทึกล่าสุดที่พบ ([ANOMALY_IMPLEMENTATION](../ANOMALY_IMPLEMENTATION.md)) ระบุว่าฐานหลักมี 12 migration ถึง `20260924010000_add_anomaly_review` ไม่พบบันทึกการ deploy หลังจากนั้น แต่บันทึกไม่ครบไม่ได้แปลว่าไม่เคยรัน **[ยังไม่ยืนยัน]** สถานะจริงต้องดูจาก `npx prisma migrate status` ซึ่งเจ้าของโครงการต้องรันเอง
+ใน repository มี 26 migration บันทึกล่าสุดที่พบ ([ANOMALY_IMPLEMENTATION](../ANOMALY_IMPLEMENTATION.md)) ระบุว่าฐานหลักมี 12 migration ถึง `20260924010000_add_anomaly_review` ไม่พบบันทึกการ deploy หลังจากนั้น แต่บันทึกไม่ครบไม่ได้แปลว่าไม่เคยรัน **[ยังไม่ยืนยัน]** สถานะจริงต้องดูจาก `npx prisma migrate status` ซึ่งเจ้าของโครงการต้องรันเอง
 
 | Migration | สถานะที่มีหลักฐาน |
 |---|---|
@@ -101,6 +101,7 @@ docker exec SpendSense-db pg_restore -U SpendSense_user -d spendsense_restore /t
 | `20261101010000_add_recommendation_log` | ไม่พบบันทึก |
 | `20261102010000_add_anomaly_level_shift` | เอกสาร backtest ระบุว่ายังไม่ได้รันกับฐานหลัก |
 | `20261102020000_level_shift_reopen` | เอกสาร backtest ระบุว่ายังไม่ได้รันกับฐานหลัก |
+| `20261104010000_add_alert_notification_type` | ใหม่ ยังไม่ได้รันกับฐานหลัก และโค้ดกระดิ่งต้องใช้ชนิดนี้ |
 
 ## 6. การรันเทสต์
 

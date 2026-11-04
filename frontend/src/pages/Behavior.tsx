@@ -17,6 +17,7 @@ import BudgetIcon from "../components/BudgetIcon";
 import { categoryAppearance } from "../utils/categoryAppearance";
 import Dropdown, { TagIcon } from "../components/Dropdown";
 import DatePill from "../components/DatePill";
+import { PageRecommendations } from "../components/OverviewInsights";
 import "./Behavior.css";
 
 type Metric = {
@@ -1267,6 +1268,7 @@ function BehaviorBody({
             <p className="behavior-note">คำแนะนำอ้างข้อมูลที่พบ ไม่ได้พิสูจน์สาเหตุหรือแรงจูงใจ</p>
           </section>
         </div>
+        <PageRecommendations rules={["R3", "R4", "R5", "R9"]} />
         <p className="behavior-footer">
           <Link to="/overview">กลับภาพรวมรายเดือน</Link>
         </p>

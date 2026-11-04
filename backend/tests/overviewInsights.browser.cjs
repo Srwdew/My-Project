@@ -28,10 +28,11 @@ const mock=()=>{
    else{
     const rec=(id,ruleId,subject,what,supersededBy=null)=>({id,ruleId,subject,supersededBy,text:{what,action:'ถ้าหมวดนี้กลับไปอยู่ระดับเดิม',outcome:'จะลดลง 1,800 บาท'}});
     const gate=window.__unready?{moreExpensesNeeded:28,moreDaysNeeded:29}:{moreExpensesNeeded:0,moreDaysNeeded:0};
-    data={shown:window.__unready||window.__noFinding?[]:[rec('r3','R3','food','Actual recommendation '+session),rec('r2','R2',null,'Pace '+session)],
-     more:window.__unready||window.__noFinding?[]:[rec('r5','R5','food','Same category',{ruleId:'R3',subject:'food'})],
+    // Rules placed on Goals, plus R3 for another page, which must not appear here. The cap is per page, so 4 Goals items leave 1 in "more".
+    data={shown:window.__unready||window.__noFinding?[]:[rec('r3','R6','food','Actual recommendation '+session),rec('r2','R7',null,'Pace '+session),rec('rx','R3','food','Other page')],
+     more:window.__unready||window.__noFinding?[]:[rec('r8','R8',null,'Third'),rec('r6','R6','fun','Fourth',{ruleId:'R6',subject:'food'})],
      silencedByNoFlags:window.__noFlags?['R1','R7','R9']:[],
-     closedRules:window.__unready?[{ruleId:'R3',closedSources:['behavior']},{ruleId:'R1',closedSources:['forecast']}]:[],
+     closedRules:window.__unready?[{ruleId:'R6',closedSources:['behavior']},{ruleId:'R7',closedSources:['forecast']}]:[],
      readiness:{behavior:gate,forecast:gate,goals:{activeGoals:1,hasIncomeThisCycle:true}}};
    }
   } else if(route==='/goals'){
@@ -53,13 +54,17 @@ const mock=()=>{
  await send('Page.enable');await send('Runtime.enable');await send('Page.addScriptToEvaluateOnNewDocument',{source:'('+mock.toString()+')()'});await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});await send('Page.navigate',{url:origin+'/overview'});await waitFor("Boolean(document.querySelector('.dashboard-cards'))");
 
  await waitFor("document.querySelector('[data-testid=overview-anomaly]')?.textContent.includes('3 รายการรอตัดสิน')");
- const REC="document.querySelector('[data-testid=overview-recommendations]')";
- await waitFor(REC+"?.textContent.includes('Actual recommendation session-a')");
+ // The owner moved recommendations off Overview to their own pages; these checks now run on Goals.
+ const REC="document.querySelector('[data-testid=page-recommendations]')";
  assert.ok(await evaluate("document.querySelector('.dashboard-saving-rate').textContent.includes('80.00%')"));
- assert.ok(await evaluate("window.__requests.includes('/anomaly/queue?filter=waiting&limit=1')&&window.__requests.includes('/recommendations')&&!window.__requests.includes('/behavior')"));
+ assert.ok(await evaluate(REC+"===null&&!document.querySelector('[data-testid=overview-alerts]')"));
  assert.equal(await evaluate("document.querySelector('[data-testid=overview-anomaly] a').getAttribute('href')"),'/anomaly?filter=waiting');
- assert.equal(await evaluate(REC+".querySelectorAll('.rec-list:first-of-type > .rec-item').length"),2);
- console.log('PASS Overview reads /recommendations (not the first Behavior finding)');
+ console.log('PASS Overview has no recommendation or alert section');
+ await evaluate("document.querySelector('a[href=\"/goals\"]').click()");
+ await waitFor(REC+"?.textContent.includes('Actual recommendation session-a')");
+ assert.ok(await evaluate("!"+REC+".textContent.includes('Other page')"));
+ assert.equal(await evaluate(REC+".querySelectorAll('.rec-list:first-of-type > .rec-item').length"),3);
+ console.log('PASS Goals shows only its own rules, at most 3 before more');
  // Provenance: from the log endpoint, with the date range labelled by kind.
  await evaluate(REC+".querySelector('.rec-item .rec-link').click()");
  await waitFor(REC+"?.querySelector('.rec-source')?.textContent.includes('ข้อมูล 30 วันที่ผ่านมา')");
@@ -67,7 +72,7 @@ const mock=()=>{
  assert.ok(await evaluate(REC+".querySelector('.rec-source').textContent.includes('ไม่ได้เทียบกับคนอื่น')"));
  // The rest, with the superseded one explained.
  await evaluate("[..."+REC+".querySelectorAll('button')].find(b=>b.textContent.includes('ดูคำแนะนำอื่นอีก 1 ข้อ')).click()");
- await waitFor(REC+"?.textContent.includes('ไม่ควรบวกรวม')");
+ await waitFor(REC+"?.textContent.includes('Fourth')");
  // Actions post followed / dismissed for that id.
  await evaluate("[..."+REC+".querySelectorAll('.rec-item')][0].querySelectorAll('.rec-buttons button')[1].click()");
  await waitFor("(window.__actions||[]).length===1");
@@ -83,17 +88,17 @@ const mock=()=>{
  await evaluate("window.__unready=false;window.__noFinding=true;window.dispatchEvent(new Event('spendsense-data-changed'))");
  await waitFor(REC+"?.textContent.includes('ตอนนี้ยังไม่มีคำแนะนำ')");
  console.log('PASS invitation first, readiness counts, explicit empty state');
- await evaluate("window.__insightFail=true;window.dispatchEvent(new Event('spendsense-data-changed'))");
- await waitFor("document.querySelectorAll('[data-testid^=overview-] [role=alert]').length===2");
- await evaluate("window.__insightFail=false;document.querySelector('[data-testid=overview-anomaly] button').click();"+REC+".querySelector('[role=alert] button').click()");
+ await evaluate("window.__noFinding=false;document.querySelector('a[href=\"/overview\"]').click()");
  await waitFor("document.querySelector('[data-testid=overview-anomaly]')?.textContent.includes('3 รายการรอตัดสิน')");
- await evaluate("window.__noFinding=false;window.__insightHold=true;window.dispatchEvent(new Event('spendsense-data-changed'))");
- await waitFor("window.__gates.length>=2");
+ await evaluate("window.__insightFail=true;window.dispatchEvent(new Event('spendsense-data-changed'))");
+ await waitFor("document.querySelectorAll('[data-testid^=overview-] [role=alert]').length===1");
+ await evaluate("window.__insightFail=false;document.querySelector('[data-testid=overview-anomaly] button').click()");
+ await waitFor("document.querySelector('[data-testid=overview-anomaly]')?.textContent.includes('3 รายการรอตัดสิน')");
+ await evaluate("window.__insightHold=true;window.dispatchEvent(new Event('spendsense-data-changed'))");
+ await waitFor("window.__gates.length>=1");
  assert.ok(await evaluate("document.querySelector('[data-testid=overview-anomaly] [role=status]')!==null"));
  await evaluate("localStorage.setItem('spendsense_token','session-b');window.dispatchEvent(new Event('spendsense-session'))");
- await waitFor(REC+"?.textContent.includes('Actual recommendation session-b')");
  await evaluate("window.__insightHold=false;window.__release();new Promise(r=>setTimeout(r,100))");
- assert.ok(await evaluate("!"+REC+".textContent.includes('session-a')"));
  await waitFor("document.querySelector('[data-testid=overview-anomaly]')?.textContent.includes('ไม่มีรายการที่รอคำตัดสิน')");
  console.log('PASS independent retry/loading and late response cannot cross session');
  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});

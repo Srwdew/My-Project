@@ -2,9 +2,9 @@ import { thaiDate } from "../utils/thaiDate";
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiFetch } from '../api';
-import { getToken } from '../auth';
-import { moneyText } from '../utils/dashboard';
-import { extendText } from '../utils/goalDuration';
+import { getToken, useSessionKey } from '../auth';
+import { bangkokDate } from '../utils/dashboard';
+import '../pages/Overview.css';
 
 function useReadOnlySummary<T>(path: string, session: string | null, refreshKey = '') {
   const [data, setData] = useState<T | null>(null);
@@ -31,72 +31,6 @@ function useReadOnlySummary<T>(path: string, session: string | null, refreshKey 
     return () => { active = false; controller.abort(); };
   }, [path, session, revision, refreshKey]);
   return { data, loading, error, retry: () => setRevision(n => n + 1) };
-}
-type AlertCard = {
-  tier: number; code: string;
-  budgetLeft?: string; overBudget?: string; perDay?: string | null; daysLeft?: number; spanDays?: number;
-  requiredMonthly?: string; availableMonthly?: string; shortfall?: string; goalCount?: number;
-  alternatives?: { budgetReductionAlonePossible: boolean; targetBudget: string | null; targetIncome: string } | null;
-  goalOptions?: { extendToMonths: number | null; lowerTargetTo: string | null } | null;
-  goalOptionsUnavailable?: string | null;
-  id?: string; amount?: string; date?: string; categoryName?: string;
-};
-type Alerts = { cards: AlertCard[]; flaggedTotal: number; levelShiftsWaiting: number; gates?: { estimate: string; budget: boolean } };
-const RECORDED_ONLY = 'ประเมินจากรายการที่บันทึก ไม่รวมรายจ่ายที่ยังไม่ได้บันทึก';
-const budgetLine = (c: AlertCard) => Number(c.overBudget) > 0
-  ? `ใช้เกินงบแล้ว ${moneyText(c.overBudget!)} บาท`
-  : `งบเหลือ ${moneyText(c.budgetLeft!)} บาท`;
-function AlertItem({ card: c }: { card: AlertCard }) {
-  if (c.tier === 1) return <li className="alert-card alert-tier-1">
-    <strong>งบอาจไม่พอถึงสิ้นเดือน</strong>
-    <p>{budgetLine(c)} อีก {c.daysLeft} วันถึงสิ้นเดือน{c.perDay ? ` ใช้ได้วันละ ${c.perDay} บาท` : ''}</p>
-    <small>{RECORDED_ONLY}</small> <Link to="/budget">ดูงบประมาณ</Link>
-  </li>;
-  if (c.code === 'pace_over_next_cycle') return <li className="alert-card alert-tier-2">
-    <strong>ต้นเดือนหน้าอาจใช้เร็วกว่างบ</strong>
-    <p>เทียบ {c.spanDays} วันแรกของเดือนหน้ากับงบเดือนหน้าที่ตั้งไว้</p>
-    <small>{RECORDED_ONLY}</small> <Link to="/budget">ดูงบประมาณ</Link>
-  </li>;
-  if (c.tier === 2) return <li className="alert-card alert-tier-2">
-    <strong>7 วันข้างหน้าอาจใช้เร็วกว่างบ</strong>
-    <p>{budgetLine(c)}{c.perDay ? ` เฉลี่ยใช้ได้วันละ ${c.perDay} บาท จนถึงสิ้นเดือน` : ''}</p>
-    <small>{RECORDED_ONLY}</small> <Link to="/budget">ดูงบประมาณ</Link>
-  </li>;
-  if (c.tier === 3) {
-    const available = Number(c.availableMonthly), alt = c.alternatives, one = c.goalOptions;
-    return <li className="alert-card alert-tier-3">
-      <strong>เป้าออมรวมสูงกว่าเงินที่เหลือตามแผน</strong>
-      <p>ต้องออมรวม {moneyText(c.requiredMonthly!)} บาท/เดือน {available < 0
-        ? `รายได้ที่ตั้งไว้น้อยกว่างบ ${moneyText(String(-available))} บาท/เดือน`
-        : `ตามรายได้และงบที่ตั้งไว้เหลือ ${moneyText(c.availableMonthly!)} บาท/เดือน`} ขาด {moneyText(c.shortfall!)} บาท/เดือน</p>
-      <ul className="alert-options">
-        {alt?.budgetReductionAlonePossible && alt.targetBudget && <li>ลดงบเหลือ {moneyText(alt.targetBudget)} บาท</li>}
-        {alt && <li>เพิ่มรายได้เป็น {moneyText(alt.targetIncome)} บาท</li>}
-        {one?.extendToMonths != null && <li>{extendText(one.extendToMonths)}</li>}
-        {one?.lowerTargetTo != null && <li>ลดยอดเป้าเหลือ {moneyText(one.lowerTargetTo)} บาท</li>}
-      </ul>
-      {c.goalOptionsUnavailable && <small>มีหลายเป้าที่ใช้เงินเหลือก้อนเดียวกัน จึงยังคำนวณยืดเวลาหรือลดยอดแยกรายเป้าไม่ได้</small>}
-      <small>เงินที่เก็บเข้าเป้าหมายไม่ต้องบันทึกเป็นรายจ่าย</small> <Link to="/goals">ดูเป้าหมาย</Link>
-    </li>;
-  }
-  return <li className="alert-card alert-tier-4">
-    <strong>รายการนี้รอคุณตรวจ</strong>
-    <p>{c.categoryName} {moneyText(c.amount!)} บาท วันที่ {thaiDate(c.date)} ต่างจากแบบที่เคยบันทึก</p>
-    <small>{RECORDED_ONLY}</small> <Link to={'/transactions/' + c.id + '/anomaly'}>ตรวจรายการนี้</Link>
-  </li>;
-}
-export function AlertsOverview({ session, today }: { session: string | null; today: string }) {
-  const { data, error, retry } = useReadOnlySummary<Alerts>('/alerts', session, today);
-  const waiting = data ? data.flaggedTotal + data.levelShiftsWaiting : 0;
-  if (error) return <section className="dashboard-alerts" role="alert"><p>โหลดสถานะงบและเป้าหมายไม่สำเร็จ</p><button onClick={retry}>ลองโหลดอีกครั้ง</button></section>;
-  const tooLittle = data?.gates?.budget && data.gates.estimate === 'insufficient';
-  if (!data || (!data.cards.length && !waiting && !tooLittle)) return null;
-  return <section className="dashboard-alerts" data-testid="overview-alerts" aria-labelledby="overview-alerts-title">
-    <h2 id="overview-alerts-title">สถานะงบและเป้าหมาย</h2>
-    {tooLittle && <p className="dashboard-section-note">ข้อมูลยังไม่พอสำหรับประเมินรายจ่ายข้างหน้าเทียบกับงบ</p>}
-    <ul className="alert-list">{data.cards.map((c) => <AlertItem key={c.id ?? c.code} card={c} />)}</ul>
-    {waiting > 0 && <Link className="dashboard-text-link" to="/anomaly?filter=waiting">ดูทั้งหมด {waiting} รายการ</Link>}
-  </section>;
 }
 export function AnomalyOverview({ session }: { session: string | null }) {
   const { data, loading, error, retry } = useReadOnlySummary<{ total: number; pendingEvaluation: number }>('/anomaly/queue?filter=waiting&limit=1', session);
@@ -158,7 +92,9 @@ function RecommendationItem({ rec, onAction }: { rec: Rec; onAction: (id: string
   </li>;
 }
 
-export function RecommendationsOverview({ session, today }: { session: string | null; today: string }) {
+// The engine still ranks and suppresses across all rules; each page only shows its own, at most 3 before "more".
+export function PageRecommendations({ rules }: { rules: string[] }) {
+  const session = useSessionKey(), today = bangkokDate();
   const { data, loading, error, retry } = useReadOnlySummary<Recommendations>('/recommendations', session, today);
   const [showAll, setShowAll] = useState(false), [failed, setFailed] = useState(false);
   const act = async (id: string, action: 'followed' | 'dismissed') => {
@@ -166,27 +102,30 @@ export function RecommendationsOverview({ session, today }: { session: string | 
     try { const r = await apiFetch('/recommendations/' + id + '/action', { method: 'POST', body: JSON.stringify({ action }) }); if (!r.ok) throw Error(); retry(); }
     catch { setFailed(true); }
   };
-  const gates = data ? [...new Set(data.closedRules.flatMap((r) => r.closedSources))] : [];
-  return <div className="dashboard-guidance" data-testid="overview-recommendations">
+  const gates = data ? [...new Set(data.closedRules.filter((r) => rules.includes(r.ruleId)).flatMap((r) => r.closedSources))] : [];
+  const mine = data ? [...data.shown, ...data.more].filter((r) => rules.includes(r.ruleId)) : [];
+  const shown = mine.slice(0, 3), more = mine.slice(3);
+  const silenced = data ? data.silencedByNoFlags.filter((r) => rules.includes(r)) : [];
+  return <section className="dashboard-page rec-panel" aria-labelledby={'rec-title-' + rules[0]}><h2 id={'rec-title-' + rules[0]}>คำแนะนำสำหรับคุณ</h2><div className="dashboard-guidance" data-testid="page-recommendations">
     {loading && <p role="status">กำลังโหลดคำแนะนำ...</p>}
     {error && <div role="alert"><p>โหลดคำแนะนำไม่สำเร็จ</p><button onClick={retry}>ลองโหลดอีกครั้ง</button></div>}
     {failed && <p role="alert">บันทึกไม่สำเร็จ กรุณาลองใหม่</p>}
     {data && <>
       {/* Comes first: without flags the most urgent rule (running short in the next 7 days) cannot speak. */}
-      {data.silencedByNoFlags.length > 0 && <div className="rec-invite">
+      {silenced.length > 0 && <div className="rec-invite">
         <strong>บอกเราก่อนว่าหมวดไหนลดได้</strong>
         <p>คำแนะนำบางข้อ เช่น การเตือนเมื่อเงินอาจไม่พอใน 7 วันข้างหน้า ต้องรู้ก่อนว่าหมวดไหนลดได้ เราจะไม่เสนอให้ลดค่าใช้จ่ายจำเป็นอย่างค่าเช่า ตอนนี้ยังไม่มีหมวดที่ถูกเลือกไว้</p>
+        <Link className="dashboard-text-link" to="/settings#flexible-categories">เลือกหมวดที่ลดได้</Link>
       </div>}
-      {data.shown.length > 0 ? <ul className="rec-list">{data.shown.map((r) => <RecommendationItem key={r.id} rec={r} onAction={act} />)}</ul>
-        : !data.silencedByNoFlags.length && <p>{gates.length ? 'ยังมีข้อมูลไม่พอสำหรับคำแนะนำบางส่วน' : 'ตอนนี้ยังไม่มีคำแนะนำ'}</p>}
+      {shown.length > 0 ? <ul className="rec-list">{shown.map((r) => <RecommendationItem key={r.id} rec={r} onAction={act} />)}</ul>
+        : !silenced.length && <p>{gates.length ? 'ยังมีข้อมูลไม่พอสำหรับคำแนะนำบางส่วน' : 'ตอนนี้ยังไม่มีคำแนะนำ'}</p>}
       {gates.includes('behavior') && <p className="dashboard-section-note">คำแนะนำจากพฤติกรรม: บันทึกรายจ่ายอีก {data.readiness.behavior.moreExpensesNeeded} รายการ และใช้งานอีก {data.readiness.behavior.moreDaysNeeded} วัน</p>}
       {gates.includes('forecast') && <p className="dashboard-section-note">คำแนะนำจากการพยากรณ์: บันทึกรายจ่ายอีก {data.readiness.forecast.moreExpensesNeeded} รายการ และใช้งานอีก {data.readiness.forecast.moreDaysNeeded} วัน</p>}
       {gates.includes('goals') && <p className="dashboard-section-note">คำแนะนำเรื่องเป้าหมาย: {data.readiness.goals.activeGoals ? 'ยังไม่มีรายได้ในรอบนี้' : 'ตั้งเป้าหมายอย่างน้อย 1 รายการ'}</p>}
-      {data.more.length > 0 && <>
-        <button type="button" className="rec-link" aria-expanded={showAll} onClick={() => setShowAll(!showAll)}>{showAll ? 'ซ่อนคำแนะนำอื่น' : `ดูคำแนะนำอื่นอีก ${data.more.length} ข้อ`}</button>
-        {showAll && <ul className="rec-list">{data.more.map((r) => <RecommendationItem key={r.id} rec={r} onAction={act} />)}</ul>}
+      {more.length > 0 && <>
+        <button type="button" className="rec-link" aria-expanded={showAll} onClick={() => setShowAll(!showAll)}>{showAll ? 'ซ่อนคำแนะนำอื่น' : `ดูคำแนะนำอื่นอีก ${more.length} ข้อ`}</button>
+        {showAll && <ul className="rec-list">{more.map((r) => <RecommendationItem key={r.id} rec={r} onAction={act} />)}</ul>}
       </>}
     </>}
-    <Link className="dashboard-text-link" to="/behavior">ดูรายละเอียดและหลักฐานพฤติกรรม</Link>
-  </div>;
+  </div></section>;
 }

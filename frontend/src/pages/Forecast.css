@@ -262,37 +262,6 @@
   border-radius: 16px;
   background: #fff;
 }
-.forecast-budget {
-  margin-top: 16px;
-}
-.forecast-budget-status {
-  margin: 8px 0 12px;
-}
-.forecast-budget dl {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-}
-.forecast-budget dl > div {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 4px 16px;
-}
-.forecast-budget dt,
-.forecast-budget dd {
-  margin: 0;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.forecast-budget dd {
-  font-weight: 600;
-}
-.forecast-budget-note {
-  margin: 12px 0 0;
-  font-size: 13px;
-  color: var(--color-ink-muted);
-}
 .forecast-box.is-advice {
   background: #eef8f3;
   border-color: #cfe8dc;

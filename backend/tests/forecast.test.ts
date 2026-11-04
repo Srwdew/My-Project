@@ -1,9 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { D,MODEL_VERSION,initialize,holt,fitHolt,sum } from '../src/lib/holt';
-import { buildForecast,totalSeries,shiftDay } from '../src/lib/expenseForecast';
+import { buildForecast,totalSeries,shiftDay,weekdayShape } from '../src/lib/expenseForecast';
 import {fixtureInput,history} from './forecast.fixture';
 import { theta } from '../src/lib/theta';
+test('chart shape keeps the 7-day total exactly and follows weekdays; zero history stays as given',()=>{
+ const daily=Array.from({length:7},(_,i)=>({date:shiftDay('2026-11-15',i),amount:'100.03'}));
+ const series=Array.from({length:14},(_,i)=>new Date(shiftDay('2026-11-14',i-13)+'T00:00:00Z').getUTCDay()===6?70:i%3);
+ const shape=weekdayShape(daily,series,'2026-11-14','700.21');
+ assert.equal(shape.reduce((a,d)=>a+Math.round(Number(d.amount)*100),0),70021);
+ const sat=shape.find(d=>new Date(d.date+'T00:00:00Z').getUTCDay()===6)!;
+ assert.ok(shape.every(d=>Number(d.amount)<=Number(sat.amount)));
+ assert.deepEqual(weekdayShape(daily,Array(14).fill(0),'2026-11-14','700.21'),daily);
+});
 test('Holt OLS, linear trend, output clipping and deterministic tuning',()=>{
  const values=Array.from({length:42},(_,i)=>String((i+1)*10));
  assert.equal(initialize(values).level.toString(),'70');

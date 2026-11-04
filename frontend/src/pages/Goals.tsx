@@ -33,6 +33,7 @@ import { apiFetch } from "../api";
 import { getToken } from "../auth";
 import Dropdown from "../components/Dropdown";
 import { DateField } from "../components/DatePill";
+import { PageRecommendations } from "../components/OverviewInsights";
 import "./Goals.css";
 type Feasibility = {
   status: string;
@@ -892,6 +893,7 @@ function GoalsSession({ session }: { session: string | null }) {
           </button>
         )}
       </section>
+      <PageRecommendations rules={["R6", "R7", "R8"]} />
       <dialog
         ref={dialog}
         className={"goals-dialog" + (styledForm ? " goals-dialog-goal" : "")}

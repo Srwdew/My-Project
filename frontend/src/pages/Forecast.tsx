@@ -1,4 +1,5 @@
-import { thaiDate, thaiMonth } from "../utils/thaiDate";
+import { thaiDate } from "../utils/thaiDate";
+import { PageRecommendations } from "../components/OverviewInsights";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import UserHeader from "../components/UserHeader";
@@ -15,7 +16,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "../api";
 import { getToken, useSessionKey } from "../auth";
-import { bangkokDate, moneyText } from "../utils/dashboard";
+import { bangkokDate } from "../utils/dashboard";
 import { forecastTrend } from "../utils/forecastTrend";
 import "./Forecast.css";
 
@@ -44,6 +45,7 @@ type View = {
   clampedDays: number;
   summary: {
     daily: Day[] | null;
+    chartDaily?: Day[] | null;
     sevenDayForecastTotal: string | null;
     previousSevenDayActual: string;
     periodDifference: string | null;
@@ -66,14 +68,6 @@ type View = {
     status: string;
     suggestedAdditionalDailyAmount: string;
   };
-};
-const budgetMessages: Record<string, string> = {
-  already_over_budget: "เกินงบแล้วจากยอดรายจ่ายจริง",
-  budget_exhausted: "ใช้งบครบแล้ว",
-  forecast_unavailable: "ยังเทียบประมาณการกับวงเงินไม่ได้",
-  above_reference: "รายจ่ายที่คาดเพิ่มสูงกว่าวงเงินอ้างอิง",
-  at_reference: "รายจ่ายที่คาดเพิ่มเท่ากับวงเงินอ้างอิง",
-  below_reference: "รายจ่ายที่คาดเพิ่มต่ำกว่าวงเงินอ้างอิงสำหรับช่วงนี้ ไม่ใช่การรับประกันว่าจะอยู่ในงบ",
 };
 const reasons: Record<string, string> = {
   insufficient_expense_count: "มีรายจ่ายก่อนวันตัดข้อมูลไม่ครบ 30 รายการ",
@@ -157,7 +151,7 @@ function ForecastSession({
   const plotted = data
     ? data.previousPeriod.daily.map((d) => ({ ...d, value: d.amount }))
     : [];
-  const projected = data?.summary.daily;
+  const projected = data?.summary.chartDaily ?? data?.summary.daily;
   const chart = [
     ...plotted.map((d) => ({
       date: d.date,
@@ -466,68 +460,12 @@ function ForecastSession({
               </section>
             </div>
           )}
-          {!data.budgetComparison && (
-            <p className="forecast-box forecast-budget">
-              ยังไม่ได้ตั้งงบรวม จึงไม่มีการเทียบวงเงิน{" "}
-              <Link to={"/budget?month=" + data.asOfDate.slice(0, 7)}>ตั้งงบประมาณ</Link>
-            </p>
-          )}
-          {data.budgetComparison && (
-            <section className="forecast-box forecast-budget">
-              <div className="forecast-box-head">
-                <h2>เทียบกับงบเดือน{thaiMonth(data.budgetComparison.month)}</h2>
-              </div>
-              <p className="forecast-budget-status">
-                <strong>{budgetMessages[data.budgetComparison.status]}</strong>
-              </p>
-              <dl>
-                <div>
-                  <dt>ใช้จริงเดือนนี้</dt>
-                  <dd>{moneyText(data.budgetComparison.actualMonthExpenseToNow)} บาท</dd>
-                </div>
-                <div>
-                  <dt>งบคงเหลือ</dt>
-                  <dd>{moneyText(data.budgetComparison.remainingAmount)} บาท</dd>
-                </div>
-                <div>
-                  <dt>
-                    วงเงินอ้างอิง {data.budgetComparison.comparedDays} วัน (เหลือ{" "}
-                    {data.budgetComparison.remainingDaysIncludingToday} วันรวมวันนี้)
-                  </dt>
-                  <dd>{moneyText(data.budgetComparison.referenceAllowance)} บาท</dd>
-                </div>
-                {data.budgetComparison.predictedAdditionalExpense !== null && (
-                  <div>
-                    <dt>รายจ่ายที่คาดเพิ่มในช่วงเทียบงบ</dt>
-                    <dd>{moneyText(data.budgetComparison.predictedAdditionalExpense)} บาท</dd>
-                  </div>
-                )}
-                {data.budgetComparison.difference !== null && (
-                  <div>
-                    <dt>
-                      {Number(data.budgetComparison.difference) > 0 ? "สูงกว่าวงเงินอ้างอิง" : "ต่ำกว่าหรือเท่ากับวงเงินอ้างอิง"}
-                    </dt>
-                    <dd>{moneyText(data.budgetComparison.difference.replace("-", ""))} บาท</dd>
-                  </div>
-                )}
-                {/* Same rule as Tier 0 perDay: round down to whole baht, no figure under 1 baht. */}
-                {Number(data.budgetComparison.suggestedAdditionalDailyAmount) >= 1 && (
-                  <div>
-                    <dt>วงเงินเพิ่มเติมเฉลี่ยไม่เกิน</dt>
-                    <dd>{baht(String(Math.floor(Number(data.budgetComparison.suggestedAdditionalDailyAmount))))} บาท/วัน</dd>
-                  </div>
-                )}
-              </dl>
-              <p className="forecast-budget-note">
-                หักยอดจริงรวมวันนี้จากประมาณการรวมวันนี้แล้ว ไม่รวมวันเดือนถัดไปในการเทียบงบ
-                และไม่รับประกันว่าจะอยู่ในงบทั้งเดือน
-              </p>
-            </section>
-          )}
+          <PageRecommendations rules={["R1", "R2"]} />
           <aside className="forecast-warning">
             <Info size={14} aria-hidden="true" />
             <span>
               ค่าพยากรณ์เป็นแนวโน้มเพื่อช่วยวางแผน รายจ่ายจริงอาจแตกต่างได้ วันที่ไม่มีรายการไม่ได้ยืนยันว่าไม่มีการใช้จ่ายจริง
+              รูปร่างรายวันในกราฟมาจากประวัติวันในสัปดาห์ของคุณ ไม่ได้ทำให้ยอดรายวันแม่นขึ้น
             </span>
           </aside>
           {data.warningCodes.includes("stale_expense_history") && (

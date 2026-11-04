@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import DatePicker from 'react-datepicker';
 import { th } from 'date-fns/locale';
 import { thaiDate, thaiMonth } from '../utils/thaiDate';
@@ -13,14 +13,21 @@ export const thaiDayText=(d:Date)=>thaiDate(toKey(d));
 const shown=(s:string)=>s?thaiDate(s):'เลือกวันที่';
 const longMonth=new Intl.DateTimeFormat('th-TH',{month:'long',year:'numeric'});
 
-type HeaderProps={date:Date;decreaseMonth:()=>void;increaseMonth:()=>void;decreaseYear:()=>void;increaseYear:()=>void;prevMonthButtonDisabled:boolean;nextMonthButtonDisabled:boolean;prevYearButtonDisabled:boolean;nextYearButtonDisabled:boolean};
-const header=(text:string,prev:()=>void,next:()=>void,prevOff:boolean,nextOff:boolean)=><>
+type HeaderProps={date:Date;changeYear:(year:number)=>void;decreaseMonth:()=>void;increaseMonth:()=>void;decreaseYear:()=>void;increaseYear:()=>void;prevMonthButtonDisabled:boolean;nextMonthButtonDisabled:boolean;prevYearButtonDisabled:boolean;nextYearButtonDisabled:boolean};
+const header=(text:string,prev:()=>void,next:()=>void,prevOff:boolean,nextOff:boolean,body?:ReactNode)=><>
   <button type="button" className="react-datepicker__navigation react-datepicker__navigation--previous" aria-label="ก่อนหน้า" disabled={prevOff} onClick={prev}><span className="react-datepicker__navigation-icon react-datepicker__navigation-icon--previous"/></button>
-  <div className="react-datepicker__current-month">{text}</div>
+  <div className="react-datepicker__current-month">{body??text}</div>
   <button type="button" className="react-datepicker__navigation react-datepicker__navigation--next" aria-label="ถัดไป" disabled={nextOff} onClick={next}><span className="react-datepicker__navigation-icon react-datepicker__navigation-icon--next"/></button>
 </>;
 // react-datepicker headers print the Gregorian year whatever the locale says.
 export const thaiMonthHeader=(p:HeaderProps)=>header(longMonth.format(p.date),p.decreaseMonth,p.increaseMonth,p.prevMonthButtonDisabled,p.nextMonthButtonDisabled);
+// Goals can run for years, so the form calendar jumps by year. The list always includes the shown year.
+const monthOnly=new Intl.DateTimeFormat('th-TH',{month:'long'});
+const pickYearHeader=(p:HeaderProps)=>{
+  const now=new Date().getFullYear(),year=p.date.getFullYear(),years:number[]=[];
+  for(let y=Math.min(now-5,year);y<=Math.max(now+60,year);y++)years.push(y);
+  return header('',p.decreaseMonth,p.increaseMonth,p.prevMonthButtonDisabled,p.nextMonthButtonDisabled,<>{monthOnly.format(p.date)} <select className="date-pill-year" style={{width:'auto',minWidth:0,height:'auto',padding:'2px 4px',display:'inline-block',font:'inherit',borderRadius:6}} aria-label="เลือกปี" value={year} onChange={e=>p.changeYear(+e.target.value)}>{years.map(y=><option key={y} value={y}>{y+543}</option>)}</select></>);
+};
 export const thaiYearHeader=(p:HeaderProps)=>header(String(p.date.getFullYear()+543),p.decreaseYear,p.increaseYear,p.prevYearButtonDisabled,p.nextYearButtonDisabled);
 
 const icon=<svg aria-hidden="true" viewBox="0 0 24 24" className="date-pill-icon"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>;
@@ -28,7 +35,7 @@ const icon=<svg aria-hidden="true" viewBox="0 0 24 24" className="date-pill-icon
 type PillProps={label:string;value:string;min?:string;max?:string;allow?:(key:string)=>boolean;onChange:(v:string)=>void;disabled?:boolean;invalid?:boolean;clearable?:boolean;inDialog?:boolean};
 // Pill button + styled calendar popup; replaces <input type="date">, which cannot show Buddhist years.
 export default function DatePill({label,value,min,max,allow,onChange,disabled,invalid,clearable,inDialog}:PillProps){
-  return <DatePicker selected={value?toDate(value):null} onChange={(d:Date|null)=>{if(d)onChange(toKey(d));else if(clearable)onChange('');}} minDate={min?toDate(min):undefined} maxDate={max?toDate(max):undefined} filterDate={allow?(d:Date)=>allow(toKey(d)):undefined} locale={th} calendarStartDay={1} popperClassName="date-pill-popper" portalId={inDialog?undefined:'date-pill-portal'} popperPlacement="bottom-start" showPopperArrow={false} renderCustomHeader={thaiMonthHeader} disabled={disabled} isClearable={clearable&&Boolean(value)}
+  return <DatePicker selected={value?toDate(value):null} onChange={(d:Date|null)=>{if(d)onChange(toKey(d));else if(clearable)onChange('');}} minDate={min?toDate(min):undefined} maxDate={max?toDate(max):undefined} filterDate={allow?(d:Date)=>allow(toKey(d)):undefined} locale={th} calendarStartDay={1} popperClassName="date-pill-popper" portalId={inDialog?undefined:'date-pill-portal'} popperPlacement="bottom-start" showPopperArrow={false} renderCustomHeader={inDialog?pickYearHeader:thaiMonthHeader} disabled={disabled} isClearable={clearable&&Boolean(value)}
     customInput={<button type="button" className="date-pill" aria-invalid={invalid||undefined} aria-label={label+' '+shown(value)}>{icon}<span>{shown(value)}</span></button>}/>;
 }
 

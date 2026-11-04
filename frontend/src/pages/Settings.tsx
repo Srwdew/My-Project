@@ -158,6 +158,61 @@ function Toggle({
 type BlockedShift = { id: string; categoryName: string; direction: "up" | "down"; actionId: string };
 // ISSUE-ANOM-1: after the user says "no" twice for the same category and direction the system stops asking.
 // This is the only way back, so it lists exactly those categories and nothing when there are none.
+// Saves each tick at once, apart from the form's Save, like the avatar. Opened from the recommendation invitation.
+function FlexibleCategories() {
+  const [items, setItems] = useState<{ categoryId: string; name: string; flexible: boolean }[] | null>(null),
+    [error, setError] = useState(""),
+    root = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const r = await apiFetch("/category-flags");
+        if (!r.ok) throw Error();
+        const d = await r.json();
+        if (active) setItems(d);
+      } catch {
+        if (active) setError("โหลดหมวดไม่สำเร็จ กรุณาลองใหม่");
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (items && window.location.hash === "#flexible-categories") root.current?.scrollIntoView();
+  }, [items]);
+  const toggle = async (categoryId: string, flexible: boolean) => {
+    setError("");
+    setItems((all) => all && all.map((c) => (c.categoryId === categoryId ? { ...c, flexible } : c)));
+    try {
+      const r = await apiFetch("/category-flags/" + categoryId, { method: "PUT", body: JSON.stringify({ flexible }) });
+      if (!r.ok) throw Error();
+    } catch {
+      setItems((all) => all && all.map((c) => (c.categoryId === categoryId ? { ...c, flexible: !flexible } : c)));
+      setError("บันทึกไม่สำเร็จ กรุณาลองใหม่");
+    }
+  };
+  return (
+    <div id="flexible-categories" ref={root} className="settings-blocked-shifts">
+      <strong>หมวดที่ลดได้</strong>
+      <small>ระบบจะเสนอให้ลดเฉพาะหมวดที่เลือก บันทึกทันทีที่กด</small>
+      {error && <p role="alert">{error}</p>}
+      {items && (
+        <ul style={{ listStyle: "none", margin: "8px 0 0", padding: 0, display: "grid", gap: 8 }}>
+          {items.map((c) => (
+            <li key={c.categoryId}>
+              {/* Inline: card labels stack by default, and Settings.css is out of scope for now. */}
+              <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <input type="checkbox" style={{ width: "auto", flex: "none" }} checked={c.flexible} onChange={(e) => void toggle(c.categoryId, e.target.checked)} /> {c.name}
+              </label>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 function BlockedLevelShifts() {
   const [items, setItems] = useState<BlockedShift[]>([]),
     [error, setError] = useState(""),
@@ -597,6 +652,7 @@ export default function Settings() {
                 value={draft.notifyAnomaly}
                 onChange={(v) => change("notifyAnomaly", v)}
               />
+              <FlexibleCategories />
               <BlockedLevelShifts />
               <Toggle
                 label="ความคืบหน้าเป้าหมายการออม"

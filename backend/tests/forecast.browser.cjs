@@ -20,6 +20,7 @@ const mock=(payloads)=>{
   if(route==='/notifications')data={items:[],unreadCount:0};
   if(route==='/auth/me')data={role:'USER',showSetup:false}; // ProtectedRoute checks this; missing mock was a pre-existing break, as in other browser tests
   if(route==='/transactions'||route==='/categories')data=[];
+  if(route==='/recommendations')data={shown:[],more:[],silencedByNoFlags:[],closedRules:[],readiness:{}}; // R1 and R2 now show on this page
   if(route==='/forecast'){
    const record={session,held:false,aborted:false,consumed:false};window.__requests.push(record);
    options.signal?.addEventListener('abort',()=>{record.aborted=true;},{once:true});
@@ -44,8 +45,8 @@ const mock=(payloads)=>{
  assert.equal(await evaluate("document.querySelectorAll('.forecast-page select').length"),0);
  assert.equal(await evaluate("document.querySelector('.forecast-page').textContent.includes('ค่าพยากรณ์แยกตามหมวด')"),false);
  assert.ok(await evaluate("document.querySelector('.forecast-warning').textContent.includes('ไม่ได้ยืนยัน')"));
- // ISSUE-UI-4: the budget comparison came back to this page; a null field must not render a row.
- assert.ok(await evaluate("document.querySelector('.forecast-budget').textContent.includes('วงเงินอ้างอิง')"));
+ // ISSUE-UI-4: the owner removed the budget comparison from this page; the backend keeps computing it.
+ assert.equal(await evaluate("document.querySelector('.forecast-budget')"),null);
  assert.equal(await evaluate("document.querySelectorAll('.forecast-panel svg').length"),1);
  console.log('PASS total-only UI, exact dates, missing-day warning, no category forecast controls');
  await evaluate("window.__mode='empty';window.dispatchEvent(new Event('spendsense-data-changed'))");

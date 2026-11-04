@@ -197,6 +197,7 @@ enum NotificationType {
   budget_near_limit
   budget_exceeded
   transaction_anomaly
+  alert_layer
 }
 
 model Notification {

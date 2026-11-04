@@ -9,6 +9,24 @@ import {
 } from "./holt";
 import { theta } from "./theta";
 
+// Chart only (theta-split, docs/FORECAST_REAL_DATA_BACKTEST.md 5.6): the same 7-day total, spread by this account's weekday habits.
+// It is not more accurate, so R1, the Alert Layer and budgetComparison keep reading the Theta `daily`.
+export function weekdayShape(daily: readonly { date: string; amount: string }[], series: readonly number[], cutoff: string, total: string) {
+  const weekday = (d: string) => new Date(d + "T00:00:00Z").getUTCDay();
+  const sum = Array<number>(7).fill(0), count = Array<number>(7).fill(0);
+  series.forEach((v, i) => { const w = weekday(shiftDay(cutoff, i - series.length + 1)); sum[w]! += v; count[w]!++; });
+  const rate = sum.map((s, i) => (count[i] ? s / count[i]! : 0));
+  const whole = daily.reduce((a, d) => a + rate[weekday(d.date)]!, 0);
+  if (whole <= 0) return daily.map((d) => ({ ...d }));
+  let left = new D(total);
+  return daily.map((d, i) => {
+    // Rounded per day, so the last day takes the remainder and the sum stays exactly the total.
+    const amount = i === daily.length - 1 ? D.max(left, 0) : new D(total).mul(rate[weekday(d.date)]!).div(whole).toDecimalPlaces(2);
+    left = left.minus(amount);
+    return { date: d.date, amount: amount.toFixed(2) };
+  });
+}
+
 export const shiftDay = (date: string, days: number) => {
   const d = new Date(date + "T00:00:00Z");
   d.setUTCDate(d.getUTCDate() + days);
@@ -110,6 +128,7 @@ export function buildForecast(input: ForecastInput) {
       }))
     : null;
   const total = daily ? money(sum(daily.map((d) => d.amount))) : null;
+  const chartDaily = daily && total !== null ? weekdayShape(daily, series.map(Number), cutoffDate, total) : null;
   const byDate = new Map(rows.map((r) => [r.date, r]));
   const previousDaily = Array.from({ length: 7 }, (_, i) => {
     const date = shiftDay(cutoffDate, i - 6),
@@ -182,6 +201,7 @@ export function buildForecast(input: ForecastInput) {
     recordedExpenseToday: actualToday,
     summary: {
       daily,
+      chartDaily,
       sevenDayForecastTotal: total,
       previousSevenDayActual: previousActual,
       periodDifference:

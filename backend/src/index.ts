@@ -16,6 +16,7 @@ import {
 import { behaviorRouter } from "./routes/behavior";
 import { forecastRouter } from "./routes/forecast";
 import { alertsRouter } from "./routes/alerts";
+import { syncAlertNotifications } from "./lib/alertNotifications";
 import { recommendationsRouter } from "./routes/recommendations";
 import { anomalyRouter } from "./routes/anomaly";
 import {
@@ -1443,6 +1444,8 @@ app.post(
   async (req: AuthRequest, res) => {
     try {
       const ok = await reconcileBudgetNotifications(req.user!.userId);
+      // Separate from the budget check: its error message would wrongly say the budget check failed. The next bell load retries.
+      await syncAlertNotifications(req.user!.userId, bangkokToday()).catch((e) => console.error("Alert notifications failed", e));
       return res.status(ok ? 200 : 503).json({ reconciled: ok });
     } catch {
       return res
