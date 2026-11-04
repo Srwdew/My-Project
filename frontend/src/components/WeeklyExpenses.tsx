@@ -3,6 +3,7 @@ import { categoryAppearance } from "../utils/categoryAppearance";
 import { useEffect,useId,useState,type CSSProperties } from 'react';
 import Dropdown,{TagIcon} from './Dropdown';
 import DatePill from './DatePill';
+import NextStep from './NextStep';
 import { apiFetch } from '../api';
 import { getToken } from '../auth';
 import { moneyText } from '../utils/dashboard';
@@ -87,7 +88,7 @@ export default function WeeklyExpenses({month,today,session}:{month:string;today
         <dl className="weekly-stats"><div><dt>รายการ</dt><dd>{view.count}</dd></div><div><dt>เฉลี่ย/สัปดาห์</dt><dd>{Math.round(average).toLocaleString('th-TH')}<small> ฿</small></dd></div></dl>
         <p className="weekly-meta">{view.count} รายการ · เฉลี่ย <b>{Math.round(average).toLocaleString('th-TH')} ฿</b> ต่อสัปดาห์</p>
       </div>
-      {!view.count?<p role="status" className="weekly-empty">ไม่มีรายการรายจ่ายที่บันทึกในช่วงและหมวดที่เลือก</p>:<>
+      {!view.count?<div className="weekly-empty"><p role="status">ไม่มีรายการรายจ่ายที่บันทึกในช่วงและหมวดที่เลือก</p><NextStep to="/transactions/add">เพิ่มรายการ</NextStep></div>:<>
         {selected&&!narrow&&<div className="weekly-detail" aria-live="polite"><p key={selected.startDate+category} className="weekly-pop"><strong>{weekLabel(selected.startDate,selected.endDate)}</strong> รวม <b>{short(selected.cents)} ฿</b></p><ul>{segments(selected).map(s=><li key={s.id}><i aria-hidden="true" style={{background:colorOf(s.name)}}/>{s.name} <b>{short(BigInt(Math.round(s.amount*100)))}</b></li>)}</ul></div>}
         {narrow&&<h3 className="weekly-chart-title">รายจ่ายแต่ละสัปดาห์ (บาท)</h3>}
         <div className="weekly-scroll" tabIndex={0} role="region" aria-label="กราฟรายสัปดาห์ เลื่อนแนวนอนได้"><svg key={key+category+(narrow?'n':'w')} className="weekly-chart" style={{minWidth:W}} viewBox={`0 0 ${W} ${H}`} role="img" aria-label="กราฟแท่งรายจ่ายรายสัปดาห์ เรียงจากเก่าไปใหม่ ยอดแต่ละสัปดาห์แสดงบนแท่ง">

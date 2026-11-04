@@ -27,6 +27,7 @@ import {
   useAlerts,
   useBehavior,
 } from "../components/OverviewInsights";
+import NextStep from "../components/NextStep";
 import WeeklyExpenses from "../components/WeeklyExpenses";
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -394,13 +395,22 @@ function OverviewMonth({
                 }
                 children={
                   value === null && (
-                    <small className="dashboard-section-note">
-                      {kind !== "saving"
-                        ? "ตั้งงบรวมเพื่อดูงบคงเหลือ"
-                        : data.summary.savingRate.reason === "no_income"
-                          ? "ไม่มีรายรับที่บันทึก หรือรายรับเป็นศูนย์ จึงคำนวณอัตราไม่ได้"
-                          : "ยังไม่มีธุรกรรมในช่วงนี้"}
-                    </small>
+                    <>
+                      <small className="dashboard-section-note">
+                        {kind !== "saving"
+                          ? "ตั้งงบรวมเพื่อดูงบคงเหลือ"
+                          : data.summary.savingRate.reason === "no_income"
+                            ? "ไม่มีรายรับที่บันทึก หรือรายรับเป็นศูนย์ จึงคำนวณอัตราไม่ได้"
+                            : "ยังไม่มีธุรกรรมในช่วงนี้"}
+                      </small>
+                      {kind !== "saving" ? (
+                        <NextStep to="/budget">ตั้งงบ</NextStep>
+                      ) : (
+                        data.summary.savingRate.reason === "no_income" && (
+                          <NextStep to="/transactions/add">บันทึกรายรับ</NextStep>
+                        )
+                      )}
+                    </>
                   )
                 }
                 className={
@@ -513,7 +523,10 @@ function OverviewMonth({
                 </span>
               </div>
               {!data.recentTransactions.items.length ? (
-                <p className="dashboard-panel-empty">ยังไม่มีรายการ</p>
+                <div className="dashboard-panel-empty">
+                  <p>ยังไม่มีรายการ</p>
+                  <NextStep to="/transactions/add">เพิ่มรายการ</NextStep>
+                </div>
               ) : (
                 <div
                   className="dashboard-table-wrap dashboard-recent-table"

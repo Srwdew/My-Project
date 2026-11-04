@@ -1,0 +1,18 @@
+.next-step {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  width: fit-content;
+  margin-top: 6px;
+  padding: 4px 14px;
+  border: 1px solid #b9cbe0;
+  border-radius: 10px;
+  background: #fff;
+  color: #155acb;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.next-step:hover { background: #eef4fc; }

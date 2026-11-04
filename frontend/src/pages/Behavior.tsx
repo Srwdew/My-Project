@@ -1,6 +1,7 @@
 import { thaiDate } from "../utils/thaiDate";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import NextStep from "../components/NextStep";
 import SummaryCard from "../components/SummaryCard";
 import {
   ArrowUpRight,
@@ -794,6 +795,7 @@ function BehaviorBody({
                   : error
                     ? "โหลดกราฟไม่สำเร็จ"
                     : "ไม่มีรายจ่ายที่บันทึกสำหรับกราฟช่วงนี้"}
+                {!loading && !error && <NextStep to="/transactions/add">เพิ่มรายการ</NextStep>}
               </div>
             )}
             {data && (
@@ -891,7 +893,10 @@ function BehaviorBody({
               <p>{loading ? "กำลังโหลดรายหมวด" : "ยังไม่มีข้อมูลรายหมวด"}</p>
             )}
             {data && !data.facts.categories.length && (
-              <p>ไม่มีรายการรายจ่ายในทั้งสองช่วง</p>
+              <>
+                <p>ไม่มีรายการรายจ่ายในทั้งสองช่วง</p>
+                <NextStep to="/transactions/add">เพิ่มรายการ</NextStep>
+              </>
             )}
             {data && (
               <p className="behavior-note">
@@ -948,6 +953,7 @@ function BehaviorBody({
                     />
                   ))}
                 </ul>
+                {!data.readiness.current.ready && <NextStep to="/transactions/add">บันทึกรายจ่าย</NextStep>}
                 {data.facts.recurrenceCandidates.map((r, i) => (
                   <article
                     className="behavior-pattern-card"
@@ -1111,6 +1117,7 @@ function BehaviorBody({
                   );
                 })()}
                 </ul>
+                {(!time!.ready || data.facts.categories.some((c) => !c.findingEligible)) && <NextStep to="/transactions/add">บันทึกรายจ่าย</NextStep>}
               </div>
             )}
             {data && (
@@ -1162,6 +1169,7 @@ function BehaviorBody({
             ) : (
               <p>
                 ยังไม่มีคำแนะนำเฉพาะสำหรับช่วงนี้
+                {data && !data.readiness.current.ready && <><br /><NextStep to="/transactions/add">บันทึกรายจ่าย</NextStep></>}
               </p>
             )}
             <p className="behavior-note">คำแนะนำอ้างข้อมูลที่พบ ไม่ได้พิสูจน์สาเหตุหรือแรงจูงใจ</p>

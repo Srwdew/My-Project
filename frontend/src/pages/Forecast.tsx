@@ -2,6 +2,7 @@ import { thaiDate } from "../utils/thaiDate";
 import { PageRecommendations } from "../components/OverviewInsights";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import NextStep from "../components/NextStep";
 import {
   CalendarCheck,
   CalendarDays,
@@ -394,6 +395,7 @@ function ForecastSession({
                     </div>
                   </li>
                 </ul>
+                <NextStep to="/transactions/add">บันทึกรายจ่าย</NextStep>
               </section>
             </div>
           ) : (

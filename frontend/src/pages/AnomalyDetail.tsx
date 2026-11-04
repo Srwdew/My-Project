@@ -2,6 +2,7 @@ import { thaiDate } from "../utils/thaiDate";
 import AnomalyBaselineSummary from "../components/AnomalyBaselineSummary";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import NextStep from "../components/NextStep";
 import AnomalyReviewPanel from "../components/AnomalyReviewPanel";
 import { apiFetch } from "../api";
 import { getToken, useSessionKey } from "../auth";
@@ -165,6 +166,8 @@ function DetailBody({
             <p>
               ยังไม่มีผลที่ใช้กับรายการปัจจุบัน
               อาจยังไม่เคยตรวจหรือเปลี่ยนประเภทแล้ว
+              <br />
+              <NextStep to="/anomaly">กลับไปหน้ารายการที่ควรตรวจสอบ</NextStep>
             </p>
           )}
         {data.transactionLink &&

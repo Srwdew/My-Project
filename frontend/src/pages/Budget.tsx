@@ -6,6 +6,7 @@ import { thaiYearHeader } from "../components/DatePill";
 import "react-datepicker/dist/react-datepicker.css";
 import { useToast } from "../components/LocalToast";
 import { useSearchParams } from "react-router-dom";
+import NextStep from "../components/NextStep";
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import { Bell, BellOff, Minus, Plus, Wallet } from "lucide-react";
@@ -537,7 +538,7 @@ export default function Budget() {
                 <tbody>
                   {categories.length === 0 ? (
                     <tr>
-                      <td colSpan={6}>ยังไม่มีหมวดหมู่รายจ่าย</td>
+                      <td colSpan={6}>ยังไม่มีหมวดหมู่รายจ่าย <NextStep to="/settings#flexible-categories">ไปที่ตั้งค่าหมวด</NextStep></td>
                     </tr>
                   ) : (
                     categories.map((item) => {

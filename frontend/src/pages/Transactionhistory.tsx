@@ -6,6 +6,7 @@ import {
 } from "../utils/transactionStatus";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import NextStep from "../components/NextStep";
 import { getToken, useSessionKey } from "../auth";
 import { validDashboardMonth } from "../utils/dashboard";
 import DatePicker from "react-datepicker";
@@ -589,7 +590,26 @@ function TransactionHistorySession({ session }: { session: string | null }) {
             {loading ? (
               <div className="history-empty-state">กำลังโหลดข้อมูล...</div>
             ) : groupedTransactions.length === 0 ? (
-              <div className="history-empty-state">ไม่พบรายการธุรกรรม</div>
+              <div className="history-empty-state">
+                <div>ไม่พบรายการธุรกรรม</div>
+                {search || typeFilter || periodFilter || dateFilter || categoryFilter ? (
+                  <button
+                    type="button"
+                    className="next-step"
+                    onClick={() => {
+                      setSearch("");
+                      setTypeFilter("");
+                      setPeriodFilter("");
+                      setDateFilter(null);
+                      setCategoryFilter("");
+                    }}
+                  >
+                    ล้างตัวกรอง
+                  </button>
+                ) : (
+                  <NextStep to="/transactions/add">เพิ่มรายการ</NextStep>
+                )}
+              </div>
             ) : (
               visibleGroups.map((group) => (
                 <div key={group.date} className="history-group-card">
@@ -727,7 +747,10 @@ function TransactionHistorySession({ session }: { session: string | null }) {
             {loading ? (
               <div className="history-side-empty">กำลังโหลดข้อมูล...</div>
             ) : expenseCategorySummary.length === 0 ? (
-              <div className="history-side-empty">ยังไม่มีข้อมูลรายจ่าย</div>
+              <div className="history-side-empty">
+                <div>ยังไม่มีข้อมูลรายจ่าย</div>
+                <NextStep to="/transactions/add">เพิ่มรายการ</NextStep>
+              </div>
             ) : (
               expenseCategorySummary.map((item, index) => (
                 <div key={item.name} className="history-summary-item">

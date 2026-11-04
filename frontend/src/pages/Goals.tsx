@@ -33,6 +33,7 @@ import { getToken } from "../auth";
 import Dropdown from "../components/Dropdown";
 import { DateField } from "../components/DatePill";
 import { PageRecommendations } from "../components/OverviewInsights";
+import "../components/NextStep.css";
 import "./Goals.css";
 type Feasibility = {
   status: string;
@@ -951,7 +952,12 @@ function GoalsSession({ session }: { session: string | null }) {
               <div className="goal-history-body">
                 <p className="goal-form-hint">ยอดนี้เป็นประวัติ ณ เวลาบันทึก</p>
                 {entries.length === 0 ? (
-                  <p className="goal-history-empty">ยังไม่มีการเก็บเงิน</p>
+                  <div className="goal-history-empty">
+                    <p>ยังไม่มีการเก็บเงิน</p>
+                    {modal.goal && !modal.goal.archivedAt && (
+                      <button type="button" className="next-step" onClick={() => open("allocate", modal.goal)}>เก็บเงินเข้าเป้า</button>
+                    )}
+                  </div>
                 ) : (
                   <ol className="goal-history">
                     {entries.map((e) => (
