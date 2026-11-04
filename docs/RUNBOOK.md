@@ -47,7 +47,11 @@ docker exec SpendSense-db rm /tmp/spendsense.dump
 1. จาก `backend/` รัน `npx prisma migrate status` ดูว่า target คือฐานที่ตั้งใจ และมี migration ใดค้าง
 2. เทียบรายการค้างกับหัวข้อ 5 ถ้าไม่ตรงให้หยุดและหาสาเหตุ
 3. อ่าน SQL ของทุก migration ที่จะรัน
-4. จดจำนวนแถวของ `User` และ `Transaction` ไว้เทียบ
+4. จดจำนวนแถวไว้เทียบ ใช้คำสั่งนี้เท่านั้น เพราะ PowerShell ตัดเครื่องหมาย `"` ครอบชื่อตารางทิ้งถ้าส่งผ่าน `-c`:
+
+   ~~~powershell
+   'select (select count(*) from "User") users,(select count(*) from "Transaction") tx,(select count(*) from "Goal") goals,(select count(*) from "Budget") budgets;' | docker exec -i SpendSense-db psql -U SpendSense_user -d SpendSense
+   ~~~
 5. ซ้อม `migrate deploy` กับฐานที่กู้จากไฟล์สำรองลง container ชั่วคราว
 
 ### รัน
@@ -57,7 +61,7 @@ docker exec SpendSense-db rm /tmp/spendsense.dump
 ### ตรวจหลังรัน
 
 1. `npx prisma migrate status` ต้องไม่เหลือรายการค้าง
-2. จำนวนแถวที่จดไว้ต้องเท่าเดิม
+2. รันคำสั่งนับแถวข้างบนอีกครั้ง จำนวนต้องเท่าเดิม
 3. เปิด backend และ frontend แล้วเข้าสู่ระบบ ดูภาพรวม เพิ่มรายการทดสอบหนึ่งรายการ แล้วลบ
 4. ตรวจผล `RULE_VERSION` ตามหัวข้อ 4
 
@@ -67,7 +71,7 @@ docker exec SpendSense-db rm /tmp/spendsense.dump
 
 ~~~powershell
 docker cp <ไฟล์สำรอง> SpendSense-db:/tmp/spendsense.dump
-docker exec SpendSense-db psql -U SpendSense_user -d postgres -c "CREATE DATABASE spendsense_restore"
+'CREATE DATABASE spendsense_restore;' | docker exec -i SpendSense-db psql -U SpendSense_user -d postgres
 docker exec SpendSense-db pg_restore -U SpendSense_user -d spendsense_restore /tmp/spendsense.dump
 ~~~
 
@@ -82,26 +86,18 @@ docker exec SpendSense-db pg_restore -U SpendSense_user -d spendsense_restore /t
 - **ไม่มี ErrorBoundary** error ตอน render ทำให้ขาวทั้งแอป ควรมีก่อนใช้งานจริง (ISSUE-UI-3)
 - **`npm run test:all` ยังใช้เป็นด่านก่อน commit ไม่ได้** ดูหัวข้อ 6
 
-## 5. Migration ที่ยังไม่ยืนยันว่ารันบนฐานหลัก
+## 5. สถานะ migration บนฐานหลัก
 
-ใน repository มี 26 migration บันทึกล่าสุดที่พบ ([ANOMALY_IMPLEMENTATION](../ANOMALY_IMPLEMENTATION.md)) ระบุว่าฐานหลักมี 12 migration ถึง `20260924010000_add_anomaly_review` ไม่พบบันทึกการ deploy หลังจากนั้น แต่บันทึกไม่ครบไม่ได้แปลว่าไม่เคยรัน **[ยังไม่ยืนยัน]** สถานะจริงต้องดูจาก `npx prisma migrate status` ซึ่งเจ้าของโครงการต้องรันเอง
+ใน repository มี 26 migration **รันครบบนฐานหลักแล้วเมื่อ 4 พ.ย. 2026** เจ้าของโครงการรัน `migrate deploy` เอง ทั้ง 4 ตัวในตารางผ่าน และจำนวนแถวก่อนหลังเท่ากัน ก่อนหน้านั้นซ้อมกับสำเนาจากไฟล์สำรองแล้ว ถ้าเพิ่ม migration ใหม่ให้รัน `npx prisma migrate status` ตรวจอีกครั้ง
 
 | Migration | สถานะที่มีหลักฐาน |
 |---|---|
-| `20261001010000_add_setup_completion` | ไม่พบบันทึก |
-| `20261001020000_add_setup_prompted_at` | ไม่พบบันทึก |
-| `20261002010000_add_transaction_create_requests` | ไม่พบบันทึก |
-| `20261005010000_add_anomaly_dimension_decisions` | ไม่พบบันทึก |
-| `20261005020000_add_anomaly_manual_patterns` | ไม่พบบันทึก |
-| `20261005030000_invalidate_anomaly_successors` | ไม่พบบันทึก |
-| `20261008010000_experiment_retention` | ไม่พบบันทึก |
-| `20261009010000_add_admin_role` | ไม่พบบันทึก |
-| `20261009020000_add_password_reset` | ไม่พบบันทึก |
-| `20261025090000_expand_goal_category_icons` | ไม่พบบันทึก |
-| `20261101010000_add_recommendation_log` | ไม่พบบันทึก |
-| `20261102010000_add_anomaly_level_shift` | เอกสาร backtest ระบุว่ายังไม่ได้รันกับฐานหลัก |
-| `20261102020000_level_shift_reopen` | เอกสาร backtest ระบุว่ายังไม่ได้รันกับฐานหลัก |
-| `20261104010000_add_alert_notification_type` | ใหม่ ยังไม่ได้รันกับฐานหลัก และโค้ดกระดิ่งต้องใช้ชนิดนี้ |
+| `20261101010000_add_recommendation_log` | รันแล้ว 4 พ.ย. 2026 |
+| `20261102010000_add_anomaly_level_shift` | รันแล้ว 4 พ.ย. 2026 |
+| `20261102020000_level_shift_reopen` | รันแล้ว 4 พ.ย. 2026 |
+| `20261104010000_add_alert_notification_type` | รันแล้ว 4 พ.ย. 2026 |
+
+ในตาราง `_prisma_migrations` มีแถวเก่าของ `20260912100456_remove_transaction_status_and_add_category_budgets` ที่ถูก rollback และรันสำเร็จภายหลัง ไม่ใช่ความผิดปกติ
 
 ## 6. การรันเทสต์
 
