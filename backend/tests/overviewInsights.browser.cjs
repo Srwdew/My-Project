@@ -19,6 +19,8 @@ const mock=()=>{
    const id=route.split('/')[2];
    if(route.endsWith('/action')){window.__actions=(window.__actions||[]).concat({id,body:JSON.parse(options.body)});data={id,userAction:JSON.parse(options.body).action};}
    else data={id,text:{what:'from log',action:'',outcome:''},shownAt:'2026-10-15T03:00:00.000Z',citationTier:1,dataRange:id==='r3'?{kind:'window',startDate:'2026-09-15',endDate:'2026-10-14'}:{kind:'cycle',startDate:'2026-10-01',endDate:'2026-10-14'}};
+  } else if(route==='/behavior'){
+   data={periods:{current:{startDate:'2026-10-01',endDate:'2026-10-30'},previous:{startDate:'2026-09-01',endDate:'2026-09-30'}},readiness:{current:{ready:!window.__behaviorShort,expenseCount:window.__behaviorShort?12:40,observedSpanDays:window.__behaviorShort?10:30},previous:{ready:true},comparisonReady:!window.__behaviorShort},findings:[{ruleId:'category_increase',title:'Same finding as Behavior page',recommendation:'ดูหมวดนี้'}]};
   } else if(route==='/alerts'){
    data={cards:[],flaggedTotal:0,levelShiftsWaiting:0};
   } else if(route==='/anomaly/queue'||route==='/recommendations'){
@@ -60,6 +62,13 @@ const mock=()=>{
  assert.ok(await evaluate(REC+"===null&&!document.querySelector('[data-testid=overview-alerts]')"));
  assert.equal(await evaluate("document.querySelector('[data-testid=overview-anomaly] a').getAttribute('href')"),'/anomaly?filter=waiting');
  console.log('PASS Overview has no recommendation or alert section');
+ const BEH="document.querySelector('[data-testid=overview-behavior]')";
+ await waitFor(BEH+"?.textContent.includes('Same finding as Behavior page')");
+ assert.ok(await evaluate(BEH+".textContent.includes('วันที่ไม่มีรายการไม่ได้ยืนยัน')&&"+BEH+".querySelector('a[href=\"/behavior\"]')!==null"));
+ await evaluate("window.__behaviorShort=true;window.dispatchEvent(new Event('spendsense-data-changed'))");
+ await waitFor(BEH+"?.textContent.includes('บันทึกรายจ่ายอีก 18 รายการ')&&"+BEH+".textContent.includes('อีก 20 วัน')");
+ await evaluate("window.__behaviorShort=false;window.dispatchEvent(new Event('spendsense-data-changed'))");
+ console.log('PASS behavior summary on Overview: from /behavior, with caveat, link and how much more to record');
  await evaluate("document.querySelector('a[href=\"/goals\"]').click()");
  await waitFor(REC+"?.textContent.includes('Actual recommendation session-a')");
  assert.ok(await evaluate("!"+REC+".textContent.includes('Other page')"));

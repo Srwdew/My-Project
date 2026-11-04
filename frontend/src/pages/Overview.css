@@ -586,7 +586,7 @@
   align-items: stretch;
 }
 .dashboard-page .dashboard-row-behavior {
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(0, 41fr) minmax(0, 59fr);
 }
 .rec-panel {
   margin: 16px 0;

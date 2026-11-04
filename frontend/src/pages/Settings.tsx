@@ -199,12 +199,11 @@ function FlexibleCategories() {
       <small>ระบบจะเสนอให้ลดเฉพาะหมวดที่เลือก บันทึกทันทีที่กด</small>
       {error && <p role="alert">{error}</p>}
       {items && (
-        <ul style={{ listStyle: "none", margin: "8px 0 0", padding: 0, display: "grid", gap: 8 }}>
+        <ul className="settings-flexible-list">
           {items.map((c) => (
             <li key={c.categoryId}>
-              {/* Inline: card labels stack by default, and Settings.css is out of scope for now. */}
-              <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: 8 }}>
-                <input type="checkbox" style={{ width: "auto", flex: "none" }} checked={c.flexible} onChange={(e) => void toggle(c.categoryId, e.target.checked)} /> {c.name}
+              <label>
+                <input type="checkbox" checked={c.flexible} onChange={(e) => void toggle(c.categoryId, e.target.checked)} /> {c.name}
               </label>
             </li>
           ))}

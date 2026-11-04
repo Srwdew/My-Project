@@ -67,6 +67,23 @@
   background: white;
   color: #1e293b;
 }
+.settings-card .settings-flexible-list {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.settings-card .settings-flexible-list label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.settings-card .settings-flexible-list input {
+  flex: none;
+  width: auto;
+}
 /* Dropdowns read like the text inputs beside them (Dropdown's default is medium weight). */
 .settings-card .dropdown .dropdown-button {
   font-weight: inherit;

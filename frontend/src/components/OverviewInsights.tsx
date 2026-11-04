@@ -32,6 +32,34 @@ function useReadOnlySummary<T>(path: string, session: string | null, refreshKey 
   }, [path, session, revision, refreshKey]);
   return { data, loading, error, retry: () => setRevision(n => n + 1) };
 }
+type BehaviorSummary = {
+  periods: { current: { startDate: string; endDate: string }; previous: { startDate: string; endDate: string } };
+  readiness: { current: { ready: boolean; expenseCount: number; observedSpanDays: number }; previous: { ready: boolean }; comparisonReady: boolean };
+  findings: { ruleId: string; title: string; recommendation: string }[];
+};
+const BEHAVIOR_MIN = 30; // BEHAVIOR_RULE minimumCount and minimumSpan: both 30
+// Same /behavior answer as the Behavior page, so the two pages cannot disagree. Nothing is calculated here.
+export function BehaviorOverview({ session, today }: { session: string | null; today: string }) {
+  const { data, loading, error, retry } = useReadOnlySummary<BehaviorSummary>('/behavior', session, today);
+  const current = data?.readiness?.current;
+  const findings = data?.readiness?.comparisonReady ? (data.findings ?? []).slice(0, 3) : [];
+  return <div className="dashboard-guidance" data-testid="overview-behavior">
+    {loading && <p role="status">กำลังโหลดสรุปพฤติกรรม...</p>}
+    {error && <div role="alert"><p>โหลดพฤติกรรมไม่สำเร็จ</p><button onClick={retry}>ลองโหลดพฤติกรรมอีกครั้ง</button></div>}
+    {data && current && <>
+      <p className="dashboard-section-note">ช่วง {thaiDate(data.periods.current.startDate)} ถึง {thaiDate(data.periods.current.endDate)} เทียบ {thaiDate(data.periods.previous.startDate)} ถึง {thaiDate(data.periods.previous.endDate)} · ไม่ใช่เดือนที่เลือกด้านบน</p>
+      {!current.ready
+        ? <p role="status">ยังสรุปพฤติกรรมไม่ได้: บันทึกรายจ่ายอีก {Math.max(0, BEHAVIOR_MIN - current.expenseCount)} รายการ และให้ครอบคลุมอีก {Math.max(0, BEHAVIOR_MIN - current.observedSpanDays)} วัน</p>
+        : !data.readiness.comparisonReady
+          ? <p role="status">ยังเทียบกับช่วงก่อนไม่ได้: ข้อมูลช่วงก่อนหน้ายังไม่ถึงเกณฑ์</p>
+          : findings.length
+            ? <ul className="rec-list">{findings.map((f) => <li key={f.ruleId + f.title} className="rec-item"><strong>{f.title}</strong><p>{f.recommendation}</p></li>)}</ul>
+            : <p>ข้อมูลผ่านเกณฑ์ แต่ยังไม่มีข้อค้นพบตามกติกาปัจจุบัน</p>}
+      <p className="dashboard-section-note">วันที่ไม่มีรายการไม่ได้ยืนยันว่าไม่มีการใช้จ่ายจริง เกณฑ์ 30 รายการและระยะ 30 วันไม่ยืนยันข้อมูลครบหรือมีนัยสำคัญทางสถิติ{findings.length ? ' คำแนะนำอ้างข้อมูลที่พบ ไม่ได้พิสูจน์สาเหตุหรือแรงจูงใจ' : ''}{findings.some((f) => f.ruleId.startsWith('possible_recurrence_')) ? ' รูปแบบซ้ำเป็นหลักฐานในช่วงที่เลือก ไม่ยืนยันว่าเกิดซ้ำต่อเนื่องจนถึงปัจจุบันหรือเป็นบิลเดียวกัน' : ''}</p>
+    </>}
+    <Link className="dashboard-text-link" to="/behavior">ดูรายละเอียดและหลักฐานพฤติกรรม</Link>
+  </div>;
+}
 export function AnomalyOverview({ session }: { session: string | null }) {
   const { data, loading, error, retry } = useReadOnlySummary<{ total: number; pendingEvaluation: number }>('/anomaly/queue?filter=waiting&limit=1', session);
   return <div className="dashboard-guidance" data-testid="overview-anomaly">

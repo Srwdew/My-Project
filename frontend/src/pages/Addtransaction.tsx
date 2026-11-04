@@ -25,6 +25,7 @@ import {
   Wallet,
 } from "lucide-react";
 import DatePicker from "react-datepicker";
+import { thaiDayText, thaiMonthHeader } from "../components/DatePill";
 import UserHeader from "../components/UserHeader";
 import "react-datepicker/dist/react-datepicker.css";
 import "./Addtransaction.css";
@@ -725,6 +726,8 @@ export default function AddTransaction() {
                             setFieldErrors((f) => ({ ...f, date: undefined }));
                           }}
                           dateFormat="dd/MM/yyyy"
+                          value={transactionDate ? thaiDayText(transactionDate) : ""}
+                          renderCustomHeader={thaiMonthHeader}
                           calendarStartDay={1}
                           todayButton="วันนี้"
                           className="input date-picker-input"
@@ -1013,8 +1016,7 @@ export default function AddTransaction() {
                     วันที่
                   </span>
                   <span>
-                    {transactionDate?.toLocaleDateString("th-TH") ??
-                      "ยังไม่ได้ระบุวันที่"}
+                    {transactionDate ? thaiDayText(transactionDate) : "ยังไม่ได้ระบุวันที่"}
                   </span>
                 </div>
 

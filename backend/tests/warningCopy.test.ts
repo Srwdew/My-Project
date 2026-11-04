@@ -5,6 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const required: Record<string, string[]> = {
+  'pages/Addtransaction.tsx': ['รายการล่าสุดอาจบันทึกไปแล้ว', 'ระบบจะไม่บันทึกซ้ำ'],
+  'components/OverviewInsights.tsx': ['วันที่ไม่มีรายการไม่ได้ยืนยันว่าไม่มีการใช้จ่ายจริง', 'คำแนะนำอ้างข้อมูลที่พบ ไม่ได้พิสูจน์สาเหตุหรือแรงจูงใจ', 'ไม่ยืนยันว่าเกิดซ้ำต่อเนื่องจนถึงปัจจุบันหรือเป็นบิลเดียวกัน'],
   '../../backend/src/lib/alertNotifications.ts': [
     'ณ วันที่',
     'ยืดเวลาอย่างเดียวไม่พอสำหรับเป้านี้',
