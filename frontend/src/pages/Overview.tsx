@@ -22,7 +22,7 @@ import {
 import {
   AnomalyOverview,
   BehaviorOverview,
-  useBehaviorBanner,
+  useBehavior,
 } from "../components/OverviewInsights";
 import WeeklyExpenses from "../components/WeeklyExpenses";
 import { useEffect, useState } from "react";
@@ -217,7 +217,8 @@ function OverviewMonth({
     };
   }, [session, month, valid, revision]);
   const g = data?.goals.primaryGoal;
-  const banner = useBehaviorBanner(session, today);
+  const behavior = useBehavior(session, today);
+  const banner = behavior.banner;
   const shownGoals: GoalItem[] = [
     ...(g ? [g] : []),
     ...goalList.filter((x) => x.id !== g?.id),
@@ -311,6 +312,7 @@ function OverviewMonth({
                     รายจ่ายเกินงบรวมของเดือน
                   </span>
                 )}
+                {banner?.note && <span>{banner.note}</span>}
                 {banner && (
                   <span>
                     พฤติกรรม {thaiDate(banner.periods.current.startDate)}–{thaiDate(banner.periods.current.endDate)} ไม่ใช่เดือนที่เลือก
@@ -487,7 +489,7 @@ function OverviewMonth({
                   <ChartNoAxesCombined aria-hidden="true" size={20} />
                 </span>
               </div>
-              <BehaviorOverview session={session} today={today} />
+              <BehaviorOverview behavior={behavior} />
             </section>
           )}
           {data && (

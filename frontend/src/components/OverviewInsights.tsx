@@ -33,20 +33,20 @@ function useReadOnlySummary<T>(path: string, session: string | null, refreshKey 
   }, [path, session, revision, refreshKey]);
   return { data, loading, error, retry: () => setRevision(n => n + 1) };
 }
-// Overview banner text: same /behavior answer and same function as the Behavior page banner.
-export function useBehaviorBanner(session: string | null, today: string) {
-  const { data } = useReadOnlySummary<BehaviorSummaryView & { periods: BehaviorSummary['periods'] }>('/behavior', session, today);
-  return data?.facts && data.readiness ? { ...behaviorBanner(data), periods: data.periods } : null;
+// One /behavior request for Overview: the banner (same function as the Behavior page) and the comparison box share it.
+export function useBehavior(session: string | null, today: string) {
+  const summary = useReadOnlySummary<BehaviorSummary>('/behavior', session, today);
+  const data = summary.data;
+  return { ...summary, banner: data?.facts && data.readiness ? { ...behaviorBanner(data), periods: data.periods } : null };
 }
-type BehaviorSummary = {
+type BehaviorSummary = Omit<BehaviorSummaryView, 'findings'> & {
   periods: { current: { startDate: string; endDate: string }; previous: { startDate: string; endDate: string } };
-  readiness: { current: { ready: boolean; expenseCount: number; observedSpanDays: number }; previous: { ready: boolean }; comparisonReady: boolean };
-  findings: { ruleId: string; title: string; recommendation: string }[];
+  findings: (BehaviorSummaryView['findings'][number] & { title: string; recommendation: string })[];
 };
 const BEHAVIOR_MIN = 30; // BEHAVIOR_RULE minimumCount and minimumSpan: both 30
 // Same /behavior answer as the Behavior page, so the two pages cannot disagree. Nothing is calculated here.
-export function BehaviorOverview({ session, today }: { session: string | null; today: string }) {
-  const { data, loading, error, retry } = useReadOnlySummary<BehaviorSummary>('/behavior', session, today);
+export function BehaviorOverview({ behavior }: { behavior: ReturnType<typeof useBehavior> }) {
+  const { data, loading, error, retry } = behavior;
   const current = data?.readiness?.current;
   const findings = data?.readiness?.comparisonReady ? (data.findings ?? []).slice(0, 3) : [];
   return <div className="dashboard-guidance" data-testid="overview-behavior">

@@ -41,7 +41,7 @@ export function behaviorSummary(view: BehaviorSummaryView): { title: string; sen
       (increase.categoryName ?? "ไม่ระบุหมวด") +
       increaseCause[increase.ruleId]
     : !comparable
-      ? "สรุปช่วงนี้ (ยังเทียบช่วงก่อนไม่ได้)"
+      ? "สรุปช่วงนี้"
       : diff > 0
         ? "ช่วงนี้ใช้จ่ายมากกว่าช่วงก่อน"
         : diff < 0
@@ -106,10 +106,15 @@ export function behaviorBanner(view: BehaviorSummaryView) {
   if (!c.ready)
     return {
       title: "ยังสรุปพฤติกรรมไม่ได้",
+      note: null,
       text: view.status === "no_data"
         ? "ยังไม่มีรายจ่ายที่บันทึกในช่วงนี้"
         : `บันทึกรายจ่ายอีก ${Math.max(0, MINIMUM - c.expenseCount)} รายการ และให้ครอบคลุมอีก ${Math.max(0, MINIMUM - c.observedSpanDays)} วัน`,
     };
   const s = behaviorSummary(view);
-  return { title: s.title, text: s.sentences.join(" · ") };
+  return {
+    title: s.title,
+    text: s.sentences.join(" · "),
+    note: view.readiness.comparisonReady ? null : "ยังเทียบช่วงก่อนไม่ได้",
+  };
 }

@@ -571,6 +571,7 @@ function BehaviorBody({
           {summaryBanner && <p>{summaryBanner.text}</p>}
           {data && (
             <div className="behavior-banner-tags">
+              {summaryBanner?.note && <span>{summaryBanner.note}</span>}
               <span>
                 ช่วงที่เลือก {thaiDate(data.periods.current.startDate)}–
                 {thaiDate(data.periods.current.endDate)}

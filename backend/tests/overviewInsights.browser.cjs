@@ -64,6 +64,7 @@ const mock=()=>{
  console.log('PASS Overview has no recommendation or alert section');
  const BEH="document.querySelector('[data-testid=overview-behavior]')";
  await waitFor(BEH+"?.textContent.includes('Same finding as Behavior page')");
+ assert.equal(await evaluate("window.__requests.filter(r=>r==='/behavior').length"),1);
  assert.ok(await evaluate(BEH+".textContent.includes('วันที่ไม่มีรายการไม่ได้ยืนยัน')&&"+BEH+".querySelector('a[href=\"/behavior\"]')!==null"));
  await evaluate("window.__behaviorShort=true;window.dispatchEvent(new Event('spendsense-data-changed'))");
  await waitFor(BEH+"?.textContent.includes('บันทึกรายจ่ายอีก 18 รายการ')&&"+BEH+".textContent.includes('อีก 20 วัน')");

@@ -19,6 +19,13 @@ test('banner summary states the comparison and top category from the API', () =>
   assert.ok(b.text.includes('มากกว่าช่วงก่อน 100.00 บาท'));
   assert.ok(b.text.includes('ส่วนใหญ่ไปที่อาหาร'));
 });
+test('banner title stays plain when it cannot compare; the note says so', () => {
+  const v = view();
+  const b = behaviorBanner({ ...v, readiness: { ...v.readiness, comparisonReady: false } });
+  assert.equal(b.title, 'สรุปช่วงนี้');
+  assert.equal(b.note, 'ยังเทียบช่วงก่อนไม่ได้');
+  assert.equal(behaviorBanner(v).note, null);
+});
 test('banner under the gate says how much more to record, never below zero', () => {
   assert.equal(behaviorBanner(view({ ready: false, expenseCount: 12, observedSpanDays: 40 })).text, 'บันทึกรายจ่ายอีก 18 รายการ และให้ครอบคลุมอีก 0 วัน');
   assert.equal(behaviorBanner(view({ ready: false, expenseCount: 0, observedSpanDays: 0 }, 'no_data')).text, 'ยังไม่มีรายจ่ายที่บันทึกในช่วงนี้');
