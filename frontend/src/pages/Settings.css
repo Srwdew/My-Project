@@ -67,6 +67,10 @@
   background: white;
   color: #1e293b;
 }
+/* Dropdowns read like the text inputs beside them (Dropdown's default is medium weight). */
+.settings-card .dropdown .dropdown-button {
+  font-weight: inherit;
+}
 .settings-card input:not([type="checkbox"]):read-only {
   background: #f8fafc;
   color: var(--color-ink-muted);
