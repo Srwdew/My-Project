@@ -8,7 +8,6 @@ import {
   type ReactNode,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import UserHeader from "../components/UserHeader";
 import { useProfile } from "../contexts/ProfileContext";
 import { apiFetch } from "../api";
 import { getToken, removeToken } from "../auth";
@@ -443,7 +442,6 @@ export default function Settings() {
     <div className="settings-page">
       <header className="settings-header compact-page-toolbar">
         <h1 className="page-heading-accessible">ตั้งค่าผู้ใช้</h1>
-        <UserHeader />
       </header>
       {loading ? <p role="status">กำลังโหลดการตั้งค่า...</p> : null}
       {error && (

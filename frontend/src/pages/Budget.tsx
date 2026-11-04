@@ -10,7 +10,6 @@ import { useEffect, useRef, useState } from "react";
 import type { CSSProperties, FormEvent } from "react";
 import { Bell, BellOff, Minus, Plus, Wallet } from "lucide-react";
 import { apiFetch } from "../api";
-import UserHeader from "../components/UserHeader";
 import Dropdown from "../components/Dropdown";
 import "./Budget.css";
 
@@ -360,7 +359,6 @@ export default function Budget() {
           <h1>การจัดการงบประมาณ</h1>
           <p>จัดการและติดตามงบประมาณของคุณ</p>
         </div>
-        <UserHeader />
       </header>
 
       <div className="budget-toolbar">

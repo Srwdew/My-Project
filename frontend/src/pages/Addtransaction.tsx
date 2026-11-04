@@ -27,7 +27,6 @@ import {
 import DatePicker from "react-datepicker";
 import { th } from "date-fns/locale";
 import { thaiDayText, thaiMonthHeader } from "../components/DatePill";
-import UserHeader from "../components/UserHeader";
 import "react-datepicker/dist/react-datepicker.css";
 import "./Addtransaction.css";
 import {
@@ -497,8 +496,6 @@ export default function AddTransaction() {
         >
           ← ย้อนกลับ
         </button>
-
-        <UserHeader />
       </header>
 
       <main className="add-layout">

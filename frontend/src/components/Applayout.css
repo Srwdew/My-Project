@@ -5,29 +5,38 @@
 }
 
 .app-content {
-  margin-left: var(--sb-width);
   min-height: 100vh;
   box-sizing: border-box;
+  /* Room for the floating bar (56px + 14px gap + breathing space). */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: calc(92px + env(safe-area-inset-bottom));
   background: var(--color-surface-page);
-  transition: margin-left var(--sb-duration) var(--sb-ease);
 }
 
-.app-layout:has(.sidebar.is-collapsed) .app-content { margin-left: var(--sb-rail); }
-
-/* Tablet keeps the rail width; the expanded sidebar overlays content instead of pushing it. */
-@media (min-width: 768px) and (max-width: 1023px) {
-  .app-layout:has(.sidebar) .app-content { margin-left: var(--sb-rail); }
+/* Above page content so the account and notification popups overlay it. */
+.app-topbar {
+  position: relative;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 28px 0;
 }
+
+.app-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  border-radius: 10px;
+  color: #1e3a5f;
+  font-size: 18px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.app-brand img { flex: none; }
 
 @media (max-width: 767px) {
-  .app-layout:has(.sidebar) .app-content {
-    margin-left: 0;
-    padding-top: env(safe-area-inset-top);
-    /* Room for the floating tab bar (64px + 10px gap + breathing space). */
-    padding-bottom: calc(92px + env(safe-area-inset-bottom));
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .app-content { transition: none; }
+  .app-topbar { padding: 10px 16px 0; }
 }

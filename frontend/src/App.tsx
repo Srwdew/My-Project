@@ -70,7 +70,7 @@ function App() {
           element={
             <ProtectedRoute>
               <AppLayout>
-                {/* Inner boundary keeps the sidebar/tab bar mounted while a page chunk loads. */}
+                {/* Inner boundary keeps the top row and bottom bar mounted while a page chunk loads. */}
                 <Suspense fallback={<PageSkeleton />}>
                 <Routes>
                   <Route
@@ -117,7 +117,7 @@ function App() {
                     element={
                       <section style={{ padding: "24px" }}>
                         <h1>ไม่พบหน้าที่ต้องการ</h1>
-                        <p>กรุณาเลือกเมนูด้านข้าง หรือกลับไปหน้าภาพรวม</p>
+                        <p>กรุณาเลือกเมนูด้านล่าง หรือกลับไปหน้าภาพรวม</p>
                         <Link to="/overview">กลับหน้าภาพรวม</Link>
                       </section>
                     }

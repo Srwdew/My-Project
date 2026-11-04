@@ -1,0 +1,134 @@
+/* Bar height 56 + 14 gap: AppLayout's bottom padding and the toast offset depend on it. */
+.app-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  z-index: 900;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  width: fit-content;
+  margin-inline: auto;
+  padding: 6px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 8px 28px rgb(20 45 78 / 0.16), 0 1px 3px rgb(20 45 78 / 0.08);
+  white-space: nowrap;
+}
+
+.app-nav-group { position: relative; display: flex; }
+
+.app-nav-item {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  min-width: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #475569;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 260ms ease, color 260ms ease;
+}
+
+.app-nav-item svg { flex: none; }
+.app-nav-item:hover, .app-nav-item.is-open { background: #eef2f7; color: #1e293b; }
+.app-nav-item.is-active { background: #111827; color: #fff; }
+
+/* Width changes stay inside this fixed bar, so nothing on the page moves. */
+.app-nav-label {
+  display: block;
+  max-width: 0;
+  overflow: hidden;
+  transition: max-width 260ms cubic-bezier(0.2, 0.8, 0.2, 1), padding-left 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.app-nav-item.is-active .app-nav-label { max-width: 90px; padding-left: 6px; }
+.app-nav-short { display: none; }
+
+.app-nav-divider { flex: none; width: 1px; height: 26px; margin: 0 6px; background: #dbe1ea; }
+
+.app-nav-add {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #2563eb;
+  color: #fff;
+  transition: background-color 160ms ease;
+}
+.app-nav-add:hover { background: #1d4ed8; }
+.app-nav-add.active { box-shadow: 0 0 0 3px #bfdbfe; }
+
+.app-nav-item:focus-visible, .app-nav-add:focus-visible, .app-menu-item:focus-visible {
+  outline: 3px solid #326bec;
+  outline-offset: 2px;
+}
+
+/* Shared popup look: analysis menu and account menu. */
+.app-menu {
+  position: absolute;
+  z-index: 91;
+  min-width: 220px;
+  padding: 6px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 12px 36px rgb(20 45 78 / 0.2);
+  animation: app-menu-in 160ms ease-out;
+}
+
+.app-nav-menu { right: 0; bottom: calc(100% + 16px); }
+
+.app-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: #334155;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.app-menu-item svg { flex: none; }
+.app-menu-item:hover { background: #f1f5f9; }
+.app-menu-item.active { background: #eef2f7; color: #111827; font-weight: 700; }
+.app-menu-item.is-danger { color: #b91c1c; }
+.app-menu-item.is-danger:hover { background: #fef2f2; }
+
+@keyframes app-menu-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Keeps the bar inside a 360px phone with every label. */
+@media (max-width: 480px) {
+  .app-nav { gap: 0; }
+  .app-nav-item { min-width: 40px; padding: 0 10px; }
+  .app-nav-divider { margin: 0 4px; }
+  .app-nav-long { display: none; }
+  .app-nav-short { display: inline; }
+}
+
+@media (max-width: 359.98px) {
+  .app-nav-item.is-active .app-nav-label { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-nav-item, .app-nav-label, .app-nav-add, .app-menu { animation: none; transition: none; }
+}

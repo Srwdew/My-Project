@@ -20,12 +20,12 @@ header.compact-page-toolbar {
   margin: 0 0 20px;
   padding: 0;
 }
-header.compact-page-toolbar > .user-header {
-  margin-left: auto;
-}
-.anomaly-queue > header.compact-page-toolbar {
+/* Only the hidden h1 left: the logo and account row moved to AppLayout, so take no space. */
+header.compact-page-toolbar:not(:has(> :not(.page-heading-accessible))) {
   margin: 0;
+  padding: 0;
   height: 0;
+  border: 0;
 }
 @media (max-width: 600px) {
   header.compact-page-toolbar {
@@ -33,19 +33,13 @@ header.compact-page-toolbar > .user-header {
     gap: 10px;
   }
 }
-/* Mobile: no page title (pages keep their visually hidden h1); user header right, page actions full width below. */
+/* Mobile: page actions (e.g. create goal) take a full-width row. */
 @media (max-width: 767px) {
   header.compact-page-toolbar.compact-page-toolbar {
     flex-direction: row;
     align-items: center;
-    padding-top: 8px;
   }
-  header.compact-page-toolbar > .user-header {
-    order: 1;
-  }
-  /* Page actions (e.g. create goal) drop to their own full-width row. */
-  header.compact-page-toolbar > :not(h1):not(.user-header) {
-    order: 2;
+  header.compact-page-toolbar > :not(h1) {
     flex-basis: 100%;
   }
 }

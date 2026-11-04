@@ -5,7 +5,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import DatePicker from "react-datepicker";
 import { th } from "date-fns/locale";
 import { thaiDayText, thaiMonthHeader } from "../components/DatePill";
-import UserHeader from "../components/UserHeader";
 import "react-datepicker/dist/react-datepicker.css";
 // Shares the add page's look; only the slip card and preview are absent.
 import "./Addtransaction.css";
@@ -286,7 +285,6 @@ function EditTransactionSession() {
           ← ย้อนกลับ
         </button>
         <h1 className="page-heading-accessible">แก้ไขธุรกรรม</h1>
-        <UserHeader />
       </header>
 
       <main className="add-layout">

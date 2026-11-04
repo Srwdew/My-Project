@@ -27,7 +27,6 @@ import {
   PiggyBank,
 } from "lucide-react";
 import { thaiMonth } from "../utils/thaiDate";
-import UserHeader from "../components/UserHeader";
 import { useToast } from "../components/LocalToast";
 import { apiFetch } from "../api";
 import { getToken } from "../auth";
@@ -599,7 +598,6 @@ function GoalsSession({ session }: { session: string | null }) {
           <Plus size={18} />
           สร้างเป้าหมายใหม่
         </button>
-        <UserHeader />
       </header>
       {intention && !loading && !goals.length && (
         <aside

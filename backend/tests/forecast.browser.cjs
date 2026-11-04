@@ -62,7 +62,7 @@ const mock=(payloads)=>{
  await evaluate("window.__hold=true;window.dispatchEvent(new Event('spendsense-data-changed'))");await waitFor("window.__requests.at(-1).held");
  await evaluate("window.__hold=false;localStorage.setItem('spendsense_token','session-b');window.dispatchEvent(new Event('spendsense-session'))");
  // The session key remounts the route, so the page is briefly absent while the new session loads.
- await waitFor("document.querySelector('.forecast-page')?.textContent.includes('session-b')");
+ await waitFor("document.querySelector('.app-content')?.textContent.includes('session-b')&&document.querySelector('.forecast-page')!==null");
  await evaluate("window.__release()");await waitFor("window.__requests.every(r=>!r.held||r.consumed)");
  await evaluate("new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)))");
  assert.equal(await evaluate("document.querySelector('.forecast-page').textContent.includes('session-a')"),false);
@@ -73,7 +73,7 @@ const mock=(payloads)=>{
  await waitFor("location.pathname==='/transactions'");
  await evaluate("window.__hold=false;window.__release()");await waitFor("window.__requests.every(r=>!r.held||r.consumed)");
  assert.equal(await evaluate("Boolean(document.querySelector('.forecast-page'))"),false);
- await evaluate("document.querySelector('a[href=\"/forecast\"]').click()");await waitFor("Boolean(document.querySelector('.forecast-panel svg'))");
+ await evaluate("document.querySelector('.app-nav-group > button').click()");await waitFor("document.querySelector('a[href=\"/forecast\"]')!==null");await evaluate("document.querySelector('a[href=\"/forecast\"]').click()");await waitFor("Boolean(document.querySelector('.forecast-panel svg'))");
  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
  console.log('MOBILE_DIAGNOSTIC',await evaluate('[...document.querySelectorAll(".forecast-page select,.forecast-panel,.forecast-table,.forecast-header")].map(e=>({tag:e.tagName,cls:e.className,width:e.getBoundingClientRect().width,right:e.getBoundingClientRect().right}))')); assert.equal(await evaluate('document.documentElement.scrollWidth<=window.innerWidth'),true);
  assert.ok(await evaluate("[...document.querySelectorAll('.forecast-table')].every(el=>el.scrollWidth>=el.clientWidth)"));

@@ -29,7 +29,6 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { apiFetch } from "../api";
 import { getToken, useSessionKey } from "../auth";
-import UserHeader from "../components/UserHeader";
 import { MonthPill } from "../components/DatePill";
 import { bannerTitleClass } from "../utils/behaviorSummary";
 import { bangkokDate, moneyText, type DailyAmount } from "../utils/dashboard";
@@ -229,7 +228,6 @@ function OverviewMonth({
       <div className="dashboard-topbar">
         <header className="overview-header compact-page-toolbar">
           <h1 className="page-heading-accessible">ภาพรวมทางการเงิน</h1>
-          <UserHeader />
         </header>
         <nav className="dashboard-month" aria-label="เลือกเดือน">
           <div className="dashboard-period-label">

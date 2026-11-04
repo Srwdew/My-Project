@@ -13,7 +13,7 @@
   .app-content details::details-content { block-size: 0; overflow: clip; transition: block-size 160ms ease-out, content-visibility 160ms allow-discrete; }
   .app-content details[open]::details-content { block-size: auto; }
 }
-.local-toast-region { position: fixed; z-index: 80; inset-inline-end: 20px; bottom: 20px; width: min(420px, calc(100vw - 32px)); pointer-events: none; }
+.local-toast-region { position: fixed; z-index: 80; inset-inline-end: 20px; bottom: calc(82px + env(safe-area-inset-bottom)); /* above the bottom nav */ width: min(420px, calc(100vw - 32px)); pointer-events: none; }
 .local-toast { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 1px solid #b6dccb; border-radius: 14px; background: #f1fcf6; color: #165d40; box-shadow: 0 8px 32px #142d4e20; animation: spendsense-fade 160ms ease-out; pointer-events: none; overflow-wrap: anywhere; }
 .local-toast > svg { flex-shrink: 0; }
 .local-toast > span { flex: 1; min-width: 0; }

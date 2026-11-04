@@ -47,6 +47,22 @@
   flex-shrink: 0;
 
   min-width: 205px;
+
+  color: #475569;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.user-header-account { position: relative; }
+.user-header-menu { top: calc(100% + 8px); right: 0; }
+.user-header-chevron { flex: none; margin-left: auto; }
+.user-header-profile:focus-visible { outline: 3px solid #326bec; outline-offset: 2px; }
+
+/* Phones: avatar only, leaving room for the logo. */
+@media (max-width: 767px) {
+  .user-header-profile { min-width: 0; padding-right: 8px; }
+  .user-header-profile .user-header-info { display: none; }
 }
 
 .user-header-avatar {

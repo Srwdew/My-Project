@@ -1,47 +1,30 @@
 import {
-  Activity, ArrowLeftRight, CirclePlus, History, LayoutDashboard,
-  PiggyBank, ShieldAlert, Target, TrendingUp, type LucideIcon,
+  Activity, ArrowLeftRight, ChartPie, LayoutGrid, ShieldAlert, Target, TrendingUp, type LucideIcon,
 } from 'lucide-react';
 
 export type NavItem = {
   label: string;
+  /** Shorter name for phones, where the full one would overflow the bar. */
+  short?: string;
   icon: LucideIcon;
   to: string;
-  end?: boolean;
-  children?: NavItem[];
 };
 
-export type NavGroup = { label: string; items: NavItem[] };
-
-// Single source of truth for the sidebar menu.
-export const NAV_GROUPS: NavGroup[] = [
-  {
-    label: 'ภาพรวม',
-    items: [{ label: 'ภาพรวม', icon: LayoutDashboard, to: '/overview' }],
-  },
-  {
-    label: 'การเงิน',
-    items: [
-      {
-        label: 'ธุรกรรม', icon: ArrowLeftRight, to: '/transactions',
-        children: [
-          { label: 'ประวัติรายการ', icon: History, to: '/transactions', end: true },
-          { label: 'เพิ่มรายการ', icon: CirclePlus, to: '/transactions/add' },
-        ],
-      },
-      { label: 'งบประมาณ', icon: PiggyBank, to: '/budget' },
-      { label: 'เป้าหมาย', icon: Target, to: '/goals' },
-    ],
-  },
-  {
-    label: 'วิเคราะห์',
-    items: [
-      { label: 'พฤติกรรม', icon: Activity, to: '/behavior' },
-      { label: 'การพยากรณ์', icon: TrendingUp, to: '/forecast' },
-      { label: 'รายการที่ควรตรวจสอบ', icon: ShieldAlert, to: '/anomaly' },
-    ],
-  },
+// Single source of truth for the bottom bar.
+export const NAV_ITEMS: NavItem[] = [
+  { label: 'ภาพรวม', icon: LayoutGrid, to: '/overview' },
+  { label: 'ธุรกรรม', icon: ArrowLeftRight, to: '/transactions' },
+  { label: 'งบประมาณ', short: 'งบ', icon: ChartPie, to: '/budget' },
+  { label: 'เป้าหมาย', icon: Target, to: '/goals' },
 ];
 
+export const ANALYSIS_ITEMS: NavItem[] = [
+  { label: 'พฤติกรรม', icon: Activity, to: '/behavior' },
+  { label: 'การพยากรณ์', icon: TrendingUp, to: '/forecast' },
+  { label: 'รายการที่ควรตรวจสอบ', icon: ShieldAlert, to: '/anomaly' },
+];
+
+export const ADD_TRANSACTION_PATH = '/transactions/add';
+
 export const isNavMatch = (item: NavItem, pathname: string) =>
-  item.end ? pathname === item.to : pathname === item.to || pathname.startsWith(`${item.to}/`);
+  pathname !== ADD_TRANSACTION_PATH && (pathname === item.to || pathname.startsWith(`${item.to}/`));

@@ -26,7 +26,7 @@ const origin=meta.frontend,delay=ms=>new Promise(r=>setTimeout(r,ms));
  const go=async p=>send('Page.navigate',{url:origin+p});
  const fill=async(selector,value)=>evaluate("(()=>{const e=document.querySelector("+JSON.stringify(selector)+");Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,"+JSON.stringify(value)+");e.dispatchEvent(new Event('input',{bubbles:true}));})()");
  const login=async account=>{await go('/login');await waitFor("document.querySelector('#email')!==null");await fill('#email',account.email);await fill('#password',account.password);await evaluate("document.querySelector('.login-submit').click()");await waitFor("location.pathname==='/overview'");};
- const logout=async()=>{await waitFor("document.querySelector('.sidebar-logout')!==null");await evaluate("document.querySelector('.sidebar-logout').click()");await waitFor("location.pathname==='/login'");};
+ const logout=async()=>{await waitFor("document.querySelector('.user-header-profile')!==null");await evaluate("document.querySelector('.user-header-profile').click()");await waitFor("document.querySelector('.account-logout')!==null");await evaluate("document.querySelector('.account-logout').click()");await waitFor("location.pathname==='/login'");};
  const categories=()=>evaluate("[...document.querySelectorAll('.category-option-content>span')].map(e=>e.textContent)");
  await login(meta.legacy);await go('/transactions/add');
  await waitFor("document.querySelector('.category-options')!==null && window.__calls.some(c=>c.path==='/categories'&&c.status===200)");

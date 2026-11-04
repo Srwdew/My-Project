@@ -1,7 +1,6 @@
 import { thaiDate } from "../utils/thaiDate";
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import UserHeader from "../components/UserHeader";
 import SummaryCard from "../components/SummaryCard";
 import {
   ArrowUpRight,
@@ -551,7 +550,6 @@ function BehaviorBody({
         <h1 className="page-heading-accessible">
           การวิเคราะห์พฤติกรรมการใช้จ่าย
         </h1>
-        <UserHeader />
       </header>
       {/* Same banner as Overview's dashboard hero; styles in Behavior.css (.behavior-banner). */}
       <section className="behavior-banner" aria-label="สรุปพฤติกรรมการใช้จ่าย">

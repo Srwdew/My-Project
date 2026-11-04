@@ -2,7 +2,6 @@ import { thaiDate } from "../utils/thaiDate";
 import { PageRecommendations } from "../components/OverviewInsights";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import UserHeader from "../components/UserHeader";
 import {
   CalendarCheck,
   CalendarDays,
@@ -198,7 +197,6 @@ function ForecastSession({
     <div className="forecast-page">
       <header className="forecast-header compact-page-toolbar">
         <h1 className="page-heading-accessible">พยากรณ์ค่าใช้จ่าย</h1>
-        <UserHeader />
       </header>
       {loading && <p role="status">กำลังคำนวณประมาณการ...</p>}
       {error && (

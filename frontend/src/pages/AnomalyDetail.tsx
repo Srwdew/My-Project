@@ -2,7 +2,6 @@ import { thaiDate } from "../utils/thaiDate";
 import AnomalyBaselineSummary from "../components/AnomalyBaselineSummary";
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import UserHeader from "../components/UserHeader";
 import AnomalyReviewPanel from "../components/AnomalyReviewPanel";
 import { apiFetch } from "../api";
 import { getToken, useSessionKey } from "../auth";
@@ -45,7 +44,6 @@ export default function AnomalyDetailPage() {
             รายละเอียดรายการที่ควรตรวจสอบ
           </h1>
         </div>
-        <UserHeader />
       </header>
       {valid ? (
         <DetailBody

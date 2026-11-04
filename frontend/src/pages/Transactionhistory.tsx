@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 import "./TransactionHistory.css";
 import { apiFetch } from "../api";
-import UserHeader from "../components/UserHeader";
 import BudgetIcon from "../components/BudgetIcon";
 import { categoryAppearance } from "../utils/categoryAppearance";
 
@@ -402,8 +401,6 @@ function TransactionHistorySession({ session }: { session: string | null }) {
       )}
       <header className="history-header compact-page-toolbar">
         <h1 className="page-heading-accessible">การจัดการธุรกรรม</h1>
-
-        <UserHeader />
       </header>
 
       {month !== null && (

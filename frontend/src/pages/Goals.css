@@ -1092,7 +1092,7 @@
   }
 }
 
-/* Responsive by the panel's own width, not the viewport: the sidebar eats ~250px on desktop. */
+/* Responsive by the panel's own width, not the viewport. */
 .goals-panel {
   container: goals / inline-size;
 }
