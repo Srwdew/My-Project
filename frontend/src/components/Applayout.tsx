@@ -20,14 +20,16 @@ export default function AppLayout({
     <ProfileProvider><ToastProvider>
       <div className="app-layout">
         <main className="app-content">
-          <div className="app-topbar">
-            <Link to="/overview" className="app-brand" aria-label="KebTang หน้าภาพรวม">
-              <img src="/logo.svg" alt="" width="36" height="36" />
-              <span>KebTang</span>
-            </Link>
-            <UserHeader />
+          <div className="app-frame">
+            <div className="app-topbar">
+              <Link to="/overview" className="app-brand" aria-label="KebTang หน้าภาพรวม">
+                <img src="/logo.svg" alt="" width="36" height="36" />
+                <span>KebTang</span>
+              </Link>
+              <UserHeader />
+            </div>
+            <ErrorBoundary resetKey={pathname}>{children}</ErrorBoundary>
           </div>
-          <ErrorBoundary resetKey={pathname}>{children}</ErrorBoundary>
         </main>
         <AppNav />
       </div>

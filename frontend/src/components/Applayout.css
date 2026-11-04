@@ -13,6 +13,12 @@
   background: var(--color-surface-page);
 }
 
+/* The one place that limits content width; smaller screens simply fill. */
+.app-frame {
+  max-width: var(--app-max-width, 1280px);
+  margin-inline: auto;
+}
+
 /* Above page content so the account and notification popups overlay it. */
 .app-topbar {
   position: relative;
