@@ -5,6 +5,7 @@ import { apiFetch } from '../api';
 import { getToken, useSessionKey } from '../auth';
 import { bangkokDate } from '../utils/dashboard';
 import { behaviorBanner, type BehaviorSummaryView } from '../utils/behaviorSummary';
+import { todayCard, type TodayInput } from '../utils/todayCard';
 import '../pages/Overview.css';
 
 function useReadOnlySummary<T>(path: string, session: string | null, refreshKey = '') {
@@ -44,6 +45,22 @@ type BehaviorSummary = Omit<BehaviorSummaryView, 'findings'> & {
   findings: (BehaviorSummaryView['findings'][number] & { title: string; recommendation: string })[];
 };
 const BEHAVIOR_MIN = 30; // BEHAVIOR_RULE minimumCount and minimumSpan: both 30
+type AlertsSummary = TodayInput & { forecastReadiness: { ready: boolean; transactionCount: number; observedSpanDays: number; moreExpensesNeeded: number; moreDaysNeeded: number } };
+export const useAlerts = (session: string | null, today: string) => useReadOnlySummary<AlertsSummary>('/alerts', session, today);
+
+export function TodayCard({ alerts }: { alerts: ReturnType<typeof useAlerts> }) {
+  if (!alerts.data) return null;
+  const c = todayCard(alerts.data);
+  return <section className="today-card" aria-label="สถานะวันนี้">
+    <div>
+      <span className={'today-status today-' + c.tone}>{c.status}</span>
+      <p>{c.text}</p>
+      {c.recordedNote && <small>นับจากรายการที่บันทึก</small>}
+    </div>
+    <Link className="today-action" to={c.to}>{c.action}</Link>
+  </section>;
+}
+
 // Same /behavior answer as the Behavior page, so the two pages cannot disagree. Nothing is calculated here.
 export function BehaviorOverview({ behavior }: { behavior: ReturnType<typeof useBehavior> }) {
   const { data, loading, error, retry } = behavior;

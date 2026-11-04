@@ -22,7 +22,7 @@ const mock=()=>{
   } else if(route==='/behavior'){
    data={periods:{current:{startDate:'2026-10-01',endDate:'2026-10-30'},previous:{startDate:'2026-09-01',endDate:'2026-09-30'}},readiness:{current:{ready:!window.__behaviorShort,expenseCount:window.__behaviorShort?12:40,observedSpanDays:window.__behaviorShort?10:30},previous:{ready:true},comparisonReady:!window.__behaviorShort},findings:[{ruleId:'category_increase',title:'Same finding as Behavior page',recommendation:'ดูหมวดนี้'}]};
   } else if(route==='/alerts'){
-   data={cards:[],flaggedTotal:0,levelShiftsWaiting:0};
+   data={cards:[],flaggedTotal:0,levelShiftsWaiting:0,recordedExpenseToday:'50.00',pace:{daysLeft:12,spent:'800.00',cycleBudget:'2000.00',budgetLeft:'1200.00',overBudget:'0.00',perDay:'100',paceGap:'-10.00'},forecastReadiness:{ready:true,transactionCount:40,observedSpanDays:40,moreExpensesNeeded:0,moreDaysNeeded:0}};
   } else if(route==='/anomaly/queue'||route==='/recommendations'){
    if(window.__insightHold&&session==='session-a')await new Promise(r=>window.__gates.push(r));
    if(window.__insightFail)return new Response('{}',{status:503});

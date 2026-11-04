@@ -4,6 +4,7 @@ import { addDays, getCurrentCycle, loadCycleContext, utcDate } from "./cycle";
 import { buildForecast, forecastInput } from "./expenseForecast";
 import { anomalyQueue } from "./anomalyDecisions";
 import { loadTier0 } from "./tier0";
+import { FORECAST_RULE } from "./holt";
 
 // FINANCIAL_PROFILE_DESIGN section 5. Reads Budget, Forecast, Goal and Anomaly; never recommendations (C2).
 // Tiers sort 1 to 4 with no scoring. Cards carry codes and budget figures only, never a raw forecast number (D-8).
@@ -107,6 +108,16 @@ export async function loadAlerts(tx: Prisma.TransactionClient, userId: string, t
   return {
     asOfDate: today,
     cycle: { key: tier0.cycle.key, startDate: tier0.cycle.startDate, endDate: tier0.cycle.endDate },
+    // Already-computed values for the Overview today card and unlock bar; nothing is recalculated here.
+    pace: tier0.pace,
+    recordedExpenseToday: forecast.recordedExpenseToday,
+    forecastReadiness: {
+      ready: forecast.readiness.ready,
+      transactionCount: forecast.readiness.transactionCount,
+      observedSpanDays: forecast.readiness.observedSpanDays,
+      moreExpensesNeeded: Math.max(0, FORECAST_RULE.minTransactions - forecast.readiness.transactionCount),
+      moreDaysNeeded: Math.max(0, FORECAST_RULE.minObservedDays - forecast.readiness.observedSpanDays),
+    },
     ...evaluateAlerts({
       pace: tier0.pace,
       savingsPlan: tier0.savingsPlan,

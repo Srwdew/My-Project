@@ -22,6 +22,8 @@ import {
 import {
   AnomalyOverview,
   BehaviorOverview,
+  TodayCard,
+  useAlerts,
   useBehavior,
 } from "../components/OverviewInsights";
 import WeeklyExpenses from "../components/WeeklyExpenses";
@@ -219,6 +221,7 @@ function OverviewMonth({
   const g = data?.goals.primaryGoal;
   const behavior = useBehavior(session, today);
   const banner = behavior.banner;
+  const alerts = useAlerts(session, today);
   const shownGoals: GoalItem[] = [
     ...(g ? [g] : []),
     ...goalList.filter((x) => x.id !== g?.id),
@@ -289,6 +292,11 @@ function OverviewMonth({
       )}
       {data && (
         <>
+          {data.period.isCurrentMonth && (
+            <>
+              <TodayCard alerts={alerts} />
+            </>
+          )}
           <section
             className="dashboard-hero"
             aria-label="สรุปข้อมูลเดือนที่เลือก"
@@ -306,11 +314,6 @@ function OverviewMonth({
               </h2>
               {banner && <p>{banner.text}</p>}
               <div className="dashboard-hero-tags">
-                {data.summary.budgetExceeded && (
-                  <span className="dashboard-hero-warning">
-                    รายจ่ายเกินงบรวมของเดือน
-                  </span>
-                )}
                 {banner?.note && <span>{banner.note}</span>}
                 {banner && (
                   <span>
@@ -325,9 +328,6 @@ function OverviewMonth({
                 </span>
               </div>
             </div>
-            <Link className="dashboard-hero-link" to="/transactions/add">
-              เพิ่มรายการ <CirclePlus aria-hidden="true" size={18} />
-            </Link>
           </section>
           <div
             className="dashboard-cards"
