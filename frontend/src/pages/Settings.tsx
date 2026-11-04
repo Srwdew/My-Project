@@ -169,6 +169,7 @@ function FlexibleCategories() {
         const r = await apiFetch("/category-flags");
         if (!r.ok) throw Error();
         const d = await r.json();
+        if (!Array.isArray(d)) throw Error();
         if (active) setItems(d);
       } catch {
         if (active) setError("โหลดหมวดไม่สำเร็จ กรุณาลองใหม่");
@@ -222,7 +223,7 @@ function BlockedLevelShifts() {
         const r = await apiFetch("/anomaly/level-shifts/blocked");
         if (!r.ok) throw Error();
         const d = (await r.json()) as { items: BlockedShift[] };
-        if (active) setItems(d.items);
+        if (active) setItems(Array.isArray(d.items) ? d.items : []);
       } catch {
         if (active) setItems([]);
       }

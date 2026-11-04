@@ -83,7 +83,7 @@ docker exec SpendSense-db pg_restore -U SpendSense_user -d spendsense_restore /t
 - **เทสต์ต้องไม่ต่อฐานหลัก** ถ้าเห็น `[test guard]` อย่าแก้ `.env` ให้ผ่าน ดู ISSUE-TEST-3 ใน [DECISIONS](DECISIONS.md)
 - **ห้าม** `docker compose down -v`, ลบ volume หรือ `prisma migrate reset` โดยไม่ได้รับอนุญาต
 - **การเปลี่ยน `POSTGRES_PASSWORD` ไม่เปลี่ยนรหัสใน volume เดิม**
-- **ไม่มี ErrorBoundary** error ตอน render ทำให้ขาวทั้งแอป ควรมีก่อนใช้งานจริง (ISSUE-UI-3)
+- **ErrorBoundary ครอบเฉพาะหน้าใน layout** หน้าสาธารณะ, `/setup` และ `/admin` ยังขาวได้ถ้า render พัง (ISSUE-UI-3)
 - **`npm run test:all` ยังใช้เป็นด่านก่อน commit ไม่ได้** ดูหัวข้อ 6
 
 ## 5. สถานะ migration บนฐานหลัก

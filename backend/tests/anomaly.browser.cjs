@@ -10,6 +10,8 @@ const mock=()=>{
   if(route==='/profile')value={userId:session,email:session+'@example.invalid',displayName:session,hasAvatar:false};
   else if(route==='/categories')value=[{id:'cat',name:'ทดสอบ',type:'expense'}];
   else if(route==='/settings'){if(options.method==='PUT')window.__saved=JSON.parse(options.body);value={userId:session,email:'test@example.invalid',displayName:session,income:null,paydayDay:null,primaryGoalId:null,goals:[],budgetMonth:'2026-09',budgetAmount:null,notifications:{notifyNearLimit:false,notifyExceeded:false,notifyAnomaly:window.__saved?.notifyAnomaly??false}};}
+  else if(route==='/category-flags')value=[];
+  else if(route==='/anomaly/level-shifts/blocked')value={items:[]};
   else if(route==='/notifications')value={items:[{id:window.__noticeId||'notice',type:'transaction_anomaly',title:'รายการที่ควรตรวจสอบ',message:'ข้อมูลจำลองสำหรับ UI',readAt:null,createdAt:'2026-09-23T00:00:00Z'}],unreadCount:1};
   else if(route==='/notifications/anomaly/reconcile')value={processed:10,evaluated:10,hasMore:true,nextCursor:'next-id',asOfDate:'2026-09-23'};
   else if(route.endsWith('/anomaly')){

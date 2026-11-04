@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ToastProvider } from './LocalToast';
 import AppNav from './AppNav';
+import ErrorBoundary from './ErrorBoundary';
 import UserHeader from './UserHeader';
 import { ProfileProvider } from '../contexts/ProfileContext';
 
@@ -14,6 +15,7 @@ type AppLayoutProps = {
 export default function AppLayout({
   children,
 }: AppLayoutProps) {
+  const { pathname } = useLocation();
   return (
     <ProfileProvider><ToastProvider>
       <div className="app-layout">
@@ -25,7 +27,7 @@ export default function AppLayout({
             </Link>
             <UserHeader />
           </div>
-          {children}
+          <ErrorBoundary resetKey={pathname}>{children}</ErrorBoundary>
         </main>
         <AppNav />
       </div>

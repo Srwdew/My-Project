@@ -7,7 +7,7 @@ const weekdayNames = ["จันทร์", "อังคาร", "พุธ", "
 const increaseCause: Record<string, string> = {
   category_frequency_up: "ที่ซื้อบ่อยขึ้น",
   category_average_up: "ที่จ่ายต่อครั้งสูงขึ้น",
-  category_both_up: "ที่ทั้งบ่อยขึ้นและจ่ายต่อครั้งสูงขึ้น",
+  category_both_up: "ที่บ่อยขึ้นและแพงขึ้น",
 };
 const recurrenceNames: Record<string, string> = {
   monthly: "รายเดือน",

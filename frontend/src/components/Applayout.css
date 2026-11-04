@@ -37,6 +37,11 @@
 }
 .app-brand img { flex: none; }
 
+.app-page-error { max-width: 560px; margin: 64px auto; padding: 0 16px; text-align: center; }
+.app-page-error h1 { margin: 0 0 8px; font-size: 22px; }
+.app-page-error p { margin: 0 0 16px; color: var(--color-ink-muted); }
+.app-page-error button { min-height: 44px; padding: 0 20px; border: 1px solid #d8dee8; border-radius: 12px; background: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+
 @media (max-width: 767px) {
   .app-topbar { padding: 10px 16px 0; }
 }

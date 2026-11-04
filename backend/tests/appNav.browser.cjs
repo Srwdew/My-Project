@@ -13,7 +13,10 @@ const mock = () => {
     const route = new URL(text, location.origin).pathname.replace(/^\/api/, '');
     const value = route === '/auth/me' ? { id: 'nav', setupCompletedAt: '2026-10-01T00:00:00.000Z' }
       : route === '/profile' ? { userId: 'nav', email: 'nav@example.invalid', displayName: 'ทดสอบ', hasAvatar: false }
-      : route === '/notifications' ? { items: [], unreadCount: 0 } : null;
+      : route === '/notifications' ? { items: [], unreadCount: 0 }
+      : route === '/category-flags' ? {} // deliberately malformed
+      : route === '/settings' ? { userId: 'nav', email: 'nav@example.invalid', displayName: 'ทดสอบ', income: null, paydayDay: null, primaryGoalId: null, goals: [], budgetMonth: '2026-09', budgetAmount: null, notifications: { notifyNearLimit: false, notifyExceeded: false, notifyAnomaly: false } }
+      : window.__wrongShape ? [] : null;
     // Other routes fail on purpose: each page shows its error state, and only the bar is under test.
     return new Response(JSON.stringify(value ?? { error: 'not mocked' }), { status: value ? 200 : 503, headers: { 'Content-Type': 'application/json' } });
   };
@@ -76,6 +79,18 @@ const mock = () => {
 
     assert.equal(await ev("(()=>{const t=document.createElement('div');t.className='local-toast-region';t.style.height='60px';document.body.append(t);const gap=document.querySelector('.app-nav').getBoundingClientRect().top-t.getBoundingClientRect().bottom;t.remove();return gap>=0})()"), true);
     console.log('PASS toast sits above the bar');
+
+    await ev("window.history.pushState({},'','/settings');window.dispatchEvent(new PopStateEvent('popstate'))");
+    await waitFor("document.querySelector('#flexible-categories [role=alert]')?.textContent.includes('โหลดหมวดไม่สำเร็จ')===true");
+    assert.equal(await ev("document.querySelector('#settings-name')!==null"), true);
+    console.log('PASS malformed /category-flags shows a message and settings stays usable');
+
+    await ev("window.__wrongShape=true;document.querySelector('.app-nav a[href=\"/overview\"]').click()");
+    await waitFor("document.querySelector('.app-page-error')!==null");
+    assert.equal(await ev("document.querySelector('.app-nav')!==null&&document.querySelector('.user-header-profile')!==null"), true);
+    await ev("window.__wrongShape=false;document.querySelector('.app-nav a[href=\"/budget\"]').click()");
+    await waitFor("location.pathname==='/budget'&&document.querySelector('.app-page-error')===null");
+    console.log('PASS a crashing page keeps the bar and clears on navigation');
 
     await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
     assert.equal(await ev("getComputedStyle(document.querySelector('.app-nav-label')).transitionDuration.split(',').every(d=>parseFloat(d)===0)"), true);

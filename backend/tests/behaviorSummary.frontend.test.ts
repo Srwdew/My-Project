@@ -41,6 +41,7 @@ test('tied categories never name one as the most, in the title or the line', () 
 test('clear increase comes first', () => {
   const findings = [{ ruleId: 'category_frequency_up', categoryName: 'อาหาร', evidence: { current: { amount: '1', transactionCount: 2, averagePerTransaction: '1.00' }, previous: { amount: '1', transactionCount: 1, averagePerTransaction: '1.00' } } }];
   assert.equal(title({ findings, categories: [cat('อาหาร', '600.00'), cat('เดินทาง', '100.00', '900.00')] }), 'ช่วงนี้ใช้จ่ายมากขึ้น ส่วนใหญ่มาจากอาหารที่ซื้อบ่อยขึ้น');
+  assert.equal(title({ findings: findings.map((f) => ({ ...f, ruleId: 'category_both_up' })), categories: [cat('อาหาร', '600.00')] }), 'ช่วงนี้ใช้จ่ายมากขึ้น ส่วนใหญ่มาจากอาหารที่บ่อยขึ้นและแพงขึ้น');
 });
 test('clear decrease uses R9 test, strict at both limits, largest fall named', () => {
   assert.equal(title({ categories: [cat('อาหาร', '600.00', '800.00'), cat('เดินทาง', '100.00', '900.00')] }), 'ช่วงนี้ใช้จ่ายกับเดินทางลดลง');
