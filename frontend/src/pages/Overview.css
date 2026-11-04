@@ -180,7 +180,7 @@
 }
 .today-card > div { display: grid; justify-items: start; gap: 6px; flex: 1 1 320px; min-width: 0; }
 .today-card p { margin: 0; font-size: 19px; font-weight: 600; line-height: 1.4; }
-.today-card small { color: var(--overview-muted); font-size: 13px; }
+.today-card small, .unlock-row small { color: var(--overview-muted); font-size: 13px; }
 .today-status { padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; }
 .today-ok { background: #dff5e8; color: #17653d; }
 .today-info { background: #dfeefb; color: #1f4f7a; }
@@ -198,6 +198,20 @@
   text-align: center;
   text-decoration: none;
 }
+.unlock-progress {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+  padding: 18px 24px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid var(--overview-line);
+}
+.unlock-progress h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.unlock-row { display: grid; gap: 6px; }
+.unlock-row > div:first-child { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px 12px; font-size: 14px; }
+.unlock-bar { height: 8px; overflow: hidden; border-radius: 99px; background: #e3e9f1; }
+.unlock-bar i { display: block; height: 100%; background: #155acb; }
 .dashboard-page .dashboard-cards {
   position: relative;
   display: grid;

@@ -24,3 +24,18 @@ export function todayCard({ pace, recordedExpenseToday, forecastReadiness }: Tod
   if (Number(pace.paceGap) > 0) return card('warn', 'ใช้เร็วกว่าแผน', `เร็วกว่าแผน ${baht(pace.paceGap!)} บาท ${perDay}`);
   return card('ok', 'ตามงบ', perDay);
 }
+
+export type Gate = { ready: boolean; count: number; days: number; moreCount: number; moreDays: number };
+export type UnlockRow = { name: string; ready: boolean; percent: number; text: string };
+
+const need = (g: Gate) => [g.moreCount > 0 && `บันทึกอีก ${g.moreCount} รายการ`, g.moreDays > 0 && `ให้ครอบคลุมอีก ${g.moreDays} วัน`].filter(Boolean).join(' และ');
+// The less complete of count and days, so the bar is never full before the gate opens.
+const percent = (g: Gate) => g.ready ? 100 : Math.floor(Math.min(g.moreCount ? g.count / (g.count + g.moreCount) : 1, g.moreDays ? g.days / (g.days + g.moreDays) : 1) * 100);
+
+/** Forecast counts all history, so once it is open this is a returning account: Overview shows nothing and the Behavior page speaks for itself. */
+export function unlockRows(forecast: Gate, behavior: Gate): UnlockRow[] {
+  if (forecast.ready) return [];
+  if (forecast.moreCount === behavior.moreCount && forecast.moreDays === behavior.moreDays)
+    return [{ name: 'สรุปพฤติกรรมและคาดการณ์รายจ่าย', ready: false, percent: percent(forecast), text: need(forecast) }];
+  return ([['สรุปพฤติกรรม', behavior], ['คาดการณ์รายจ่าย', forecast]] as const).map(([name, g]) => ({ name, ready: g.ready, percent: percent(g), text: g.ready ? '' : need(g) }));
+}

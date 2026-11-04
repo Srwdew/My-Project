@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { todayCard, type Pace } from '../../frontend/src/utils/todayCard';
+import { todayCard, unlockRows, type Pace } from '../../frontend/src/utils/todayCard';
 
 const pace = (o: Partial<Pace> = {}): Pace => ({ daysLeft: 12, spent: '8000.00', cycleBudget: '20000.00', budgetLeft: '5040.00', overBudget: '0.00', perDay: '420', paceGap: '-10.00', ...o });
 const card = (o: Partial<Pace> = {}, today = '50.00', count = 40) => todayCard({ pace: pace(o), recordedExpenseToday: today, forecastReadiness: { transactionCount: count } });
@@ -39,4 +39,23 @@ test('new account comes first, even without a budget', () => {
 });
 test('first expense today is not a new account', () => {
   assert.notEqual(card({ cycleBudget: null, spent: '50.00' }, '50.00', 0).status, 'เริ่มต้น');
+});
+
+const gate = (count: number, days: number, ready = false) => ({ ready, count, days, moreCount: Math.max(0, 30 - count), moreDays: Math.max(0, 30 - days) });
+test('same numbers merge into one row and use the less complete side', () => {
+  const r = unlockRows(gate(12, 10), gate(12, 10));
+  assert.equal(r.length, 1);
+  assert.equal(r[0]!.percent, 33);
+  assert.equal(r[0]!.text, 'บันทึกอีก 18 รายการ และให้ครอบคลุมอีก 20 วัน');
+});
+test('different numbers split', () => {
+  const r = unlockRows(gate(18, 40), gate(30, 40, true));
+  assert.deepEqual(r.map((x) => x.ready), [true, false]);
+  assert.equal(r[1]!.text, 'บันทึกอีก 12 รายการ');
+});
+test('bar is not full until the gate opens', () => {
+  assert.ok(unlockRows(gate(29, 40), gate(40, 40, true))[1]!.percent < 100);
+});
+test('forecast open means a returning account: nothing on Overview', () => {
+  assert.deepEqual(unlockRows(gate(40, 40, true), gate(3, 5)), []);
 });

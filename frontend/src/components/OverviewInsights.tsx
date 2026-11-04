@@ -5,7 +5,7 @@ import { apiFetch } from '../api';
 import { getToken, useSessionKey } from '../auth';
 import { bangkokDate } from '../utils/dashboard';
 import { behaviorBanner, type BehaviorSummaryView } from '../utils/behaviorSummary';
-import { todayCard, type TodayInput } from '../utils/todayCard';
+import { todayCard, unlockRows, type TodayInput } from '../utils/todayCard';
 import '../pages/Overview.css';
 
 function useReadOnlySummary<T>(path: string, session: string | null, refreshKey = '') {
@@ -61,6 +61,23 @@ export function TodayCard({ alerts }: { alerts: ReturnType<typeof useAlerts> }) 
   </section>;
 }
 
+export function UnlockProgress({ alerts, behavior }: { alerts: ReturnType<typeof useAlerts>; behavior: ReturnType<typeof useBehavior> }) {
+  const f = alerts.data?.forecastReadiness, b = behavior.data?.readiness?.current;
+  if (!f || !b) return null;
+  const rows = unlockRows(
+    { ready: f.ready, count: f.transactionCount, days: f.observedSpanDays, moreCount: f.moreExpensesNeeded, moreDays: f.moreDaysNeeded },
+    { ready: b.ready, count: b.expenseCount, days: b.observedSpanDays, moreCount: Math.max(0, BEHAVIOR_MIN - b.expenseCount), moreDays: Math.max(0, BEHAVIOR_MIN - b.observedSpanDays) },
+  );
+  if (!rows.length) return null;
+  return <section className="unlock-progress" aria-label="ความคืบหน้าก่อนเริ่มวิเคราะห์">
+    <h2>อีกนิดเดียว ระบบจะเริ่มวิเคราะห์ให้</h2>
+    {rows.map((r) => <div className="unlock-row" key={r.name}>
+      <div><span>{r.name}</span><b className={r.ready ? 'today-status today-ok' : 'today-status today-info'}>{r.ready ? 'พร้อมแล้ว' : 'ยังขาด'}</b></div>
+      <div className="unlock-bar" role="progressbar" aria-label={r.name} aria-valuemin={0} aria-valuemax={100} aria-valuenow={r.percent}><i style={{ width: r.percent + '%' }} /></div>
+      {r.text && <small>{r.text}</small>}
+    </div>)}
+  </section>;
+}
 // Same /behavior answer as the Behavior page, so the two pages cannot disagree. Nothing is calculated here.
 export function BehaviorOverview({ behavior }: { behavior: ReturnType<typeof useBehavior> }) {
   const { data, loading, error, retry } = behavior;

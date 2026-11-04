@@ -23,6 +23,7 @@ import {
   AnomalyOverview,
   BehaviorOverview,
   TodayCard,
+  UnlockProgress,
   useAlerts,
   useBehavior,
 } from "../components/OverviewInsights";
@@ -295,6 +296,7 @@ function OverviewMonth({
           {data.period.isCurrentMonth && (
             <>
               <TodayCard alerts={alerts} />
+              <UnlockProgress alerts={alerts} behavior={behavior} />
             </>
           )}
           <section
