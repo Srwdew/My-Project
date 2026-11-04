@@ -31,6 +31,7 @@ import { apiFetch } from "../api";
 import { getToken, useSessionKey } from "../auth";
 import UserHeader from "../components/UserHeader";
 import { MonthPill } from "../components/DatePill";
+import { bannerTitleClass } from "../utils/behaviorSummary";
 import { bangkokDate, moneyText, type DailyAmount } from "../utils/dashboard";
 import "./Overview.css";
 type Dashboard = {
@@ -298,7 +299,7 @@ function OverviewMonth({
               <span className="dashboard-eyebrow">
                 {banner ? "ข้อสังเกตจากรายการย้อนหลัง" : "ยอดจริงจากธุรกรรมที่คุณบันทึก"}
               </span>
-              <h2>
+              <h2 className={banner ? bannerTitleClass(banner.title) : undefined}>
                 {banner
                   ? banner.title
                   : data.summary.hasTransactions

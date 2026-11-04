@@ -1355,6 +1355,11 @@
   color: #d1dfed;
   font-size: 14px;
 }
+@media (max-width: 700px) {
+  .behavior-page .behavior-banner h2.behavior-banner-title { font-size: 18px; line-height: 1.4; }
+  .behavior-page .behavior-banner h2.banner-title-long { font-size: 15px; }
+  .behavior-page .behavior-banner h2.banner-title-xlong { font-size: 13px; }
+}
 .behavior-page .behavior-banner h2 {
   font-size: clamp(25px, 2.4vw, 34px);
   line-height: 1.5;

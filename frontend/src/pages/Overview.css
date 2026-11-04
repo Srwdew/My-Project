@@ -140,6 +140,12 @@
   max-width: 26ch;
   color: #fff;
 }
+/* The title is a sentence about this account: at most two lines on a phone, never cut. */
+@media (max-width: 700px) {
+  .dashboard-page .dashboard-hero h2 { font-size: 18px; line-height: 1.4; }
+  .dashboard-page .dashboard-hero h2.banner-title-long { font-size: 15px; }
+  .dashboard-page .dashboard-hero h2.banner-title-xlong { font-size: 13px; }
+}
 .dashboard-page .dashboard-hero p {
   font-size: 14px;
   color: #d6e3f0;

@@ -15,6 +15,9 @@ const recurrenceNames: Record<string, string> = {
   general: "ทั่วไป",
 };
 const MINIMUM = 30; // BEHAVIOR_RULE minimumCount and minimumSpan: both 30
+// Longer titles use a smaller size on phones to stay within two lines; text is never cut.
+export const bannerTitleClass = (title: string) => (title.length > 80 ? "banner-title-xlong" : title.length > 60 ? "banner-title-long" : "");
+export const DECREASE_SHARE = 0.05, DECREASE_AMOUNT = 100; // R9's minimums, from BEHAVIOR_RULE
 
 type Metric = { amount: string; transactionCount: number; averagePerTransaction: string | null };
 export type BehaviorSummaryView = {
@@ -23,7 +26,7 @@ export type BehaviorSummaryView = {
   findings: readonly { ruleId: string; categoryName: string | null; evidence: unknown }[];
   facts: {
     summary: { current: Metric; comparison: { amount: { difference: string } } | null };
-    categories: readonly { categoryName: string; current: { transactionCount: number; sharePercent: string | null } }[];
+    categories: readonly { categoryName: string; current: { amount: string; transactionCount: number; sharePercent: string | null }; previous?: { amount: string } }[];
     weekdayDistribution: readonly { weekday: number; current: { amount: string; averagePerCalendarOccurrence: string | null } }[];
   };
 };
@@ -36,17 +39,35 @@ export function behaviorSummary(view: BehaviorSummaryView): { title: string; sen
   const comparable = view.readiness.comparisonReady && comparison !== null;
   const increase = view.findings.find((f) => f.ruleId in increaseCause);
   const diff = comparable ? Number(comparison!.amount.difference) : 0;
+  const spent = view.facts.categories.filter((c) => c.current.transactionCount > 0);
+  const highest = Math.max(0, ...spent.map((c) => Number(c.current.amount)));
+  const leaders = spent.filter((c) => Number(c.current.amount) === highest);
+  const days = view.facts.weekdayDistribution.filter((w) => w.current.averagePerCalendarOccurrence !== null && Number(w.current.amount) > 0);
+  const topAverage = Math.max(0, ...days.map((w) => Number(w.current.averagePerCalendarOccurrence)));
+  const topDays = days.filter((w) => Number(w.current.averagePerCalendarOccurrence) === topAverage);
+  const daySuffix = topDays.length === 1 ? " เฉลี่ยสูงสุดวัน" + weekdayNames[topDays[0]!.weekday - 1] : "";
+  // Same test R9 uses for "a category fell" (mirrors BEHAVIOR_RULE; behaviorSummary.frontend.test keeps them equal).
+  const fell = comparable
+    ? view.facts.categories
+        .map((c) => ({ name: c.categoryName, cur: Number(c.current.amount), prev: Number(c.previous?.amount ?? 0) }))
+        .filter((c) => c.cur < c.prev * (1 - DECREASE_SHARE) && c.cur < c.prev - DECREASE_AMOUNT)
+        .sort((a, b) => b.prev - b.cur - (a.prev - a.cur))
+    : [];
   const title = increase
     ? "ช่วงนี้ใช้จ่ายมากขึ้น ส่วนใหญ่มาจาก" +
       (increase.categoryName ?? "ไม่ระบุหมวด") +
       increaseCause[increase.ruleId]
-    : !comparable
-      ? "สรุปช่วงนี้"
-      : diff > 0
-        ? "ช่วงนี้ใช้จ่ายมากกว่าช่วงก่อน"
-        : diff < 0
-          ? "ช่วงนี้ใช้จ่ายน้อยกว่าช่วงก่อน"
-          : "ช่วงนี้ใช้จ่ายเท่ากับช่วงก่อน";
+    : fell.length
+      ? "ช่วงนี้ใช้จ่ายกับ" + fell[0]!.name + "ลดลง"
+      : spent.length === 1
+        ? "ช่วงนี้รายจ่ายทั้งหมดอยู่ในหมวด" + spent[0]!.categoryName + daySuffix
+        : leaders.length === 1
+          ? "ช่วงนี้ใช้จ่ายกับ" + leaders[0]!.categoryName + "มากที่สุด" + daySuffix
+          : leaders.length === 2
+            ? "ช่วงนี้ใช้จ่ายกับ" + leaders[0]!.categoryName + "และ" + leaders[1]!.categoryName + "เท่ากัน" + daySuffix
+            : leaders.length > 2
+              ? "ช่วงนี้มีหลายหมวดที่ใช้จ่ายเท่ากัน" + daySuffix
+              : "สรุปช่วงนี้" + daySuffix;
   const sentences = [
     comparable
       ? "ใช้ " + cash(current.amount) +
@@ -65,7 +86,7 @@ export function behaviorSummary(view: BehaviorSummaryView): { title: string; sen
         " เฉลี่ยต่อครั้ง " + cash(e.previous.averagePerTransaction) +
         " → " + cash(e.current.averagePerTransaction),
     );
-  } else if (top && top.current.transactionCount > 0)
+  } else if (top && top.current.transactionCount > 0 && leaders.length === 1)
     sentences.push(
       "ส่วนใหญ่ไปที่" + top.categoryName + " (" + percent(top.current.sharePercent) + ")",
     );
@@ -103,14 +124,17 @@ export function behaviorSummary(view: BehaviorSummaryView): { title: string; sen
 /** Banner title and line, including the states with too little data. */
 export function behaviorBanner(view: BehaviorSummaryView) {
   const c = view.readiness.current;
-  if (!c.ready)
+  // No expenses at all also fails the gate, so it is checked first or its own message could never show.
+  if (view.status === "no_data" || (!c.ready && c.expenseCount === 0))
+    return { title: "ยังไม่มีรายจ่ายที่บันทึกในช่วงนี้", note: null, text: "บันทึกรายจ่ายเพื่อเริ่มสรุปพฤติกรรม" };
+  if (!c.ready) {
+    const items = Math.max(0, MINIMUM - c.expenseCount), days = Math.max(0, MINIMUM - c.observedSpanDays);
     return {
-      title: "ยังสรุปพฤติกรรมไม่ได้",
+      title: "ยังสรุปไม่ได้ " + [items ? `บันทึกอีก ${items} รายการ` : "", days ? `ให้ครอบคลุมอีก ${days} วัน` : ""].filter(Boolean).join(" "),
       note: null,
-      text: view.status === "no_data"
-        ? "ยังไม่มีรายจ่ายที่บันทึกในช่วงนี้"
-        : `บันทึกรายจ่ายอีก ${Math.max(0, MINIMUM - c.expenseCount)} รายการ และให้ครอบคลุมอีก ${Math.max(0, MINIMUM - c.observedSpanDays)} วัน`,
+      text: `ต้องมีรายจ่ายอย่างน้อย ${MINIMUM} รายการ และครอบคลุม ${MINIMUM} วัน`,
     };
+  }
   const s = behaviorSummary(view);
   return {
     title: s.title,

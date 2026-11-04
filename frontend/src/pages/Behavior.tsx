@@ -13,7 +13,7 @@ import {
 import { apiFetch } from "../api";
 import { getToken, useSessionKey } from "../auth";
 import { bangkokDate, moneyText } from "../utils/dashboard";
-import { behaviorBanner, cash, percent } from "../utils/behaviorSummary";
+import { bannerTitleClass, behaviorBanner, cash, percent } from "../utils/behaviorSummary";
 import BudgetIcon from "../components/BudgetIcon";
 import { categoryAppearance } from "../utils/categoryAppearance";
 import Dropdown, { TagIcon } from "../components/Dropdown";
@@ -559,7 +559,7 @@ function BehaviorBody({
           <span className="behavior-banner-eyebrow">
             ข้อสังเกตจากรายการย้อนหลัง
           </span>
-          <h2>
+          <h2 className={"behavior-banner-title " + (summaryBanner ? bannerTitleClass(summaryBanner.title) : "")}>
             {!data
               ? loading
                 ? "กำลังอ่านข้อมูลการใช้จ่าย"
