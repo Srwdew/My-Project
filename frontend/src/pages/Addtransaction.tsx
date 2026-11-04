@@ -9,7 +9,7 @@ import {
   type TransactionDraft,
 } from "../lib/pendingTransaction";
 import { validateReceipt } from "../lib/receiptOcr";
-import NextStep from "../components/NextStep";
+import "../components/NextStep.css";
 import ReceiptOcr from "../components/ReceiptOcr";
 import ReceiptBatch from "../components/ReceiptBatch";
 import { MAX_BATCH_RECEIPTS } from "../lib/receiptBatch";
@@ -670,8 +670,8 @@ export default function AddTransaction() {
                       )}
                       {categories.length > 0 && !filteredCategories.length && (
                         <p className="field-hint">
-                          ยังไม่มีหมวดสำหรับประเภทนี้{" "}
-                          <NextStep to="/settings#flexible-categories">ไปที่ตั้งค่าหมวด</NextStep>
+                          ระบบยังโหลดหมวดไม่ได้{" "}
+                          <button type="button" className="next-step" onClick={() => setCategoriesRetry((n) => n + 1)}>ลองใหม่</button>
                         </p>
                       )}
                       {fieldErrors.category && (
