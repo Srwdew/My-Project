@@ -56,7 +56,7 @@ export async function detectShift(tx: GoalTx, userId: string, row: { id: string;
    FROM "Transaction" t JOIN LATERAL (SELECT snapshot FROM "AnomalyEvaluation" ev WHERE ev."userId"=t."userId" AND ev."originalTransactionId"=t.id AND ev.revision=t."anomalyRevision" ORDER BY ev."evaluatedAt" DESC,ev.id DESC LIMIT 1) e ON true
    WHERE t."userId"=${userId} AND t."categoryId"=${row.categoryId} AND t.type='expense'
    AND (t."transactionDate"<${row.transactionDate} OR (t."transactionDate"=${row.transactionDate} AND t.id<=${row.id}))
-   AND e.snapshot#>>'{assessment,amount,status}'<>'not_evaluated'
+   AND e.snapshot#>>'{assessment,amount,status}'<>'not_evaluated' AND e.snapshot#>>'{scope,amount}'='category'
    ORDER BY t."transactionDate" DESC,t.id DESC LIMIT ${ANOMALY_RULE.levelShiftWindow * 4}`);
   const found = newShift(recent.reverse().map((r) => ({ ...r, date: day(r.date), direction: (r.direction as Direction | null) ?? null })), shifts);
   if (!found) return null;

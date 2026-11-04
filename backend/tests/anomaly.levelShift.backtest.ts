@@ -44,7 +44,8 @@ export function simulate(rows:Sample[],mode:Mode,min:Minimum={n:ANOMALY_RULE.amo
   if(b===cat)ownScope.set(r.categoryId,(ownScope.get(r.categoryId)??0)+1);
   // Detect before notifying (detectShift runs before the notice in evaluatePending).
   let created:Shift|null=null;
-  if(mode!=='off'){
+  // ISSUE-ANOM-2: only results against the category's own baseline count (scope.amount in production).
+  if(mode!=='off'&&b===cat){
    const h=hist.get(r.categoryId)??hist.set(r.categoryId,[]).get(r.categoryId)!;h.push({date:r.date,dir});
    const d=detectLevelShift(h.map(x=>x.dir)),same=mine.filter(s=>s.direction===d);
    const answered=same.map(s=>s.actedOn??'').sort().pop()??'',fresh=h.filter(x=>x.date>answered);
@@ -113,6 +114,8 @@ if(require.main===module){
  // Self-check: the reference mode must reproduce the known 390 level-change flags of the locked screen.
  const r=run(),ref=r.find(x=>x.scenario==='level-change'&&x.mode==='off')!;
  assert.equal(ref.flags,390,'reference reproduces ISSUE-ANOM-1');
+ assert.equal(r.find(x=>x.scenario==='level-change'&&x.mode==='ignore')!.notifications,15,'390 -> 15 holds');
+ for(const seed of PROTOCOL.seeds)assert.deepEqual(simulate(multiCategory(seed),'ignore').shifts.map(x=>x.split(':')[0]),['primary'],'ISSUE-ANOM-2: only the category that really moved');
  const label={off:'ระบบเดิม (ไม่มีตัวตรวจ)',confirm:'A: ยืนยันทันที','confirm-primary':'A เฉพาะ primary',ignore:'B: ไม่ตอบเลย'};
  console.log('| scenario | โหมด | flag | เห็นในคิว (วันสุดท้าย) | แจ้งเตือน | ตรวจพบการขยับ (seed:หมวด:ทิศ:วันเริ่ม) | flag ต่อหมวด | ช่วงเงียบหลังยืนยัน (วันจากวันเริ่ม) |\n|---|---|---|---|---|---|---|---|');
  for(const x of r)console.log(`| ${x.scenario} | ${label[x.mode]} | ${x.flags} | ${x.queue} | ${x.notifications} | ${x.shifts.length?x.shifts.length+' — '+x.shifts.join(', '):'0'} | ${JSON.stringify(x.flagsByCategory)} | ${x.silent.length?x.silent.map(v=>v??'ไม่กลับมาประเมินภายในข้อมูล').join(', '):'—'} |`);

@@ -54,6 +54,21 @@ test('level shift: one notice, one queue entry, confirm writes per-item decision
   const e=await prisma.anomalyEvaluation.findFirstOrThrow({where:{originalTransactionId:t2.id}});assert.notEqual(e.outcome,'flagged');
   assert.deepEqual(await notices(a.id),{items:4,shifts:1});
  });
+ await t.test('ISSUE-ANOM-2: a thin category compared with the account stays per item, says so, and is never a shift',async()=>{
+  const c=await account();
+  const main=await prisma.category.create({data:{name:'อาหาร-'+randomUUID(),type:'expense'}}),thin=await prisma.category.create({data:{name:'เสื้อผ้า-'+randomUUID(),type:'expense'}});
+  await seed(c,main.id,0,60,i=>String(95+(i*7)%11));
+  for(let i=40;i<64;i+=3)await seed(c,thin.id,i,i+1,()=>'5000');
+  await reconcile(c);
+  assert.equal(await prisma.anomalyLevelShift.count({where:{userId:c.id}}),0,'no false shift');
+  const flagged=await prisma.anomalyEvaluation.findMany({where:{userId:c.id,outcome:'flagged'}});
+  assert.equal(flagged.length,8,'still flagged one by one');
+  assert.ok(flagged.every(e=>(e.snapshot as any).scope.amount==='account'));
+  const n=await prisma.notification.findMany({where:{userId:c.id,type:'transaction_anomaly'}});
+  assert.equal(n.length,8);
+  assert.ok(n.every(x=>x.eventKey.startsWith('transaction-anomaly:')&&x.message.includes('หมวดนี้ข้อมูลยังน้อย ระบบเทียบกับรายจ่ายรวมของคุณ')&&!x.message.includes('หมวดเดียวกัน')));
+  assert.equal((await req(c,'/anomaly/queue?filter=waiting')).items.length,8);
+ });
  await t.test('reject: items return to the queue one by one, no notices sent after the fact',async()=>{
   const cb=await prisma.category.create({data:{name:'เดินทาง-'+randomUUID(),type:'expense'}});
   await seed(b,cb.id,0,DAYS,level);await reconcile(b);

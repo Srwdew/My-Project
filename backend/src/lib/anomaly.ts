@@ -298,8 +298,10 @@ export async function evaluatePending(
       },
     });
   // Detect before notifying, so the item that completes a shift is already held.
+  // ISSUE-ANOM-2: against the account baseline a high result means "this category differs", not "its level moved".
   const detected =
     snapshot.amountDirection &&
+    scope.amount === "category" &&
     (await detectShift(tx, actor.userId, row, row.category.name, shifts));
   const held = noticeHeld(
     detected ? await categoryShifts(tx, actor.userId, row.categoryId) : shifts,
@@ -330,7 +332,7 @@ export async function evaluatePending(
             assessment.level === "review_priority"
               ? "รายการที่ควรตรวจสอบเป็นพิเศษ"
               : "รายการที่ควรตรวจสอบ",
-          message: `หมวด ${snapshot.transaction.categoryName}: ${reasons.join("; ")} จากประวัติหมวดเดียวกัน ${baseline.n} รายการ ย้อนหลัง ${ANOMALY_RULE.windowDays} วันก่อนวันรายการ เป็นสัญญาณทางสถิติ ไม่ใช่การยืนยันว่ารายการผิด`,
+          message: `หมวด ${snapshot.transaction.categoryName}: ${reasons.join("; ")} ${scope.amount === "account" ? "หมวดนี้ข้อมูลยังน้อย ระบบเทียบกับรายจ่ายรวมของคุณ จากประวัติ" : "จากประวัติหมวดเดียวกัน"} ${baseline.n} รายการ ย้อนหลัง ${ANOMALY_RULE.windowDays} วันก่อนวันรายการ เป็นสัญญาณทางสถิติ ไม่ใช่การยืนยันว่ารายการผิด`,
           link: null,
         },
       ],
