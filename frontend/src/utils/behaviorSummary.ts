@@ -14,6 +14,8 @@ const recurrenceNames: Record<string, string> = {
   weekly: "รายสัปดาห์",
   general: "ทั่วไป",
 };
+import { missingText, READY_TOMORROW } from "./todayCard";
+
 const MINIMUM = 30; // BEHAVIOR_RULE minimumCount and minimumSpan: both 30
 // Longer titles use a smaller size on phones to stay within two lines; text is never cut.
 export const bannerTitleClass = (title: string) => (title.length > 80 ? "banner-title-xlong" : title.length > 60 ? "banner-title-long" : "");
@@ -23,6 +25,7 @@ type Metric = { amount: string; transactionCount: number; averagePerTransaction:
 export type BehaviorSummaryView = {
   status: string;
   readiness: { current: { ready: boolean; expenseCount: number; observedSpanDays: number }; comparisonReady: boolean };
+  progress?: { expenseCount: number; observedSpanDays: number; moreExpensesNeeded: number; moreDaysNeeded: number };
   findings: readonly { ruleId: string; categoryName: string | null; evidence: unknown }[];
   facts: {
     summary: { current: Metric; comparison: { amount: { difference: string } } | null };
@@ -128,15 +131,24 @@ export const NEW_ACCOUNT_BANNER = {
   text: "เมื่อครบแล้ว ระบบจะบอกว่าคุณใช้จ่ายกับหมวดไหนมากที่สุด และวันไหนใช้มากที่สุด",
 };
 
+/** The same counts the unlock bar shows (including today), from the API. */
+export function behaviorProgress(view: Pick<BehaviorSummaryView, "readiness" | "progress">) {
+  const c = view.readiness.current;
+  return view.progress ?? { expenseCount: c.expenseCount, observedSpanDays: c.observedSpanDays, moreExpensesNeeded: Math.max(0, MINIMUM - c.expenseCount), moreDaysNeeded: Math.max(0, MINIMUM - c.observedSpanDays) };
+}
+export function notReadyText(view: Pick<BehaviorSummaryView, "readiness" | "progress">) {
+  const p = behaviorProgress(view);
+  return p.moreExpensesNeeded || p.moreDaysNeeded ? "ยังสรุปไม่ได้ " + missingText(p.moreExpensesNeeded, p.moreDaysNeeded) : READY_TOMORROW;
+}
+
 export function behaviorBanner(view: BehaviorSummaryView) {
   const c = view.readiness.current;
   // No expenses at all also fails the gate, so it is checked first or its own message could never show.
-  if (view.status === "no_data" || (!c.ready && c.expenseCount === 0))
+  if (!c.ready && behaviorProgress(view).expenseCount === 0)
     return { title: "ยังไม่มีรายจ่ายที่บันทึกในช่วงนี้", note: null, text: "บันทึกรายจ่ายเพื่อเริ่มสรุปพฤติกรรม" };
   if (!c.ready) {
-    const items = Math.max(0, MINIMUM - c.expenseCount), days = Math.max(0, MINIMUM - c.observedSpanDays);
     return {
-      title: "ยังสรุปไม่ได้ " + [items ? `บันทึกอีก ${items} รายการ` : "", days ? `ให้ครอบคลุมอีก ${days} วัน` : ""].filter(Boolean).join(" "),
+      title: notReadyText(view),
       note: null,
       text: `ต้องมีรายจ่ายอย่างน้อย ${MINIMUM} รายการ และครอบคลุม ${MINIMUM} วัน`,
     };

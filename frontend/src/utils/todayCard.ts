@@ -32,9 +32,20 @@ export function todayCard(input: TodayInput): TodayCard {
 export type Gate = { ready: boolean; count: number; days: number; moreCount: number; moreDays: number };
 export type UnlockRow = { name: string; ready: boolean; percent: number; text: string };
 
-const need = (g: Gate) => [g.moreCount > 0 && `บันทึกอีก ${g.moreCount} รายการ`, g.moreDays > 0 && `ให้ครอบคลุมอีก ${g.moreDays} วัน`].filter(Boolean).join(' และ');
-// The less complete of count and days, so the bar is never full before the gate opens.
-const percent = (g: Gate) => g.ready ? 100 : Math.floor(Math.min(g.moreCount ? g.count / (g.count + g.moreCount) : 1, g.moreDays ? g.days / (g.days + g.moreDays) : 1) * 100);
+export const missingText = (count: number, days: number) =>
+  'ขาดอีก ' + [count > 0 && `${count} รายการ`, days > 0 && (count > 0 ? `อีก ${days} วัน` : `${days} วัน`)].filter(Boolean).join(' และ');
+// Today's entries can fill the display while the real gate, which stops at yesterday, opens tomorrow.
+export const READY_TOMORROW = 'ครบแล้ว ระบบจะเริ่มวิเคราะห์พรุ่งนี้';
+const need = (g: Gate) => (g.moreCount || g.moreDays ? missingText(g.moreCount, g.moreDays) : READY_TOMORROW);
+/** Stages are in DECISIONS. Uses the row furthest from done, so the heading never claims more than the bar shows. */
+export function unlockHeading(rows: UnlockRow[]) {
+  const p = Math.min(...rows.map((r) => r.percent));
+  if (p === 0) return 'เริ่มบันทึกเพื่อให้ระบบวิเคราะห์ได้';
+  if (p < 50) return 'เริ่มสะสมข้อมูลแล้ว';
+  return p < 90 ? 'ผ่านครึ่งทางแล้ว' : 'ใกล้ครบแล้ว';
+}
+// The less complete of count and days, capped so the bar is never full before the real gate opens.
+const percent = (g: Gate) => g.ready ? 100 : Math.min(99, Math.floor(Math.min(g.moreCount ? g.count / (g.count + g.moreCount) : 1, g.moreDays ? g.days / (g.days + g.moreDays) : 1) * 100));
 
 /** Forecast counts all history, so once it is open this is a returning account: Overview shows nothing and the Behavior page speaks for itself. */
 export function unlockRows(forecast: Gate, behavior: Gate): UnlockRow[] {

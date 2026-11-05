@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { todayCard, unlockRows, type Pace } from '../../frontend/src/utils/todayCard';
+import { missingText, todayCard, unlockHeading, unlockRows, type Pace } from '../../frontend/src/utils/todayCard';
 import { BEHAVIOR_RULE } from '../src/lib/behaviorRules';
+import { progressWithToday } from '../src/lib/unlockProgress';
 
 const pace = (o: Partial<Pace> = {}): Pace => ({ daysLeft: 12, spent: '8000.00', cycleBudget: '20000.00', budgetLeft: '5040.00', overBudget: '0.00', perDay: '420', paceGap: '-10.00', ...o });
 const card = (o: Partial<Pace> = {}, today = '50.00', count = 40) => todayCard({ pace: pace(o), recordedExpenseToday: today, paceNoticeMinimum: BEHAVIOR_RULE.minimumIncreaseAmount, forecastReadiness: { transactionCount: count } });
@@ -51,12 +52,39 @@ test('same numbers merge into one row and use the less complete side', () => {
   const r = unlockRows(gate(12, 10), gate(12, 10));
   assert.equal(r.length, 1);
   assert.equal(r[0]!.percent, 33);
-  assert.equal(r[0]!.text, 'บันทึกอีก 18 รายการ และให้ครอบคลุมอีก 20 วัน');
+  assert.equal(r[0]!.text, 'ขาดอีก 18 รายการ และอีก 20 วัน');
 });
 test('different numbers split', () => {
   const r = unlockRows(gate(18, 40), gate(30, 40, true));
   assert.deepEqual(r.map((x) => x.ready), [true, false]);
-  assert.equal(r[1]!.text, 'บันทึกอีก 12 รายการ');
+  assert.equal(r[1]!.text, 'ขาดอีก 12 รายการ');
+});
+test('heading follows the row furthest from done, at each stage edge', () => {
+  const at = (percent: number) => unlockHeading([{ name: 'ก', ready: false, percent, text: '' }]);
+  assert.equal(at(0), 'เริ่มบันทึกเพื่อให้ระบบวิเคราะห์ได้');
+  assert.equal(at(1), 'เริ่มสะสมข้อมูลแล้ว');
+  assert.equal(at(49), 'เริ่มสะสมข้อมูลแล้ว');
+  assert.equal(at(50), 'ผ่านครึ่งทางแล้ว');
+  assert.equal(at(89), 'ผ่านครึ่งทางแล้ว');
+  assert.equal(at(90), 'ใกล้ครบแล้ว');
+  assert.equal(unlockHeading([{ name: 'ก', ready: true, percent: 100, text: '' }, { name: 'ข', ready: false, percent: 10, text: '' }]), 'เริ่มสะสมข้อมูลแล้ว');
+});
+test('missing text leaves out what is already met', () => {
+  assert.equal(missingText(0, 20), 'ขาดอีก 20 วัน');
+  assert.equal(missingText(3, 0), 'ขาดอีก 3 รายการ');
+});
+test('today fills the display but the real gate is closed: tomorrow, never 100%', () => {
+  const full = { ready: false, count: 30, days: 30, moreCount: 0, moreDays: 0 };
+  const [row] = unlockRows(full, full);
+  assert.equal(row!.text, 'ครบแล้ว ระบบจะเริ่มวิเคราะห์พรุ่งนี้');
+  assert.equal(row!.percent, 99);
+  assert.equal(row!.ready, false);
+});
+test('display adds today without touching the real count', () => {
+  const g = { minCount: 30, minSpan: 30 };
+  assert.deepEqual(progressWithToday({ ...g, count: 0, span: 0, firstDate: null }, 1, '2026-11-05'), { expenseCount: 1, observedSpanDays: 1, moreExpensesNeeded: 29, moreDaysNeeded: 29 });
+  assert.deepEqual(progressWithToday({ ...g, count: 2, span: 2, firstDate: '2026-11-01' }, 1, '2026-11-05'), { expenseCount: 3, observedSpanDays: 5, moreExpensesNeeded: 27, moreDaysNeeded: 25 });
+  assert.deepEqual(progressWithToday({ ...g, count: 2, span: 2, firstDate: '2026-11-01' }, 0, '2026-11-05'), { expenseCount: 2, observedSpanDays: 2, moreExpensesNeeded: 28, moreDaysNeeded: 28 });
 });
 test('bar is not full until the gate opens', () => {
   assert.ok(unlockRows(gate(29, 40), gate(40, 40, true))[1]!.percent < 100);

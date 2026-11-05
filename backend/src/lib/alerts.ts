@@ -5,6 +5,7 @@ import { buildForecast, forecastInput } from "./expenseForecast";
 import { anomalyQueue } from "./anomalyDecisions";
 import { loadTier0 } from "./tier0";
 import { FORECAST_RULE } from "./holt";
+import { progressWithToday } from "./unlockProgress";
 import { BEHAVIOR_RULE } from "./behaviorRules";
 
 // FINANCIAL_PROFILE_DESIGN section 5. Reads Budget, Forecast, Goal and Anomaly; never recommendations (C2).
@@ -117,8 +118,11 @@ export async function loadAlerts(tx: Prisma.TransactionClient, userId: string, t
       ready: forecast.readiness.ready,
       transactionCount: forecast.readiness.transactionCount,
       observedSpanDays: forecast.readiness.observedSpanDays,
-      moreExpensesNeeded: Math.max(0, FORECAST_RULE.minTransactions - forecast.readiness.transactionCount),
-      moreDaysNeeded: Math.max(0, FORECAST_RULE.minObservedDays - forecast.readiness.observedSpanDays),
+      progress: progressWithToday(
+        { count: forecast.readiness.transactionCount, span: forecast.readiness.observedSpanDays, firstDate: forecast.readiness.firstExpenseDate, minCount: FORECAST_RULE.minTransactions, minSpan: FORECAST_RULE.minObservedDays },
+        await tx.transaction.count({ where: { userId, type: "expense", transactionDate: utcDate(today) } }),
+        today,
+      ),
     },
     ...evaluateAlerts({
       pace: tier0.pace,

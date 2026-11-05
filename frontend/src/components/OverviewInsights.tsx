@@ -4,8 +4,8 @@ import { Link } from 'react-router-dom';
 import { apiFetch } from '../api';
 import { getToken, useSessionKey } from '../auth';
 import { bangkokDate } from '../utils/dashboard';
-import { behaviorBanner, type BehaviorSummaryView } from '../utils/behaviorSummary';
-import { todayCard, unlockRows, type TodayInput } from '../utils/todayCard';
+import { behaviorBanner, behaviorProgress, notReadyText, type BehaviorSummaryView } from '../utils/behaviorSummary';
+import { todayCard, unlockHeading, unlockRows, type TodayInput } from '../utils/todayCard';
 import '../pages/Overview.css';
 
 function useReadOnlySummary<T>(path: string, session: string | null, refreshKey = '') {
@@ -44,8 +44,7 @@ type BehaviorSummary = Omit<BehaviorSummaryView, 'findings'> & {
   periods: { current: { startDate: string; endDate: string }; previous: { startDate: string; endDate: string } };
   findings: (BehaviorSummaryView['findings'][number] & { title: string; recommendation: string })[];
 };
-const BEHAVIOR_MIN = 30; // BEHAVIOR_RULE minimumCount and minimumSpan: both 30
-type AlertsSummary = TodayInput & { forecastReadiness: { ready: boolean; transactionCount: number; observedSpanDays: number; moreExpensesNeeded: number; moreDaysNeeded: number } };
+type AlertsSummary = TodayInput & { forecastReadiness: { ready: boolean; transactionCount: number; observedSpanDays: number; progress: NonNullable<BehaviorSummaryView['progress']> } };
 export const useAlerts = (session: string | null, today: string) => useReadOnlySummary<AlertsSummary>('/alerts', session, today);
 
 export function TodayCard({ alerts }: { alerts: ReturnType<typeof useAlerts> }) {
@@ -63,14 +62,12 @@ export function TodayCard({ alerts }: { alerts: ReturnType<typeof useAlerts> }) 
 
 export function UnlockProgress({ alerts, behavior }: { alerts: ReturnType<typeof useAlerts>; behavior: ReturnType<typeof useBehavior> }) {
   const f = alerts.data?.forecastReadiness, b = behavior.data?.readiness?.current;
-  if (!f || !b) return null;
-  const rows = unlockRows(
-    { ready: f.ready, count: f.transactionCount, days: f.observedSpanDays, moreCount: f.moreExpensesNeeded, moreDays: f.moreDaysNeeded },
-    { ready: b.ready, count: b.expenseCount, days: b.observedSpanDays, moreCount: Math.max(0, BEHAVIOR_MIN - b.expenseCount), moreDays: Math.max(0, BEHAVIOR_MIN - b.observedSpanDays) },
-  );
+  if (!f || !b || !behavior.data) return null;
+  const gate = (ready: boolean, p: AlertsSummary['forecastReadiness']['progress']) => ({ ready, count: p.expenseCount, days: p.observedSpanDays, moreCount: p.moreExpensesNeeded, moreDays: p.moreDaysNeeded });
+  const rows = unlockRows(gate(f.ready, f.progress), gate(b.ready, behaviorProgress(behavior.data)));
   if (!rows.length) return null;
   return <section className="unlock-progress" aria-label="ความคืบหน้าก่อนเริ่มวิเคราะห์">
-    <h2>อีกนิดเดียว ระบบจะเริ่มวิเคราะห์ให้</h2>
+    <h2>{unlockHeading(rows)}</h2>
     {rows.map((r) => <div className="unlock-row" key={r.name}>
       <div><span>{r.name}</span><b className={r.ready ? 'today-status today-ok' : 'today-status today-info'}>{r.ready ? 'พร้อมแล้ว' : 'ยังขาด'}</b></div>
       <div className="unlock-bar" role="progressbar" aria-label={r.name} aria-valuemin={0} aria-valuemax={100} aria-valuenow={r.percent}><i style={{ width: r.percent + '%' }} /></div>
@@ -89,7 +86,7 @@ export function BehaviorOverview({ behavior }: { behavior: ReturnType<typeof use
     {data && current && <>
       <p className="dashboard-section-note">ช่วง {thaiDate(data.periods.current.startDate)} ถึง {thaiDate(data.periods.current.endDate)} เทียบ {thaiDate(data.periods.previous.startDate)} ถึง {thaiDate(data.periods.previous.endDate)} · ไม่ใช่เดือนที่เลือกด้านบน</p>
       {!current.ready
-        ? <p role="status">ยังสรุปพฤติกรรมไม่ได้: บันทึกรายจ่ายอีก {Math.max(0, BEHAVIOR_MIN - current.expenseCount)} รายการ และให้ครอบคลุมอีก {Math.max(0, BEHAVIOR_MIN - current.observedSpanDays)} วัน</p>
+        ? <p role="status">{notReadyText(data)}</p>
         : !data.readiness.comparisonReady
           ? <p role="status">ยังเทียบกับช่วงก่อนไม่ได้: ข้อมูลช่วงก่อนหน้ายังไม่ถึงเกณฑ์</p>
           : findings.length

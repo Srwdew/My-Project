@@ -22,7 +22,7 @@ const mock=()=>{
   } else if(route==='/behavior'){
    data={periods:{current:{startDate:'2026-10-01',endDate:'2026-10-30'},previous:{startDate:'2026-09-01',endDate:'2026-09-30'}},readiness:{current:{ready:!window.__behaviorShort,expenseCount:window.__behaviorShort?12:40,observedSpanDays:window.__behaviorShort?10:30},previous:{ready:true},comparisonReady:!window.__behaviorShort},findings:[{ruleId:'category_increase',title:'Same finding as Behavior page',recommendation:'ดูหมวดนี้'}]};
   } else if(route==='/alerts'){
-   data={cards:[],flaggedTotal:0,levelShiftsWaiting:0,recordedExpenseToday:'50.00',paceNoticeMinimum:'100',pace:{daysLeft:12,spent:'800.00',cycleBudget:'2000.00',budgetLeft:'1200.00',overBudget:'0.00',perDay:'100',paceGap:'-10.00'},forecastReadiness:{ready:true,transactionCount:40,observedSpanDays:40,moreExpensesNeeded:0,moreDaysNeeded:0}};
+   data={cards:[],flaggedTotal:0,levelShiftsWaiting:0,recordedExpenseToday:'50.00',paceNoticeMinimum:'100',pace:{daysLeft:12,spent:'800.00',cycleBudget:'2000.00',budgetLeft:'1200.00',overBudget:'0.00',perDay:'100',paceGap:'-10.00'},forecastReadiness:{ready:true,transactionCount:40,observedSpanDays:40,progress:{expenseCount:40,observedSpanDays:40,moreExpensesNeeded:0,moreDaysNeeded:0}}};
   } else if(route==='/anomaly/queue'||route==='/recommendations'){
    if(window.__insightHold&&session==='session-a')await new Promise(r=>window.__gates.push(r));
    if(window.__insightFail)return new Response('{}',{status:503});
@@ -67,7 +67,7 @@ const mock=()=>{
  assert.equal(await evaluate("window.__requests.filter(r=>r==='/behavior').length"),1);
  assert.ok(await evaluate(BEH+".textContent.includes('วันที่ไม่มีรายการไม่ได้ยืนยัน')&&"+BEH+".querySelector('a[href=\"/behavior\"]')!==null"));
  await evaluate("window.__behaviorShort=true;window.dispatchEvent(new Event('spendsense-data-changed'))");
- await waitFor(BEH+"?.textContent.includes('บันทึกรายจ่ายอีก 18 รายการ')&&"+BEH+".textContent.includes('อีก 20 วัน')");
+ await waitFor(BEH+"?.textContent.includes('ขาดอีก 18 รายการ')&&"+BEH+".textContent.includes('อีก 20 วัน')");
  await evaluate("window.__behaviorShort=false;window.dispatchEvent(new Event('spendsense-data-changed'))");
  console.log('PASS behavior summary on Overview: from /behavior, with caveat, link and how much more to record');
  await evaluate("document.querySelector('a[href=\"/goals\"]').click()");

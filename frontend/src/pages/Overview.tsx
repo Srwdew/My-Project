@@ -436,7 +436,6 @@ function OverviewMonth({
             <div className="dashboard-empty" role="status">
               ยังไม่มีรายการในเดือนนี้ ยอดจากรายการที่บันทึกเป็น 0.00 บาท
               ไม่ได้ยืนยันว่าไม่มีรายรับหรือรายจ่ายจริง{" "}
-              <Link to="/transactions/add">เพิ่มธุรกรรม</Link>
             </div>
           )}
         </>
@@ -453,7 +452,7 @@ function OverviewMonth({
               </div>
               {!data.expenseCategories.length ? (
                 <p className="dashboard-panel-empty">
-                  ยังไม่มีรายจ่ายที่บันทึกในเดือนนี้
+                  เดือนนี้ยังไม่มีรายจ่าย
                 </p>
               ) : (
                 <ul className="dashboard-categories">
@@ -520,22 +519,19 @@ function OverviewMonth({
           {data && (
             <section className="dashboard-panel dashboard-recent-panel">
               <div className="dashboard-panel-heading">
-                <h2>ธุรกรรมล่าสุดของเดือน</h2>
+                <h2>รายการล่าสุด</h2>
                 <span className="dashboard-icon">
                   <ReceiptText aria-hidden="true" size={20} />
                 </span>
               </div>
               {!data.recentTransactions.items.length ? (
-                <div className="dashboard-panel-empty">
-                  <p>ยังไม่มีรายการ</p>
-                  <NextStep to="/transactions/add">เพิ่มรายการ</NextStep>
-                </div>
+                <p className="dashboard-panel-empty">ยังไม่มีรายการ</p>
               ) : (
                 <div
                   className="dashboard-table-wrap dashboard-recent-table"
                   tabIndex={0}
                   role="region"
-                  aria-label="ธุรกรรมล่าสุดของเดือน เลื่อนแนวนอนได้"
+                  aria-label="รายการล่าสุดเลื่อนแนวนอนได้"
                 >
                   <table>
                     <thead>

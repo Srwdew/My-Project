@@ -58,9 +58,15 @@ test('comparison line keeps the exact difference', () => {
   assert.ok(behaviorBanner(view()).text.includes('มากกว่าช่วงก่อน 100.00 บาท'));
 });
 test('too little data says how much more to record', () => {
-  assert.equal(title({ current: { ready: false, expenseCount: 12, observedSpanDays: 10 } }), 'ยังสรุปไม่ได้ บันทึกอีก 18 รายการ ให้ครอบคลุมอีก 20 วัน');
-  assert.equal(title({ current: { ready: false, expenseCount: 12, observedSpanDays: 40 } }), 'ยังสรุปไม่ได้ บันทึกอีก 18 รายการ');
-  assert.equal(title({ current: { ready: false, expenseCount: 40, observedSpanDays: 10 } }), 'ยังสรุปไม่ได้ ให้ครอบคลุมอีก 20 วัน');
+  assert.equal(title({ current: { ready: false, expenseCount: 12, observedSpanDays: 10 } }), 'ยังสรุปไม่ได้ ขาดอีก 18 รายการ และอีก 20 วัน');
+  assert.equal(title({ current: { ready: false, expenseCount: 12, observedSpanDays: 40 } }), 'ยังสรุปไม่ได้ ขาดอีก 18 รายการ');
+  assert.equal(title({ current: { ready: false, expenseCount: 40, observedSpanDays: 10 } }), 'ยังสรุปไม่ได้ ขาดอีก 20 วัน');
+});
+test('banner uses the API progress that includes today, the same numbers as the bar', () => {
+  const v = view({ status: 'no_data', current: { ready: false, expenseCount: 0, observedSpanDays: 0 } });
+  const withToday = { ...v, progress: { expenseCount: 1, observedSpanDays: 1, moreExpensesNeeded: 29, moreDaysNeeded: 29 } };
+  assert.equal(behaviorBanner(withToday).title, 'ยังสรุปไม่ได้ ขาดอีก 29 รายการ และอีก 29 วัน');
+  assert.equal(behaviorBanner({ ...withToday, progress: { expenseCount: 30, observedSpanDays: 30, moreExpensesNeeded: 0, moreDaysNeeded: 0 } }).title, 'ครบแล้ว ระบบจะเริ่มวิเคราะห์พรุ่งนี้');
 });
 test('no expenses has its own message', () => {
   assert.equal(title({ status: 'no_data', current: { ready: false, expenseCount: 0, observedSpanDays: 0 } }), 'ยังไม่มีรายจ่ายที่บันทึกในช่วงนี้');
