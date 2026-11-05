@@ -5,7 +5,7 @@ import { apiFetch } from '../api';
 import { getToken, useSessionKey } from '../auth';
 import { bangkokDate } from '../utils/dashboard';
 import { behaviorBanner, behaviorProgress, notReadyText, type BehaviorSummaryView } from '../utils/behaviorSummary';
-import { todayCard, unlockHeading, unlockRows, type TodayInput } from '../utils/todayCard';
+import { todayCard, unlockHeading, unlockRows, weekCompareText, type TodayInput } from '../utils/todayCard';
 import '../pages/Overview.css';
 
 function useReadOnlySummary<T>(path: string, session: string | null, refreshKey = '') {
@@ -49,11 +49,12 @@ export const useAlerts = (session: string | null, today: string) => useReadOnlyS
 
 export function TodayCard({ alerts, recordedDays }: { alerts: ReturnType<typeof useAlerts>; recordedDays: string | null }) {
   if (!alerts.data) return null;
-  const c = todayCard(alerts.data);
+  const c = todayCard(alerts.data), compare = weekCompareText(alerts.data);
   return <section className="today-card" aria-label="สถานะวันนี้">
     <div>
       <span className={'today-status today-' + c.tone}>{c.status}</span>
       <p>{c.text}</p>
+      {compare && <span className="today-record-days">{compare}</span>}
       {recordedDays && <span className="today-record-days">{recordedDays}</span>}
       {c.recordedNote && <small>นับจากรายการที่บันทึก</small>}
     </div>
@@ -72,7 +73,7 @@ export function UnlockProgress({ alerts, behavior }: { alerts: ReturnType<typeof
     {rows.map((r) => <div className="unlock-row" key={r.name}>
       <div><span>{r.name}</span><b className={r.ready ? 'today-status today-ok' : 'today-status today-info'}>{r.ready ? 'พร้อมแล้ว' : 'ยังขาด'}</b></div>
       <div className="unlock-bar" role="progressbar" aria-label={r.name} aria-valuemin={0} aria-valuemax={100} aria-valuenow={r.percent}><i style={{ width: r.percent + '%' }} /></div>
-      {r.text && <small>{r.text}</small>}
+      {r.text && <small>{r.text}{r.benefit && ' ' + r.benefit}</small>}
     </div>)}
   </section>;
 }

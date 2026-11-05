@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { missingText, recordedDaysText, todayCard, unlockHeading, unlockRows, type Pace } from '../../frontend/src/utils/todayCard';
+import { missingText, recordedDaysText, todayCard, unlockHeading, unlockRows, weekCompareText, type Pace } from '../../frontend/src/utils/todayCard';
 import { BEHAVIOR_RULE } from '../src/lib/behaviorRules';
 import { progressWithToday } from '../src/lib/unlockProgress';
 
@@ -12,6 +12,18 @@ test('recorded days count only days with an expense, and nothing shows at zero',
   assert.equal(recordedDaysText([day('100.00'), day('0.00'), day('50.00')]), 'บันทึกแล้ว 2 วันในเดือนนี้');
   assert.equal(recordedDaysText([day('0.00')]), null);
   assert.equal(recordedDaysText([]), null);
+});
+test('same day last week: states facts, says so far, never compares with an empty day', () => {
+  assert.equal(weekCompareText({ recordedExpenseToday: '100.00', sameDayLastWeek: '1250.00' }), 'ถึงตอนนี้ วันนี้ใช้ 100 บาท วันเดียวกันสัปดาห์ก่อนใช้ทั้งวัน 1,250 บาท');
+  assert.equal(weekCompareText({ recordedExpenseToday: '100.00', sameDayLastWeek: null }), null);
+  assert.equal(weekCompareText({ recordedExpenseToday: '0.00', sameDayLastWeek: '50.00' }), null);
+});
+test('unlock says what it opens, and not once the numbers are full', () => {
+  const gate = (more: number, ready = false) => ({ ready, count: 30 - more, days: 30, moreCount: more, moreDays: 0 });
+  assert.equal(unlockRows(gate(8), gate(8))[0]!.benefit, 'จะเริ่มสรุปพฤติกรรมและคาดการณ์รายจ่ายให้');
+  const two = unlockRows(gate(8), gate(3));
+  assert.deepEqual(two.map((r) => r.benefit), ['จะเริ่มสรุปพฤติกรรมให้', 'จะเริ่มคาดการณ์รายจ่ายให้']);
+  assert.equal(unlockRows(gate(0), gate(0))[0]!.benefit, undefined);
 });
 test('normal', () => {
   const c = card();

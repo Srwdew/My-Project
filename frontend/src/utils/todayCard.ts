@@ -1,6 +1,6 @@
 // Wording only: every figure comes from the API (Tier 0 pace, forecast readiness, /behavior readiness).
 export type Pace = { daysLeft: number; spent: string; cycleBudget: string | null; budgetLeft: string | null; overBudget: string | null; perDay: string | null; paceGap: string | null };
-export type TodayInput = { pace: Pace; recordedExpenseToday: string; paceNoticeMinimum: string; forecastReadiness: { transactionCount: number } };
+export type TodayInput = { pace: Pace; recordedExpenseToday: string; sameDayLastWeek?: string | null; paceNoticeMinimum: string; forecastReadiness: { transactionCount: number } };
 export type Tone = 'ok' | 'info' | 'warn' | 'bad';
 export type TodayCard = { tone: Tone; status: string; text: string; action: string; to: string; recordedNote: boolean };
 
@@ -13,7 +13,13 @@ export const recordedDaysText = (daily: readonly { expenseAmount: string }[]) =>
   return days ? `บันทึกแล้ว ${days} วันในเดือนนี้` : null;
 };
 
-export const isNewAccount =({ pace, recordedExpenseToday, forecastReadiness }: TodayInput) =>
+/** Facts only, no verdict: today is not over, and a week-old day without entries is not a zero. */
+export function weekCompareText({ recordedExpenseToday, sameDayLastWeek }: { recordedExpenseToday: string; sameDayLastWeek?: string | null }) {
+  if (!sameDayLastWeek || Number(recordedExpenseToday) === 0) return null;
+  return `ถึงตอนนี้ วันนี้ใช้ ${baht(recordedExpenseToday)} บาท วันเดียวกันสัปดาห์ก่อนใช้ทั้งวัน ${baht(sameDayLastWeek)} บาท`;
+}
+
+export const isNewAccount = ({ pace, recordedExpenseToday, forecastReadiness }: TodayInput) =>
   forecastReadiness.transactionCount === 0 && Number(recordedExpenseToday) === 0 && Number(pace.spent) === 0;
 
 export function todayCard(input: TodayInput): TodayCard {
@@ -36,7 +42,8 @@ export function todayCard(input: TodayInput): TodayCard {
 }
 
 export type Gate = { ready: boolean; count: number; days: number; moreCount: number; moreDays: number };
-export type UnlockRow = { name: string; ready: boolean; percent: number; text: string };
+export type UnlockRow = { name: string; ready: boolean; percent: number; text: string; benefit?: string };
+const BENEFIT = { both: 'จะเริ่มสรุปพฤติกรรมและคาดการณ์รายจ่ายให้', behavior: 'จะเริ่มสรุปพฤติกรรมให้', forecast: 'จะเริ่มคาดการณ์รายจ่ายให้' };
 
 export const missingText = (count: number, days: number) =>
   'ขาดอีก ' + [count > 0 && `${count} รายการ`, days > 0 && (count > 0 ? `อีก ${days} วัน` : `${days} วัน`)].filter(Boolean).join(' และ');
@@ -60,6 +67,6 @@ const percent = (g: Gate) => g.ready ? 100 : Math.min(99, Math.floor(Math.min(g.
 export function unlockRows(forecast: Gate, behavior: Gate): UnlockRow[] {
   if (forecast.ready) return [];
   if (forecast.moreCount === behavior.moreCount && forecast.moreDays === behavior.moreDays)
-    return [{ name: 'สรุปพฤติกรรมและคาดการณ์รายจ่าย', ready: false, percent: percent(forecast), text: need(forecast) }];
-  return ([['สรุปพฤติกรรม', behavior], ['คาดการณ์รายจ่าย', forecast]] as const).map(([name, g]) => ({ name, ready: g.ready, percent: percent(g), text: g.ready ? '' : need(g) }));
+    return [{ name: 'สรุปพฤติกรรมและคาดการณ์รายจ่าย', ready: false, percent: percent(forecast), text: need(forecast), benefit: forecast.moreCount || forecast.moreDays ? BENEFIT.both : undefined }];
+  return ([['สรุปพฤติกรรม', behavior, BENEFIT.behavior], ['คาดการณ์รายจ่าย', forecast, BENEFIT.forecast]] as const).map(([name, g, benefit]) => ({ name, ready: g.ready, percent: percent(g), text: g.ready ? '' : need(g), benefit: !g.ready && (g.moreCount || g.moreDays) ? benefit : undefined }));
 }

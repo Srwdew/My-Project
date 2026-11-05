@@ -114,6 +114,8 @@ export async function loadAlerts(tx: Prisma.TransactionClient, userId: string, t
     pace: tier0.pace,
     recordedExpenseToday: forecast.recordedExpenseToday,
     paceNoticeMinimum: BEHAVIOR_RULE.minimumIncreaseAmount,
+    // Null when that day has no recorded expense: a day without entries is not a zero to compare with.
+    sameDayLastWeek: grouped.find((g) => g.transactionDate.toISOString().slice(0, 10) === addDays(today, -7))?._sum.amount?.toFixed(2) ?? null,
     forecastReadiness: {
       ready: forecast.readiness.ready,
       transactionCount: forecast.readiness.transactionCount,
