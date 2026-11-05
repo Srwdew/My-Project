@@ -34,6 +34,8 @@ behaviorRouter.get(
       );
       return res.json({ ...behavior, progress });
     } catch (e) {
+      // The client only ever gets the generic message below; the real cause stays in the server log.
+      if (!(e instanceof BehaviorInputError)) console.error("GET /behavior error:", e);
       return res
         .status(e instanceof BehaviorInputError ? 400 : 500)
         .json({

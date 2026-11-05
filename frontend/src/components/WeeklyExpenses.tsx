@@ -68,7 +68,7 @@ export default function WeeklyExpenses({month,today,session}:{month:string;today
   const grand=totals.reduce((s,t)=>s+t.amount,0)||1;
   const W=narrow?Math.max(320,weeks.length*64):Math.max(560,weeks.length*112),H=200,left=narrow?34:48,right=narrow?4:12,base=164,plot=128,slot=(W-left-right)/Math.max(1,weeks.length),bar=Math.min(narrow?44:76,slot*.62);
   const y=(v:number)=>base-v/top*plot;
-  return <section className="dashboard-panel weekly-expenses" aria-label="รายจ่ายย้อนหลังรายสัปดาห์" aria-busy={loading}>
+  return <section id="weekly-expenses" className="dashboard-panel weekly-expenses" aria-label="รายจ่ายย้อนหลังรายสัปดาห์" aria-busy={loading}>
     <header className="weekly-head"><h2><span className="weekly-eyebrow">รายจ่าย</span> ย้อนหลังรายสัปดาห์</h2></header>
     <div className="weekly-controls">
       <div className="weekly-range">

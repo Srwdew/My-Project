@@ -22,6 +22,7 @@ import {
 import {
   AnomalyOverview,
   BehaviorOverview,
+  MondaySummary,
   TodayCard,
   UnlockProgress,
   useAlerts,
@@ -299,7 +300,8 @@ function OverviewMonth({
         <>
           {data.period.isCurrentMonth && (
             <>
-              <TodayCard alerts={alerts} recordedDays={recordedDaysText(data.daily)} />
+              <TodayCard alerts={alerts} />
+              <MondaySummary session={session} today={today} />
               <UnlockProgress alerts={alerts} behavior={behavior} />
             </>
           )}
@@ -320,6 +322,7 @@ function OverviewMonth({
               </h2>
               {banner && <p>{banner.text}</p>}
               <div className="dashboard-hero-tags">
+                {data.period.isCurrentMonth && recordedDaysText(data.daily) && <span>{recordedDaysText(data.daily)}</span>}
                 {banner?.note && <span>{banner.note}</span>}
                 {banner && (
                   <span>

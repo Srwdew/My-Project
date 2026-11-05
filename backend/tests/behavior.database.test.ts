@@ -205,6 +205,19 @@ test('Behavior real HTTP/PostgreSQL query/auth/conservation/CRUD with synthetic 
    assert.notDeepEqual(after.data,before.data);
   }
  });
+ await t.test('a server failure is logged in full and never reaches the client',async()=>{
+  const original=prisma.$transaction.bind(prisma);
+  Object.defineProperty(prisma,'$transaction',{configurable:true,value:async()=>{throw Error('secret-db-detail');}});
+  const logged=t.mock.method(console,'error',()=>{});
+  try{
+   const r=await req();
+   assert.equal(r.status,500);assert(!JSON.stringify(r.data).includes('secret-db-detail'));
+   assert(logged.mock.calls.some(c=>String(c.arguments[1]).includes('secret-db-detail')));
+  }finally{
+   logged.mock.restore();
+   Object.defineProperty(prisma,'$transaction',{configurable:true,value:original});
+  }
+ });
  await t.test('732-day PostgreSQL volume measurements with bounded aggregates at two row densities',async()=>{
   const owner=await account(),categories=await Promise.all(Array.from({length:8},()=>category()));
   const period=behaviorPeriod({startDate:'2024-01-01',endDate:'2024-12-31'},'2026-09-26');

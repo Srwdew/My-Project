@@ -1,14 +1,17 @@
 // Central test runner. Usage (from backend/): node tests/runAll.cjs unit|db|browser|test|all
+// Rerun only the suites that failed (ISSUE-TEST-5): node tests/runAll.cjs only appNav.browser.cjs passwordReset.database.test.ts
 // Disposable postgres:16 container (always removed), .env never loaded, every file reported as PASS, FAIL or SKIP.
 // A new test file not listed here counts as FAIL, so a suite cannot silently stay unrun (ISSUE-TEST-2).
 const fs = require('fs'), os = require('os'), net = require('net'), path = require('path'), cp = require('child_process'), crypto = require('crypto');
 // SPENDSENSE_TEST_FRONTEND: test another checkout, e.g. to tell uncommitted frontend changes from older failures.
 const BACKEND = path.resolve(__dirname, '..'), FRONTEND = process.env.SPENDSENSE_TEST_FRONTEND || path.resolve(BACKEND, '../frontend');
 const mode = process.argv[2] || 'test';
-if (!['unit', 'db', 'browser', 'test', 'all'].includes(mode)) throw Error('Unknown mode: ' + mode);
-const wants = g => mode === 'all' || mode === g || (mode === 'test' && g !== 'browser');
+if (!['unit', 'db', 'browser', 'test', 'all', 'only'].includes(mode)) throw Error('Unknown mode: ' + mode);
+const only = mode === 'only' ? process.argv.slice(3) : null;
+if (only && !only.length) throw Error('only needs at least one suite file name');
+const picked = f => !only || only.includes(f);
 
-const UNIT = ['warningCopy', 'tier0', 'alerts', 'behaviorSummary.frontend','todayCard.frontend','categoryNotice.frontend','anomaly','anomalyDetail.presentation', 'anomalyDimensions', 'anomalyLevelShift', 'anomalyTolerance', 'behavior', 'budgetNotifications', 'cycle', 'dashboard', 'forecast.backtest', 'forecast.benchmark', 'forecast', 'forecastTrend', 'goalFeasibility', 'goals.calculations', 'goalSavingsPlan', 'passwordResetProviders', 'pendingTransaction', 'presence', 'receiptBatch', 'receiptParser', 'recommendation.engine', 'recommendation.rules', 'reconciliation.frontend', 'setupChecklist', 'setupRequirement', 'testDatabaseGuard', 'weeklyExpenses.frontend'].map(n => n + '.test.ts');
+const UNIT = ['warningCopy', 'tier0', 'alerts', 'behaviorSummary.frontend','todayCard.frontend','mondaySummary.frontend','categoryNotice.frontend','anomaly','anomalyDetail.presentation', 'anomalyDimensions', 'anomalyLevelShift', 'anomalyTolerance', 'behavior', 'budgetNotifications', 'cycle', 'dashboard', 'forecast.backtest', 'forecast.benchmark', 'forecast', 'forecastTrend', 'goalFeasibility', 'goals.calculations', 'goalSavingsPlan', 'passwordResetProviders', 'pendingTransaction', 'presence', 'receiptBatch', 'receiptParser', 'recommendation.engine', 'recommendation.rules', 'reconciliation.frontend', 'setupChecklist', 'setupRequirement', 'testDatabaseGuard', 'weeklyExpenses.frontend'].map(n => n + '.test.ts');
 const GOALS = 'spendsense_goals_test_';
 // file -> database name prefix its own guard demands
 const DB = {
@@ -19,6 +22,9 @@ const BROWSER_REAL = ['anomalyDimensions', 'anomaly.acceptance', 'defaultCategor
 const HELPERS = ['anomaly.levelShift.backtest.ts', 'browserGuard.cjs', 'forecast.anomalyExclusion.ts', 'forecast.benchmark.ts', 'forecast.fixture.ts', 'localResetSink.ts', 'recommendation.samples.ts', 'runAll.cjs'];
 // Older single-purpose runners. Most keep databases or containers behind, so nothing here calls them.
 const LEGACY = ['runAnomalyDatabase', 'runAnomalyDimensionsUpgrade', 'runAnomalyReviewDatabase', 'runBehaviorDatabase', 'runBehaviorV2', 'runDashboardDatabase', 'runDefaultCategoriesDatabase', 'runForecastDatabase', 'runGoalSavingsPlan', 'runGoalsDatabase', 'runIsolatedDatabase', 'runOcrDatabase', 'runOcrHardening', 'runPasswordReset', 'runSettingsDatabase', 'runSetupMigration'].map(n => n + '.cjs');
+const GROUPS = { unit: UNIT, db: Object.keys(DB), browser: [...BROWSER_MOCK, ...BROWSER_REAL] };
+for (const f of only ?? []) if (!Object.values(GROUPS).flat().includes(f)) throw Error('Unknown suite: ' + f);
+const wants = g => only ? GROUPS[g].some(picked) : mode === 'all' || mode === g || (mode === 'test' && g !== 'browser');
 
 const results = [], stamp = Date.now();
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'spendsense-runall-'));
@@ -89,7 +95,7 @@ async function preview(outDir, port) {
 const stopChildren = () => { while (children.length) children.pop().kill(); };
 
 async function runBrowser() {
-  const all = [...BROWSER_MOCK, ...BROWSER_REAL], skipAll = reason => all.forEach(f => record('browser', f, 'SKIP', reason));
+  const all = GROUPS.browser.filter(picked), skipAll = reason => all.forEach(f => record('browser', f, 'SKIP', reason));
   const chrome = process.env.SETTINGS_CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
   if (!fs.existsSync(chrome)) return skipAll('Chrome not found; set SETTINGS_CHROME_PATH');
   // A mock miss must not find a real API. Anything on 4000 may be connected to the main database.
@@ -102,13 +108,16 @@ async function runBrowser() {
   if (tsc.status !== 0) return skipAll('backend build failed');
   if (!fs.readFileSync(path.join(BACKEND, 'dist/lib/prisma.js'), 'utf8').includes('blockNonIsolatedTestDatabase')) throw Error('dist/lib/prisma.js has no database guard');
 
-  await preview(buildFrontend('http://localhost:4000', 'mock'), 5199);
-  // No DATABASE_URL: anything in these harnesses that loads Prisma hits the central block.
-  for (const f of BROWSER_MOCK) runFile('browser', f, ['tests/' + f], { ...baseEnv(), SETTINGS_BROWSER_ORIGIN: 'http://127.0.0.1:5199', DATABASE_URL: 'postgresql://none:none@127.0.0.1:1/spendsense_browser_test_none' });
-  stopChildren();
+  if (BROWSER_MOCK.some(picked)) {
+    await preview(buildFrontend('http://localhost:4000', 'mock'), 5199);
+    // No DATABASE_URL: anything in these harnesses that loads Prisma hits the central block.
+    for (const f of BROWSER_MOCK.filter(picked)) runFile('browser', f, ['tests/' + f], { ...baseEnv(), SETTINGS_BROWSER_ORIGIN: 'http://127.0.0.1:5199', DATABASE_URL: 'postgresql://none:none@127.0.0.1:1/spendsense_browser_test_none' });
+    stopChildren();
+  }
+  if (!BROWSER_REAL.some(picked)) return;
 
   const problem = dockerProblem();
-  if (problem) return BROWSER_REAL.forEach(f => record('browser', f, 'SKIP', problem));
+  if (problem) return BROWSER_REAL.filter(picked).forEach(f => record('browser', f, 'SKIP', problem));
   if (!db) await startDatabase();
 
   const withApi = async (apiPort, frontPort, prefix, label, run) => {
@@ -118,9 +127,9 @@ async function runBrowser() {
     await preview(buildFrontend(api, label), frontPort);
     try { await run(env, target, api, `http://127.0.0.1:${frontPort}`); } finally { stopChildren(); }
   };
-  await withApi(4088, 5188, GOALS, 'dimensions', (env, _t, api, origin) => runFile('browser', 'anomalyDimensions.browser.cjs', ['tests/anomalyDimensions.browser.cjs'], { ...env, ANOMALY_BROWSER_API: api, ANOMALY_BROWSER_ORIGIN: origin }));
-  await withApi(4001, 5175, GOALS + 'acceptance_', 'acceptance', (env, t, api, origin) => runFile('browser', 'anomaly.acceptance.browser.cjs', ['tests/anomaly.acceptance.browser.cjs'], { ...env, ACCEPTANCE_API: api, ACCEPTANCE_DATABASE: t.name, SETTINGS_BROWSER_ORIGIN: origin }));
-  await withApi(4004, 5180, GOALS + 'categories_acceptance_', 'categories', async (env, t, api, origin) => {
+  if (picked('anomalyDimensions.browser.cjs')) await withApi(4088, 5188, GOALS, 'dimensions', (env, _t, api, origin) => runFile('browser', 'anomalyDimensions.browser.cjs', ['tests/anomalyDimensions.browser.cjs'], { ...env, ANOMALY_BROWSER_API: api, ANOMALY_BROWSER_ORIGIN: origin }));
+  if (picked('anomaly.acceptance.browser.cjs')) await withApi(4001, 5175, GOALS + 'acceptance_', 'acceptance', (env, t, api, origin) => runFile('browser', 'anomaly.acceptance.browser.cjs', ['tests/anomaly.acceptance.browser.cjs'], { ...env, ACCEPTANCE_API: api, ACCEPTANCE_DATABASE: t.name, SETTINGS_BROWSER_ORIGIN: origin }));
+  if (picked('defaultCategories.browser.cjs')) await withApi(4004, 5180, GOALS + 'categories_acceptance_', 'categories', async (env, t, api, origin) => {
     const meta = path.join(tmp, 'categories-runtime.json'), account = () => ({ email: crypto.randomUUID() + '@example.invalid', password: crypto.randomUUID() + '!A9' });
     const legacy = account(), fresh = account();
     // The harness needs an account that predates default categories, so it cannot come from /auth/register.
@@ -131,7 +140,7 @@ async function runBrowser() {
     fs.writeFileSync(meta, JSON.stringify({ db: t.name, api, frontend: origin, legacy, fresh }));
     runFile('browser', 'defaultCategories.browser.cjs', ['tests/defaultCategories.browser.cjs'], { ...env, CATEGORY_ACCEPTANCE_RUNTIME: meta });
   });
-  runFile('browser', 'ocrHardening.browser.cjs', ['--import', 'tsx', 'tests/ocrHardening.browser.cjs'], dbEnv(await db.create(GOALS + 'ocr_hardening_')));
+  if (picked('ocrHardening.browser.cjs')) runFile('browser', 'ocrHardening.browser.cjs', ['--import', 'tsx', 'tests/ocrHardening.browser.cjs'], dbEnv(await db.create(GOALS + 'ocr_hardening_')));
 }
 
 function checkClassified() {
@@ -147,14 +156,14 @@ function checkClassified() {
   if (wants('unit')) {
     // Port 1 refuses connections: a "unit" test that really queries fails here instead of reaching a database.
     const env = { ...baseEnv(), DATABASE_URL: 'postgresql://none:none@127.0.0.1:1/spendsense_unit_test_none' };
-    for (const f of UNIT) runFile('unit', f, f === 'presence.test.ts' ? ['--import', 'tsx', 'tests/' + f] : nodeTest(f), env);
+    for (const f of UNIT.filter(picked)) runFile('unit', f, f === 'presence.test.ts' ? ['--import', 'tsx', 'tests/' + f] : nodeTest(f), env);
   }
   if (wants('db')) {
     const problem = dockerProblem();
-    if (problem) Object.keys(DB).forEach(f => record('db', f, 'SKIP', problem));
+    if (problem) Object.keys(DB).filter(picked).forEach(f => record('db', f, 'SKIP', problem));
     else {
       await startDatabase();
-      for (const [f, prefix] of Object.entries(DB)) runFile('db', f, f === 'budgetNotifications.database.ts' ? ['--import', 'tsx', 'tests/' + f] : nodeTest(f), dbEnv(await db.create(prefix)));
+      for (const [f, prefix] of Object.entries(DB).filter(([f]) => picked(f))) runFile('db', f, f === 'budgetNotifications.database.ts' ? ['--import', 'tsx', 'tests/' + f] : nodeTest(f), dbEnv(await db.create(prefix)));
     }
   }
   if (wants('browser')) await runBrowser();
@@ -165,7 +174,8 @@ function checkClassified() {
   console.log('\n===== SUMMARY =====');
   for (const r of results.filter(r => r.status !== 'PASS')) console.log(`${r.status} [${r.group}] ${r.file}${r.detail ? ' - ' + r.detail : ''}`);
   console.log(`PASS ${count('PASS')} | FAIL ${count('FAIL')} | SKIP ${count('SKIP')} | logs: ${logs}`);
-  if (!wants('browser')) console.log(`NOT RUN: ${BROWSER_MOCK.length + BROWSER_REAL.length} browser suites. Run: npm run test:browser`);
+  if (only) console.log(`ONLY: ${only.length} of ${Object.values(GROUPS).flat().length} suites; this is a rerun, not a full result.`);
+  else if (!wants('browser')) console.log(`NOT RUN: ${BROWSER_MOCK.length + BROWSER_REAL.length} browser suites. Run: npm run test:browser`);
   console.log(`NOT RUN: ${LEGACY.length} older runners (tests/run*.cjs), including the upgrade-path checks in runPasswordReset, runSetupMigration and runAnomalyDimensionsUpgrade.`);
   process.exitCode = count('FAIL') || count('SKIP') ? 1 : 0;
 });

@@ -16,7 +16,7 @@ export const recordedDaysText = (daily: readonly { expenseAmount: string }[]) =>
 /** Facts only, no verdict: today is not over, and a week-old day without entries is not a zero. */
 export function weekCompareText({ recordedExpenseToday, sameDayLastWeek }: { recordedExpenseToday: string; sameDayLastWeek?: string | null }) {
   if (!sameDayLastWeek || Number(recordedExpenseToday) === 0) return null;
-  return `ถึงตอนนี้ วันนี้ใช้ ${baht(recordedExpenseToday)} บาท วันเดียวกันสัปดาห์ก่อนใช้ทั้งวัน ${baht(sameDayLastWeek)} บาท`;
+  return `ถึงตอนนี้ใช้ ${baht(recordedExpenseToday)} บาท สัปดาห์ก่อนทั้งวัน ${baht(sameDayLastWeek)} บาท`;
 }
 
 export const isNewAccount = ({ pace, recordedExpenseToday, forecastReadiness }: TodayInput) =>
@@ -29,7 +29,7 @@ export function todayCard(input: TodayInput): TodayCard {
   if (isNewAccount(input))
     return card('info', 'เริ่มต้น', 'ยังไม่มีรายจ่ายที่บันทึก เริ่มจากรายการแรกของคุณ', 'บันทึกรายจ่ายรายการแรก', ADD, false);
   if (pace.cycleBudget === null)
-    return card('info', 'ยังไม่ตั้งงบ', `รอบนี้บันทึกรายจ่ายแล้ว ${baht(pace.spent)} บาท ตั้งงบเพื่อดูว่าใช้ได้อีกวันละเท่าไร`, 'ตั้งงบ');
+    return card('info', 'ยังไม่ตั้งงบ', (Number(pace.spent) > 0 ? `รอบนี้บันทึกรายจ่ายแล้ว ${baht(pace.spent)} บาท ` : '') + 'ตั้งงบเพื่อดูว่าใช้ได้อีกวันละเท่าไร', 'ตั้งงบ');
   if (Number(pace.overBudget) > 0)
     return card('bad', 'เกินงบ', `ใช้เกินงบรอบนี้ ${baht(pace.overBudget!)} บาท อีก ${pace.daysLeft} วันจะเริ่มรอบใหม่`);
   // No "per day 0" (FINANCIAL_PROFILE_DESIGN 3.2): perDay is null below one baht a day.

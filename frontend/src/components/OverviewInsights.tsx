@@ -6,6 +6,9 @@ import { getToken, useSessionKey } from '../auth';
 import { bangkokDate } from '../utils/dashboard';
 import { behaviorBanner, behaviorProgress, notReadyText, type BehaviorSummaryView } from '../utils/behaviorSummary';
 import { todayCard, unlockHeading, unlockRows, weekCompareText, type TodayInput } from '../utils/todayCard';
+import { mondayRange, mondaySummary } from '../utils/mondaySummary';
+import type { WeeklyResponse } from '../utils/weeklyExpenses';
+import { useProfile } from '../contexts/ProfileContext';
 import '../pages/Overview.css';
 
 function useReadOnlySummary<T>(path: string, session: string | null, refreshKey = '') {
@@ -47,7 +50,31 @@ type BehaviorSummary = Omit<BehaviorSummaryView, 'findings'> & {
 type AlertsSummary = TodayInput & { forecastReadiness: { ready: boolean; transactionCount: number; observedSpanDays: number; progress: NonNullable<BehaviorSummaryView['progress']> } };
 export const useAlerts = (session: string | null, today: string) => useReadOnlySummary<AlertsSummary>('/alerts', session, today);
 
-export function TodayCard({ alerts, recordedDays }: { alerts: ReturnType<typeof useAlerts>; recordedDays: string | null }) {
+// Dismissal stays in this browser; another device may show it again the same Monday (accepted, see DECISIONS).
+const mondayKey = (userId: string, today: string) => `monday-summary:${userId}:${today}`;
+export function MondaySummary({ session, today }: { session: string | null; today: string }) {
+  const range = mondayRange(today), { profile } = useProfile();
+  const { data } = useReadOnlySummary<WeeklyResponse>(range ? '/overview/weekly?' + new URLSearchParams(range) : '', range ? session : null);
+  const [closed, setClosed] = useState(false);
+  if (!range || !data || !profile || closed) return null;
+  const key = mondayKey(profile.userId, today);
+  try { if (localStorage.getItem(key)) return null; } catch { /* no storage: keep showing, closing still works for this view */ }
+  const s = mondaySummary(data, today);
+  if (!s) return null;
+  return <section className="monday-summary" aria-label="สรุปสัปดาห์ที่แล้ว">
+    <div className="monday-summary-top">
+      <h2>สรุปสัปดาห์ที่แล้ว</h2>
+      <button type="button" onClick={() => { try { localStorage.setItem(key, '1'); } catch { /* closes for this view only */ } setClosed(true); }}>ปิด</button>
+    </div>
+    <p className="monday-summary-total">{s.total}</p>
+    {s.comparison && <p>{s.comparison}</p>}
+    {s.top && <p>{s.top}</p>}
+    <small>นับจากรายการที่บันทึก</small>
+    <a href="#weekly-expenses">ดูรายละเอียดรายสัปดาห์</a>
+  </section>;
+}
+
+export function TodayCard({ alerts }: { alerts: ReturnType<typeof useAlerts> }) {
   if (!alerts.data) return null;
   const c = todayCard(alerts.data), compare = weekCompareText(alerts.data);
   return <section className="today-card" aria-label="สถานะวันนี้">
@@ -55,7 +82,6 @@ export function TodayCard({ alerts, recordedDays }: { alerts: ReturnType<typeof 
       <span className={'today-status today-' + c.tone}>{c.status}</span>
       <p>{c.text}</p>
       {compare && <span className="today-record-days">{compare}</span>}
-      {recordedDays && <span className="today-record-days">{recordedDays}</span>}
       {c.recordedNote && <small>นับจากรายการที่บันทึก</small>}
     </div>
     <Link className="today-action" to={c.to}>{c.action}</Link>

@@ -14,7 +14,7 @@ test('recorded days count only days with an expense, and nothing shows at zero',
   assert.equal(recordedDaysText([]), null);
 });
 test('same day last week: states facts, says so far, never compares with an empty day', () => {
-  assert.equal(weekCompareText({ recordedExpenseToday: '100.00', sameDayLastWeek: '1250.00' }), 'ถึงตอนนี้ วันนี้ใช้ 100 บาท วันเดียวกันสัปดาห์ก่อนใช้ทั้งวัน 1,250 บาท');
+  assert.equal(weekCompareText({ recordedExpenseToday: '100.00', sameDayLastWeek: '1250.00' }), 'ถึงตอนนี้ใช้ 100 บาท สัปดาห์ก่อนทั้งวัน 1,250 บาท');
   assert.equal(weekCompareText({ recordedExpenseToday: '100.00', sameDayLastWeek: null }), null);
   assert.equal(weekCompareText({ recordedExpenseToday: '0.00', sameDayLastWeek: '50.00' }), null);
 });
@@ -50,6 +50,9 @@ test('no budget', () => {
   const c = card({ cycleBudget: null, budgetLeft: null, overBudget: null, perDay: null, paceGap: null, spent: '8420.00' });
   assert.equal(c.action, 'ตั้งงบ');
   assert.ok(c.text.includes('8,420 บาท'));
+});
+test('no budget and nothing spent this month: no zero amount', () => {
+  assert.equal(card({ cycleBudget: null, spent: '0.00' }, '0.00', 5).text, 'ตั้งงบเพื่อดูว่าใช้ได้อีกวันละเท่าไร');
 });
 test('under one baht a day never says per day', () => {
   const c = card({ budgetLeft: '12.00', perDay: null, daysLeft: 20 });

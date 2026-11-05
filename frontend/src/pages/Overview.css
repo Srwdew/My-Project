@@ -199,6 +199,27 @@
   text-align: center;
   text-decoration: none;
 }
+/* Three cards fill a phone's first screen. The summary is Monday-only and the bar is there every day, so the bar waits until the summary is closed. */
+@media (max-width: 767px) {
+  .monday-summary ~ .unlock-progress { display: none; }
+}
+.monday-summary {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  margin-bottom: 16px;
+  padding: 18px 24px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid var(--overview-line);
+}
+.monday-summary p { margin: 0; font-size: 15px; }
+.monday-summary .monday-summary-total { font-size: 19px; font-weight: 600; line-height: 1.4; }
+.monday-summary small { color: var(--overview-muted); font-size: 13px; }
+.monday-summary a { color: var(--overview-blue); font-size: 14px; font-weight: 600; }
+.monday-summary-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; }
+.monday-summary-top h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.monday-summary-top button { min-height: 36px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: var(--overview-muted); font: inherit; font-size: 14px; cursor: pointer; }
 .unlock-progress {
   display: grid;
   gap: 14px;
