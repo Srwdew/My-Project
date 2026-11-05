@@ -66,7 +66,7 @@ test('banner uses the API progress that includes today, the same numbers as the 
   const v = view({ status: 'no_data', current: { ready: false, expenseCount: 0, observedSpanDays: 0 } });
   const withToday = { ...v, progress: { expenseCount: 1, observedSpanDays: 1, moreExpensesNeeded: 29, moreDaysNeeded: 29 } };
   assert.equal(behaviorBanner(withToday).title, 'ยังสรุปไม่ได้ ขาดอีก 29 รายการ และอีก 29 วัน');
-  assert.equal(behaviorBanner({ ...withToday, progress: { expenseCount: 30, observedSpanDays: 30, moreExpensesNeeded: 0, moreDaysNeeded: 0 } }).title, 'ครบแล้ว ระบบจะเริ่มวิเคราะห์พรุ่งนี้');
+  assert.equal(behaviorBanner({ ...withToday, progress: { expenseCount: 30, observedSpanDays: 30, moreExpensesNeeded: 0, moreDaysNeeded: 0 } }).title, 'ครบตามจำนวนแล้ว ระบบจะเริ่มวิเคราะห์เมื่อข้อมูลพร้อม');
 });
 test('no expenses has its own message', () => {
   assert.equal(title({ status: 'no_data', current: { ready: false, expenseCount: 0, observedSpanDays: 0 } }), 'ยังไม่มีรายจ่ายที่บันทึกในช่วงนี้');

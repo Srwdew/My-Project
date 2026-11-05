@@ -14,7 +14,7 @@ const recurrenceNames: Record<string, string> = {
   weekly: "รายสัปดาห์",
   general: "ทั่วไป",
 };
-import { missingText, READY_TOMORROW } from "./todayCard";
+import { missingText, READY_WAITING } from "./todayCard";
 
 const MINIMUM = 30; // BEHAVIOR_RULE minimumCount and minimumSpan: both 30
 // Longer titles use a smaller size on phones to stay within two lines; text is never cut.
@@ -138,7 +138,7 @@ export function behaviorProgress(view: Pick<BehaviorSummaryView, "readiness" | "
 }
 export function notReadyText(view: Pick<BehaviorSummaryView, "readiness" | "progress">) {
   const p = behaviorProgress(view);
-  return p.moreExpensesNeeded || p.moreDaysNeeded ? "ยังสรุปไม่ได้ " + missingText(p.moreExpensesNeeded, p.moreDaysNeeded) : READY_TOMORROW;
+  return p.moreExpensesNeeded || p.moreDaysNeeded ? "ยังสรุปไม่ได้ " + missingText(p.moreExpensesNeeded, p.moreDaysNeeded) : READY_WAITING;
 }
 
 export function behaviorBanner(view: BehaviorSummaryView) {

@@ -34,11 +34,14 @@ export type UnlockRow = { name: string; ready: boolean; percent: number; text: s
 
 export const missingText = (count: number, days: number) =>
   'ขาดอีก ' + [count > 0 && `${count} รายการ`, days > 0 && (count > 0 ? `อีก ${days} วัน` : `${days} วัน`)].filter(Boolean).join(' และ');
-// Today's entries can fill the display while the real gate, which stops at yesterday, opens tomorrow.
-export const READY_TOMORROW = 'ครบแล้ว ระบบจะเริ่มวิเคราะห์พรุ่งนี้';
-const need = (g: Gate) => (g.moreCount || g.moreDays ? missingText(g.moreCount, g.moreDays) : READY_TOMORROW);
+// Today's entries can fill the display while the real gate, which stops at yesterday, is closed.
+// No date promised: Behavior's window moves daily, so its oldest entry can drop out and the count fall back.
+export const READY_WAITING = 'ครบตามจำนวนแล้ว ระบบจะเริ่มวิเคราะห์เมื่อข้อมูลพร้อม';
+const need = (g: Gate) => (g.moreCount || g.moreDays ? missingText(g.moreCount, g.moreDays) : READY_WAITING);
 /** Stages are in DECISIONS. Uses the row furthest from done, so the heading never claims more than the bar shows. */
 export function unlockHeading(rows: UnlockRow[]) {
+  // A fifth case apart from the 90-99 stage: the display is full and only the real gate is still closed.
+  if (rows.every((r) => r.ready || r.text === READY_WAITING)) return 'ครบแล้ว';
   const p = Math.min(...rows.map((r) => r.percent));
   if (p === 0) return 'เริ่มบันทึกเพื่อให้ระบบวิเคราะห์ได้';
   if (p < 50) return 'เริ่มสะสมข้อมูลแล้ว';

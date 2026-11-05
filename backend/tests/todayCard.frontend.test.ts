@@ -73,12 +73,14 @@ test('missing text leaves out what is already met', () => {
   assert.equal(missingText(0, 20), 'ขาดอีก 20 วัน');
   assert.equal(missingText(3, 0), 'ขาดอีก 3 รายการ');
 });
-test('today fills the display but the real gate is closed: tomorrow, never 100%', () => {
+test('today fills the display but the real gate is closed: no date promised, never 100%', () => {
   const full = { ready: false, count: 30, days: 30, moreCount: 0, moreDays: 0 };
   const [row] = unlockRows(full, full);
-  assert.equal(row!.text, 'ครบแล้ว ระบบจะเริ่มวิเคราะห์พรุ่งนี้');
+  assert.equal(row!.text, 'ครบตามจำนวนแล้ว ระบบจะเริ่มวิเคราะห์เมื่อข้อมูลพร้อม');
   assert.equal(row!.percent, 99);
   assert.equal(row!.ready, false);
+  assert.equal(unlockHeading([row!]), 'ครบแล้ว');
+  assert.equal(unlockHeading([row!, { name: 'ข', ready: false, percent: 95, text: 'ขาดอีก 1 รายการ' }]), 'ใกล้ครบแล้ว');
 });
 test('display adds today without touching the real count', () => {
   const g = { minCount: 30, minSpan: 30 };
