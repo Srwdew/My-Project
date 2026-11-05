@@ -10,6 +10,7 @@ import {
 } from "../lib/pendingTransaction";
 import { validateReceipt } from "../lib/receiptOcr";
 import "../components/NextStep.css";
+import { categoryNotice as noticeForCategories } from "../utils/categoryNotice";
 import ReceiptOcr from "../components/ReceiptOcr";
 import ReceiptBatch from "../components/ReceiptBatch";
 import { MAX_BATCH_RECEIPTS } from "../lib/receiptBatch";
@@ -301,6 +302,11 @@ export default function AddTransaction() {
 
   // People type thousands separators ("1,250"); the API expects a plain decimal.
   const plainAmount = amount.replace(/,/g, "").trim();
+  const categoryNotice = noticeForCategories(
+    categoriesError,
+    categories.length,
+    categories.filter((category) => category.type === type).length,
+  );
   const filteredCategories = categories
     .filter((category) => category.type === type)
     .sort(
@@ -598,18 +604,18 @@ export default function AddTransaction() {
                       <legend>
                         หมวดหมู่ <span className="required">*</span>
                       </legend>
-                      {categoriesError && (
+                      {categoryNotice === "load_failed" && (
                         <p role="alert" className="field-error">
-                          โหลดหมวดหมู่ไม่สำเร็จ จึงยังบันทึกไม่ได้{" "}
+                          ระบบยังโหลดหมวดไม่ได้{" "}
                           <button
                             type="button"
-                            className="text-button"
+                            className="next-step"
                             onClick={() => {
                               setCategoriesError(false);
                               setCategoriesRetry((n) => n + 1);
                             }}
                           >
-                            ลองโหลดใหม่
+                            ลองใหม่
                           </button>
                         </p>
                       )}
@@ -668,11 +674,8 @@ export default function AddTransaction() {
                           กำลังโหลดหมวดหมู่…
                         </p>
                       )}
-                      {categories.length > 0 && !filteredCategories.length && (
-                        <p className="field-hint">
-                          ระบบยังโหลดหมวดไม่ได้{" "}
-                          <button type="button" className="next-step" onClick={() => setCategoriesRetry((n) => n + 1)}>ลองใหม่</button>
-                        </p>
+                      {categoryNotice === "none_for_type" && (
+                        <p className="field-hint">ยังไม่มีหมวดสำหรับประเภทนี้</p>
                       )}
                       {fieldErrors.category && (
                         <p
