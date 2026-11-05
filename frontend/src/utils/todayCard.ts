@@ -7,7 +7,13 @@ export type TodayCard = { tone: Tone; status: string; text: string; action: stri
 const ADD = '/transactions/add', BUDGET = '/budget';
 const baht = (v: string) => Number(v).toLocaleString('th-TH', { maximumFractionDigits: 2 });
 
-export const isNewAccount = ({ pace, recordedExpenseToday, forecastReadiness }: TodayInput) =>
+/** Days with an expense in the month the API returned; backdated entries count because `daily` follows the transaction date. */
+export const recordedDaysText = (daily: readonly { expenseAmount: string }[]) => {
+  const days = daily.filter((d) => Number(d.expenseAmount) > 0).length;
+  return days ? `บันทึกแล้ว ${days} วันในเดือนนี้` : null;
+};
+
+export const isNewAccount =({ pace, recordedExpenseToday, forecastReadiness }: TodayInput) =>
   forecastReadiness.transactionCount === 0 && Number(recordedExpenseToday) === 0 && Number(pace.spent) === 0;
 
 export function todayCard(input: TodayInput): TodayCard {

@@ -1,12 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { missingText, todayCard, unlockHeading, unlockRows, type Pace } from '../../frontend/src/utils/todayCard';
+import { missingText, recordedDaysText, todayCard, unlockHeading, unlockRows, type Pace } from '../../frontend/src/utils/todayCard';
 import { BEHAVIOR_RULE } from '../src/lib/behaviorRules';
 import { progressWithToday } from '../src/lib/unlockProgress';
 
 const pace = (o: Partial<Pace> = {}): Pace => ({ daysLeft: 12, spent: '8000.00', cycleBudget: '20000.00', budgetLeft: '5040.00', overBudget: '0.00', perDay: '420', paceGap: '-10.00', ...o });
 const card = (o: Partial<Pace> = {}, today = '50.00', count = 40) => todayCard({ pace: pace(o), recordedExpenseToday: today, paceNoticeMinimum: BEHAVIOR_RULE.minimumIncreaseAmount, forecastReadiness: { transactionCount: count } });
 
+test('recorded days count only days with an expense, and nothing shows at zero', () => {
+  const day = (expenseAmount: string) => ({ expenseAmount });
+  assert.equal(recordedDaysText([day('100.00'), day('0.00'), day('50.00')]), 'บันทึกแล้ว 2 วันในเดือนนี้');
+  assert.equal(recordedDaysText([day('0.00')]), null);
+  assert.equal(recordedDaysText([]), null);
+});
 test('normal', () => {
   const c = card();
   assert.equal(c.status, 'ตามงบ');

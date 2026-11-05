@@ -47,13 +47,14 @@ type BehaviorSummary = Omit<BehaviorSummaryView, 'findings'> & {
 type AlertsSummary = TodayInput & { forecastReadiness: { ready: boolean; transactionCount: number; observedSpanDays: number; progress: NonNullable<BehaviorSummaryView['progress']> } };
 export const useAlerts = (session: string | null, today: string) => useReadOnlySummary<AlertsSummary>('/alerts', session, today);
 
-export function TodayCard({ alerts }: { alerts: ReturnType<typeof useAlerts> }) {
+export function TodayCard({ alerts, recordedDays }: { alerts: ReturnType<typeof useAlerts>; recordedDays: string | null }) {
   if (!alerts.data) return null;
   const c = todayCard(alerts.data);
   return <section className="today-card" aria-label="สถานะวันนี้">
     <div>
       <span className={'today-status today-' + c.tone}>{c.status}</span>
       <p>{c.text}</p>
+      {recordedDays && <span className="today-record-days">{recordedDays}</span>}
       {c.recordedNote && <small>นับจากรายการที่บันทึก</small>}
     </div>
     <Link className="today-action" to={c.to}>{c.action}</Link>

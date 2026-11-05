@@ -181,6 +181,7 @@
 .today-card > div { display: grid; justify-items: start; gap: 6px; flex: 1 1 320px; min-width: 0; }
 .today-card p { margin: 0; font-size: 19px; font-weight: 600; line-height: 1.4; }
 .today-card small, .unlock-row small { color: var(--overview-muted); font-size: 13px; }
+.today-record-days { color: var(--overview-ink); font-size: 14px; font-weight: 500; }
 .today-status { padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 600; }
 .today-ok { background: #dff5e8; color: #17653d; }
 .today-info { background: #dfeefb; color: #1f4f7a; }

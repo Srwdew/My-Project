@@ -35,7 +35,7 @@ import { apiFetch } from "../api";
 import { getToken, useSessionKey } from "../auth";
 import { MonthPill } from "../components/DatePill";
 import { bannerTitleClass, NEW_ACCOUNT_BANNER } from "../utils/behaviorSummary";
-import { isNewAccount } from "../utils/todayCard";
+import { isNewAccount, recordedDaysText } from "../utils/todayCard";
 import { bangkokDate, moneyText, type DailyAmount } from "../utils/dashboard";
 import "./Overview.css";
 type Dashboard = {
@@ -299,7 +299,7 @@ function OverviewMonth({
         <>
           {data.period.isCurrentMonth && (
             <>
-              <TodayCard alerts={alerts} />
+              <TodayCard alerts={alerts} recordedDays={recordedDaysText(data.daily)} />
               <UnlockProgress alerts={alerts} behavior={behavior} />
             </>
           )}
